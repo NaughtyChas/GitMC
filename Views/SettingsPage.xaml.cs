@@ -13,9 +13,11 @@ namespace GitMC.Views
 
         private void DebugToolsButton_Click(object sender, RoutedEventArgs e)
         {
-            // Navigate to the DebugPage
-            // This assumes you have a Frame in your MainWindow to host pages.
-            (Application.Current as App)?.RootFrame?.Navigate(typeof(DebugPage));
+            // Navigate to the DebugPage using the MainWindow's navigation method
+            if (App.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.NavigateToPage(typeof(DebugPage));
+            }
         }
     }
 }

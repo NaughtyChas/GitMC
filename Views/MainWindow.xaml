@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<Page
+<Window
     x:Class="GitMC.Views.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -24,4 +24,4 @@
             <Frame x:Name="ContentFrame" />
         </NavigationView>
     </Grid>
-</Page>
+</Window>

@@ -28,14 +28,9 @@ namespace GitMC.Views
             var folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
-                if (App.MainWindow?.Content is Frame rootFrame && rootFrame.Content is MainWindow mainWindow)
+                if (App.MainWindow is MainWindow mainWindow)
                 {
-                    (mainWindow.FindName("NavView") as NavigationView)?.MenuItems.Add(new NavigationViewItem
-                    {
-                        Content = folder.Name,
-                        Icon = new SymbolIcon(Symbol.Folder),
-                        Tag = folder.Path
-                    });
+                    mainWindow.AddSaveToNavigation(folder.Name, folder.Path);
                 }
             }
         }

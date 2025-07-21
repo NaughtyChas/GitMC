@@ -14,7 +14,6 @@ namespace GitMC
         /// Gets the main window of the application.
         /// </summary>
         public static Window? MainWindow { get; private set; }
-        public Frame? RootFrame { get; private set; }
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -32,37 +31,13 @@ namespace GitMC
         /// <param name="e">Details about the launch request and process.</param>
         protected override void OnLaunched(LaunchActivatedEventArgs e)
         {
-            MainWindow = new Window();
+            MainWindow = new Views.MainWindow();
 
-            if (MainWindow.Content is not Frame rootFrame)
-            {
-                rootFrame = new Frame();
-                rootFrame.NavigationFailed += OnNavigationFailed;
-                MainWindow.Content = rootFrame;
-            }
+            // No need for Frame navigation since MainWindow is now the actual Window
+            // The MainWindow will handle its own content through NavigationView
             
-            RootFrame = rootFrame;
-
-            if (rootFrame.Content == null)
-            {
-                // When the navigation stack isn't restored navigate to the first page,
-                // configuring the new page by passing required information as a navigation
-                // parameter
-                _ = rootFrame.Navigate(typeof(Views.MainWindow), e.Arguments);
-            }
-
             // Ensure the current window is active
             MainWindow.Activate();
-        }
-
-        /// <summary>
-        /// Invoked when Navigation to a certain page fails
-        /// </summary>
-        /// <param name="sender">The Frame which failed navigation</param>
-        /// <param name="e">Details about the navigation failure</param>
-        void OnNavigationFailed(object sender, NavigationFailedEventArgs e)
-        {
-            throw new Exception("Failed to load Page " + e.SourcePageType.FullName);
         }
     }
 }
