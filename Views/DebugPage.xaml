@@ -17,23 +17,54 @@
 
         <!-- File selecting area -->
         <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="10" Margin="0,0,0,20">
-            <TextBlock Text="NBT/DAT File Debugging Tool" FontSize="20" FontWeight="Bold"/>
+            <TextBlock Text="NBT/DAT/Anvil File Debugging Tool" FontSize="20" FontWeight="Bold"/>
 
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button Content="Select File" Click="SelectFileButton_Click" MinWidth="100"/>
                 <TextBlock x:Name="SelectedFileTextBlock" Text="No file selected" VerticalAlignment="Center" Foreground="Gray"/>
             </StackPanel>
+            
+            <TextBlock x:Name="FileInfoTextBlock" Text="" VerticalAlignment="Center" Foreground="DarkGray" FontSize="11"/>
         </StackPanel>
 
         <!-- Action buttons area -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,0,0,20">
-            <Button x:Name="ConvertToSnbtButton" Content="Convert to SNBT" Click="ConvertToSnbtButton_Click" 
-                    MinWidth="120" IsEnabled="False"/>
-            <Button x:Name="ConvertToNbtButton" Content="Convert back to NBT" Click="ConvertToNbtButton_Click" 
-                    MinWidth="120" IsEnabled="False"/>
-            <Button x:Name="ValidateFileButton" Content="Validate File" Click="ValidateFileButton_Click" 
-                    MinWidth="100" IsEnabled="False"/>
-            <Button x:Name="ClearOutputButton" Content="Clear Output" Click="ClearOutputButton_Click" MinWidth="100"/>
+        <StackPanel Grid.Row="1" Orientation="Vertical" Spacing="15" Margin="0,0,0,20">
+            <!-- NBT/DAT file actions -->
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="NBT/DAT Actions:" VerticalAlignment="Center" FontWeight="SemiBold" Width="120"/>
+                <Button x:Name="ConvertToSnbtButton" Content="Convert to SNBT" Click="ConvertToSnbtButton_Click" 
+                        MinWidth="120" IsEnabled="False"/>
+                <Button x:Name="ConvertToNbtButton" Content="Convert back to NBT" Click="ConvertToNbtButton_Click" 
+                        MinWidth="120" IsEnabled="False"/>
+                <Button x:Name="ValidateFileButton" Content="Validate File" Click="ValidateFileButton_Click" 
+                        MinWidth="100" IsEnabled="False"/>
+            </StackPanel>
+            
+            <!-- Anvil file actions -->
+            <StackPanel x:Name="AnvilActionsPanel" Orientation="Horizontal" Spacing="10" Visibility="Collapsed">
+                <TextBlock Text="Anvil Actions:" VerticalAlignment="Center" FontWeight="SemiBold" Width="120"/>
+                <Button x:Name="ShowRegionInfoButton" Content="Show Region Info" Click="ShowRegionInfoButton_Click" 
+                        MinWidth="120" IsEnabled="False"/>
+                <Button x:Name="ListChunksButton" Content="List Chunks" Click="ListChunksButton_Click" 
+                        MinWidth="120" IsEnabled="False"/>
+                <Button x:Name="ExtractChunkButton" Content="Extract Chunk" Click="ExtractChunkButton_Click" 
+                        MinWidth="120" IsEnabled="False"/>
+            </StackPanel>
+            
+            <!-- Chunk coordinates input -->
+            <StackPanel x:Name="ChunkInputPanel" Orientation="Horizontal" Spacing="10" Visibility="Collapsed">
+                <TextBlock Text="Chunk Coords:" VerticalAlignment="Center" FontWeight="SemiBold" Width="120"/>
+                <TextBlock Text="X:" VerticalAlignment="Center"/>
+                <NumberBox x:Name="ChunkXNumberBox" Value="0" Width="80" SpinButtonPlacementMode="Inline"/>
+                <TextBlock Text="Z:" VerticalAlignment="Center"/>
+                <NumberBox x:Name="ChunkZNumberBox" Value="0" Width="80" SpinButtonPlacementMode="Inline"/>
+            </StackPanel>
+            
+            <!-- General actions -->
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="General:" VerticalAlignment="Center" FontWeight="SemiBold" Width="120"/>
+                <Button x:Name="ClearOutputButton" Content="Clear Output" Click="ClearOutputButton_Click" MinWidth="100"/>
+            </StackPanel>
         </StackPanel>
 
         <!-- Output area -->
@@ -47,7 +78,7 @@
                      Background="{ThemeResource LayerFillColorDefaultBrush}"
                      Padding="10"
                      MinHeight="400"
-                     Text="Ready...Select an NBT or DAT file to start debugging."/>
+                     Text="Ready...Select an NBT, DAT, or Anvil (.mca/.mcc) file to start debugging."/>
         </ScrollViewer>
     </Grid>
 </Page>
