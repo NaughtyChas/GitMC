@@ -14,6 +14,7 @@ namespace GitMC
         /// Gets the main window of the application.
         /// </summary>
         public static Window? MainWindow { get; private set; }
+        public Frame? RootFrame { get; private set; }
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -39,6 +40,8 @@ namespace GitMC
                 rootFrame.NavigationFailed += OnNavigationFailed;
                 MainWindow.Content = rootFrame;
             }
+            
+            RootFrame = rootFrame;
 
             if (rootFrame.Content == null)
             {

@@ -1,0 +1,20 @@
+<Page
+    x:Class="GitMC.Views.HomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:GitMC.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+        <TextBlock HorizontalAlignment="Center" Style="{StaticResource TitleTextBlockStyle}" Text="Welcome to GitMC" />
+        <TextBlock HorizontalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Text="Select a Minecraft save to start versioning." />
+        <Button x:Name="SelectSaveButton"
+                HorizontalAlignment="Center"
+                Click="SelectSaveButton_Click"
+                Content="Select a save directory"
+                Style="{StaticResource AccentButtonStyle}" />
+    </StackPanel>
+</Page>

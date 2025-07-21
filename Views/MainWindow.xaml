@@ -11,7 +11,9 @@
         <NavigationView x:Name="NavView"
                         IsBackButtonVisible="Collapsed"
                         IsSettingsVisible="True"
-                        PaneDisplayMode="Left">
+                        PaneDisplayMode="Left"
+                        ItemInvoked="NavView_ItemInvoked"
+                        SelectionChanged="NavView_SelectionChanged">
             <NavigationView.MenuItems>
                 <NavigationViewItem Content="Home" Icon="Home" Tag="Home" />
                 <NavigationViewItemSeparator />
@@ -19,17 +21,7 @@
                 <!-- Saves will be populated here -->
             </NavigationView.MenuItems>
 
-            <Frame x:Name="ContentFrame">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
-                    <TextBlock HorizontalAlignment="Center" Style="{StaticResource TitleTextBlockStyle}" Text="Welcome to GitMC" />
-                    <TextBlock HorizontalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Text="Select a Minecraft save to start versioning." />
-                    <Button x:Name="SelectSaveButton"
-                            HorizontalAlignment="Center"
-                            Click="SelectSaveButton_Click"
-                            Content="Select a save directory"
-                            Style="{StaticResource AccentButtonStyle}" />
-                </StackPanel>
-            </Frame>
+            <Frame x:Name="ContentFrame" />
         </NavigationView>
     </Grid>
 </Page>

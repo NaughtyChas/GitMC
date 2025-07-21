@@ -1,0 +1,25 @@
+<Page
+    x:Class="GitMC.Views.DebugPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:GitMC.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,20">
+            <Button Content="Select File" Click="SelectFileButton_Click"/>
+            <Button Content="Convert to SNBT" Click="ConvertToSnbtButton_Click"/>
+            <Button Content="Convert back to NBT" Click="ConvertToNbtButton_Click"/>
+        </StackPanel>
+
+        <TextBox Grid.Row="1" x:Name="FileInfoTextBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalAlignment="Stretch"/>
+    </Grid>
+</Page>

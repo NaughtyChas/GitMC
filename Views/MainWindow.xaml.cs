@@ -1,43 +1,58 @@
-using System;
-using Microsoft.UI.Xaml;
+using GitMC.Views;
 using Microsoft.UI.Xaml.Controls;
-using Windows.Storage.Pickers;
-using WinRT.Interop;
+using System;
 
 namespace GitMC.Views
 {
-    /// <summary>
-    /// A simple page that can be used on its own or navigated to within a Frame.
-    /// </summary>
     public partial class MainWindow : Page
     {
         public MainWindow()
         {
             this.InitializeComponent();
+            // Navigate to the HomePage by default
+            ContentFrame.Navigate(typeof(HomePage));
         }
 
-        private async void SelectSaveButton_Click(object sender, RoutedEventArgs e)
+        private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
         {
-            var folderPicker = new FolderPicker();
-            folderPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-            folderPicker.FileTypeFilter.Add("*");
-
-            if (App.MainWindow != null)
+            if (args.IsSettingsInvoked)
             {
-                var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
-                InitializeWithWindow.Initialize(folderPicker, hwnd);
+                ContentFrame.Navigate(typeof(SettingsPage));
             }
-
-            var folder = await folderPicker.PickSingleFolderAsync();
-            if (folder != null)
+            else
             {
-                // For now, let's just add it to the navigation view
-                NavView.MenuItems.Add(new NavigationViewItem
+                // Handle other navigation items if necessary
+                var item = args.InvokedItemContainer;
+                if (item != null)
                 {
-                    Content = folder.Name,
-                    Icon = new SymbolIcon(Symbol.Folder),
-                    Tag = folder.Path
-                });
+                    var tag = item.Tag?.ToString();
+                    if (tag == "Home")
+                    {
+                        ContentFrame.Navigate(typeof(HomePage));
+                    }
+                    // Potentially handle save-specific navigation here
+                }
+            }
+        }
+
+        private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+        {
+            if (args.IsSettingsSelected)
+            {
+                ContentFrame.Navigate(typeof(SettingsPage));
+            }
+            else
+            {
+                var selectedItem = args.SelectedItem as NavigationViewItem;
+                if (selectedItem != null)
+                {
+                    var tag = selectedItem.Tag?.ToString();
+                    if (tag == "Home")
+                    {
+                        ContentFrame.Navigate(typeof(HomePage));
+                    }
+                    // Potentially handle save-specific navigation here
+                }
             }
         }
     }
