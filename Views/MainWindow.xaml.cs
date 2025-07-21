@@ -6,12 +6,20 @@ namespace GitMC.Views
 {
     public partial class MainWindow : Page
     {
+        private void InitializeTitleBar()
+        {
+            Window? window = App.MainWindow;
+            if (window != null) window.ExtendsContentIntoTitleBar = true;
+        }
+
         public MainWindow()
         {
             this.InitializeComponent();
+            this.InitializeTitleBar();
             // Navigate to the HomePage by default
             ContentFrame.Navigate(typeof(HomePage));
         }
+
 
         private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
         {
