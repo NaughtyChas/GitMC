@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "GitMC (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "GitMC (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
