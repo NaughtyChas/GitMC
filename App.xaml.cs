@@ -34,7 +34,7 @@ namespace GitMC
                 window.Content = rootFrame;
             }
 
-            _ = rootFrame.Navigate(typeof(MainPage), e.Arguments);
+            _ = rootFrame.Navigate(typeof(MainWindow), e.Arguments);
             window.Activate();
         }
 
