@@ -1,4 +1,7 @@
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using System;
 
 namespace GitMC
 {
@@ -7,7 +10,10 @@ namespace GitMC
     /// </summary>
     public partial class App : Application
     {
-        private Window window = Window.Current;
+        /// <summary>
+        /// Gets the main window of the application.
+        /// </summary>
+        public static Window? MainWindow { get; private set; }
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -25,17 +31,25 @@ namespace GitMC
         /// <param name="e">Details about the launch request and process.</param>
         protected override void OnLaunched(LaunchActivatedEventArgs e)
         {
-            window ??= new Window();
+            MainWindow = new Window();
 
-            if (window.Content is not Frame rootFrame)
+            if (MainWindow.Content is not Frame rootFrame)
             {
                 rootFrame = new Frame();
                 rootFrame.NavigationFailed += OnNavigationFailed;
-                window.Content = rootFrame;
+                MainWindow.Content = rootFrame;
             }
 
-            _ = rootFrame.Navigate(typeof(MainWindow), e.Arguments);
-            window.Activate();
+            if (rootFrame.Content == null)
+            {
+                // When the navigation stack isn't restored navigate to the first page,
+                // configuring the new page by passing required information as a navigation
+                // parameter
+                _ = rootFrame.Navigate(typeof(Views.MainWindow), e.Arguments);
+            }
+
+            // Ensure the current window is active
+            MainWindow.Activate();
         }
 
         /// <summary>

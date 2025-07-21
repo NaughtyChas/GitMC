@@ -7,21 +7,29 @@
     xmlns:local="using:GitMC"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
-    <Page.Content>
-        <StackPanel
-            HorizontalAlignment="Center"
-            Spacing="25"
-            VerticalAlignment="Center">
-            <TextBlock
-                FontSize="24"
-                HorizontalAlignment="Center"
-                Style="{StaticResource MyLabel}"
-                Text="Hello, World!" />
-            <TextBlock
-                FontSize="20"
-                HorizontalAlignment="Center"
-                Style="{StaticResource MyLabel}"
-                Text="Welcome to WinUI 3!" />
-        </StackPanel>
-    </Page.Content>
+    <Grid>
+        <NavigationView x:Name="NavView"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="True"
+                        PaneDisplayMode="Left">
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Home" Icon="Home" Tag="Home" />
+                <NavigationViewItemSeparator />
+                <NavigationViewItemHeader Content="Managed Saves" />
+                <!-- Saves will be populated here -->
+            </NavigationView.MenuItems>
+
+            <Frame x:Name="ContentFrame">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                    <TextBlock HorizontalAlignment="Center" Style="{StaticResource TitleTextBlockStyle}" Text="Welcome to GitMC" />
+                    <TextBlock HorizontalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Text="Select a Minecraft save to start versioning." />
+                    <Button x:Name="SelectSaveButton"
+                            HorizontalAlignment="Center"
+                            Click="SelectSaveButton_Click"
+                            Content="Select a save directory"
+                            Style="{StaticResource AccentButtonStyle}" />
+                </StackPanel>
+            </Frame>
+        </NavigationView>
+    </Grid>
 </Page>
