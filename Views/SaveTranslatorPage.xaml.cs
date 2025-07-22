@@ -105,7 +105,7 @@ namespace GitMC.Views
                             SaveInfoTextBlock.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorSuccessBrush"];
                             SaveInfoTextBlock.Visibility = Visibility.Visible;
                             
-                            TranslationOptionsExpander.IsEnabled = true;
+                            StartTranslationButton.IsEnabled = true;
                             StartTranslationButton.IsEnabled = true;
                             
                             LogMessage($"Select save: {path}");
@@ -117,7 +117,7 @@ namespace GitMC.Views
                             SaveInfoTextBlock.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
                             SaveInfoTextBlock.Visibility = Visibility.Visible;
                             
-                            TranslationOptionsExpander.IsEnabled = false;
+                            StartTranslationButton.IsEnabled = false;
                             StartTranslationButton.IsEnabled = false;
                             
                             LogMessage("Save validation failed: level.dat not found");
@@ -149,8 +149,6 @@ namespace GitMC.Views
             
             StartTranslationButton.IsEnabled = false;
             CancelButton.IsEnabled = true;
-            ProgressExpander.IsExpanded = true;
-            LogExpander.IsExpanded = true;
             
             _performanceTimer?.Start();
 
@@ -488,10 +486,10 @@ namespace GitMC.Views
             
             DispatcherQueue.TryEnqueue(() =>
             {
-                LogTextBlock.Text += logEntry + "\n";
+                LogTextBox.Text += logEntry + "\n";
                 
                 // Auto-scroll to bottom
-                if (LogTextBlock.Parent is ScrollViewer scrollViewer)
+                if (LogTextBox.Parent is ScrollViewer scrollViewer)
                 {
                     scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null);
                 }

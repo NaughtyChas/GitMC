@@ -18,165 +18,123 @@
                 Text="Save translation tool" />
 
             <!--  Select Save  -->
-            <toolkit:SettingsExpander
-                Description="Select the Minecraft save folder to process"
-                Header="Select Save"
-                IsExpanded="False">
-                <toolkit:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE8B7;" />
-                </toolkit:SettingsExpander.HeaderIcon>
-
-                <StackPanel Spacing="12">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBox
-                            Grid.Column="0"
-                            IsReadOnly="True"
-                            PlaceholderText="Select Minecraft save folder..."
-                            x:Name="SavePathTextBox" />
-                        <Button
-                            Click="BrowseSaveButton_Click"
-                            Content="Browse..."
-                            Grid.Column="1"
-                            Margin="8,0,0,0"
-                            x:Name="BrowseSaveButton" />
-                    </Grid>
-
-                    <TextBlock
-                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                        Text="Not selected"
-                        Visibility="Collapsed"
-                        x:Name="SaveInfoTextBlock" />
-                </StackPanel>
-            </toolkit:SettingsExpander>
+            <StackPanel Spacing="12">
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Select Save" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox
+                        Grid.Column="0"
+                        IsReadOnly="True"
+                        PlaceholderText="Select Minecraft save folder..."
+                        x:Name="SavePathTextBox" />
+                    <Button
+                        Click="BrowseSaveButton_Click"
+                        Content="Browse..."
+                        Grid.Column="1"
+                        Margin="8,0,0,0"
+                        x:Name="BrowseSaveButton" />
+                </Grid>
+                <TextBlock
+                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                    Text="Not selected"
+                    Visibility="Collapsed"
+                    x:Name="SaveInfoTextBlock" />
+            </StackPanel>
 
             <!--  Translation settings  -->
-            <toolkit:SettingsExpander
-                Description="Select the types of files to translate SNBT"
-                Header="Translation Options"
-                IsEnabled="False"
-                IsExpanded="False"
-                x:Name="TranslationOptionsExpander">
-                <toolkit:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE90F;" />
-                </toolkit:SettingsExpander.HeaderIcon>
-
-                <StackPanel Spacing="8">
-                    <CheckBox
-                        Content="Region files (.mca)"
-                        IsChecked="True"
-                        x:Name="RegionFilesCheckBox" />
-                    <CheckBox
-                        Content="Data files (.dat)"
-                        IsChecked="True"
-                        x:Name="DataFilesCheckBox" />
-                    <CheckBox
-                        Content="NBT stucture files (.nbt)"
-                        IsChecked="True"
-                        x:Name="NbtFilesCheckBox" />
-                    <CheckBox
-                        Content="Player data (playerdata/*.dat)"
-                        IsChecked="True"
-                        x:Name="PlayerDataCheckBox" />
-                    <CheckBox
-                        Content="World data (level.dat)"
-                        IsChecked="True"
-                        x:Name="LevelDataCheckBox" />
-                </StackPanel>
-            </toolkit:SettingsExpander>
+            <StackPanel Spacing="8">
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Translation Options" />
+                <CheckBox
+                    Content="Region files (.mca)"
+                    IsChecked="True"
+                    x:Name="RegionFilesCheckBox" />
+                <CheckBox
+                    Content="Data files (.dat)"
+                    IsChecked="True"
+                    x:Name="DataFilesCheckBox" />
+                <CheckBox
+                    Content="NBT structure files (.nbt)"
+                    IsChecked="True"
+                    x:Name="NbtFilesCheckBox" />
+                <CheckBox
+                    Content="Player data (playerdata/*.dat)"
+                    IsChecked="True"
+                    x:Name="PlayerDataCheckBox" />
+                <CheckBox
+                    Content="World data (level.dat)"
+                    IsChecked="True"
+                    x:Name="LevelDataCheckBox" />
+            </StackPanel>
 
             <!--  Output settings  -->
-            <toolkit:SettingsExpander
-                Description="Configure translation output options"
-                Header="Output settings"
-                IsExpanded="False">
-                <toolkit:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE7C3;" />
-                </toolkit:SettingsExpander.HeaderIcon>
-
-                <StackPanel Spacing="8">
-                    <CheckBox
-                        Content="Keep intermediate SNBT files"
-                        IsChecked="False"
-                        x:Name="PreserveSNBTCheckBox" />
-                    <CheckBox
-                        Content="Create backup files"
-                        IsChecked="True"
-                        x:Name="CreateBackupCheckBox" />
-                    <CheckBox
-                        Content="Verify file integrity"
-                        IsChecked="True"
-                        x:Name="VerifyIntegrityCheckBox" />
-                </StackPanel>
-            </toolkit:SettingsExpander>
+            <StackPanel Spacing="8">
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Output Settings" />
+                <CheckBox
+                    Content="Preserve intermediate SNBT files"
+                    IsChecked="False"
+                    x:Name="PreserveSNBTCheckBox" />
+                <CheckBox
+                    Content="Create backup files"
+                    IsChecked="True"
+                    x:Name="CreateBackupCheckBox" />
+                <CheckBox
+                    Content="Verify file integrity"
+                    IsChecked="True"
+                    x:Name="VerifyIntegrityCheckBox" />
+            </StackPanel>
 
             <!--  Progress and control area  -->
-            <toolkit:SettingsExpander
-                Description="Monitor the translation process and system performance"
-                Header="Translation Progress"
-                IsExpanded="False"
-                x:Name="ProgressExpander">
-                <toolkit:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE9D9;" />
-                </toolkit:SettingsExpander.HeaderIcon>
+            <StackPanel Spacing="12">
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Translation Progress" />
+                <ProgressBar
+                    Maximum="100"
+                    Value="0"
+                    x:Name="OverallProgressBar" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Text="Ready"
+                    x:Name="ProgressTextBlock" />
 
-                <StackPanel Spacing="12">
-                    <ProgressBar
-                        Maximum="100"
-                        Value="0"
-                        x:Name="OverallProgressBar" />
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        Text="Ready"
-                        x:Name="ProgressTextBlock" />
-
-                    <Grid ColumnDefinitions="*,*">
-                        <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock
-                                FontSize="12"
-                                Opacity="0.8"
-                                Text="CPU Usage" />
-                            <ProgressBar
-                                Maximum="100"
-                                Value="0"
-                                x:Name="CpuUsageBar" />
-                        </StackPanel>
-                        <StackPanel
-                            Grid.Column="1"
-                            Margin="12,0,0,0"
-                            Spacing="4">
-                            <TextBlock
-                                FontSize="12"
-                                Opacity="0.8"
-                                Text="Memory Usage" />
-                            <ProgressBar
-                                Maximum="100"
-                                Value="0"
-                                x:Name="MemoryUsageBar" />
-                        </StackPanel>
-                    </Grid>
-                </StackPanel>
-            </toolkit:SettingsExpander>
+                <Grid ColumnDefinitions="*,*">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock
+                            FontSize="12"
+                            Opacity="0.8"
+                            Text="CPU Usage" />
+                        <ProgressBar
+                            Maximum="100"
+                            Value="0"
+                            x:Name="CpuUsageBar" />
+                    </StackPanel>
+                    <StackPanel
+                        Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Spacing="4">
+                        <TextBlock
+                            FontSize="12"
+                            Opacity="0.8"
+                            Text="Memory Usage" />
+                        <ProgressBar
+                            Maximum="100"
+                            Value="0"
+                            x:Name="MemoryUsageBar" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
 
             <!--  Detailed logs  -->
-            <toolkit:SettingsExpander
-                Description="View detailed information about the translation process"
-                Header="Detailed logs"
-                IsExpanded="False"
-                x:Name="LogExpander">
-                <toolkit:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE7BA;" />
-                </toolkit:SettingsExpander.HeaderIcon>
-
-                <ScrollViewer Height="200" VerticalScrollBarVisibility="Auto">
-                    <TextBlock
-                        FontFamily="Consolas"
-                        FontSize="12"
-                        Padding="8"
-                        Text="Ready to translate..."
-                        TextWrapping="Wrap"
-                        x:Name="LogTextBlock" />
-                </ScrollViewer>
-            </toolkit:SettingsExpander>
+            <StackPanel Spacing="8">
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Detailed Logs" />
+                <TextBox
+                    AcceptsReturn="True"
+                    FontFamily="Consolas"
+                    FontSize="12"
+                    Height="200"
+                    IsReadOnly="True"
+                    ScrollViewer.VerticalScrollMode="Auto"
+                    Text="Preparing for translation..."
+                    TextWrapping="Wrap"
+                    x:Name="LogTextBox" />
+            </StackPanel>
 
             <!--  Operation buttons  -->
             <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,24,0,0">
