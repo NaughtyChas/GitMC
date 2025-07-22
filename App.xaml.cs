@@ -31,12 +31,7 @@ namespace GitMC
         /// <param name="e">Details about the launch request and process.</param>
         protected override void OnLaunched(LaunchActivatedEventArgs e)
         {
-            MainWindow = new Views.MainWindow();
-
-            // No need for Frame navigation since MainWindow is now the actual Window
-            // The MainWindow will handle its own content through NavigationView
-            
-            // Ensure the current window is active
+            MainWindow = new MainWindow();
             MainWindow.Activate();
         }
     }
