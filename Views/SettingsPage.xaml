@@ -9,7 +9,22 @@
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <StackPanel Margin="20">
-        <TextBlock Text="Settings" Style="{ThemeResource TitleTextBlockStyle}" Margin="0,0,0,20"/>
-        <HyperlinkButton Content="Debug Tools" Click="DebugToolsButton_Click" />
+        <StackPanel Margin="0,12,0,0" Spacing="12">
+            <RichTextBlock>
+                <Paragraph FontWeight="SemiBold" FontSize="36epx">Settings</Paragraph>
+            </RichTextBlock>
+            
+            <InfoBar
+                Title="Debug only!"
+                Margin="0,8,0,0"
+                IsClosable="False"
+                IsOpen="True"
+                Message="These actions are served as debug purposes only. You can use these to diagnose this application if translation process mets an error."
+                Severity="Informational">
+                <InfoBar.ActionButton>
+                    <Button Content="Translation tool" Click="DebugToolsButton_Click" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+        </StackPanel>
     </StackPanel>
 </Page>
