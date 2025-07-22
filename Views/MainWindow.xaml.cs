@@ -126,6 +126,11 @@ namespace GitMC.Views
             {
                 NavView.SelectedItem = NavView.SettingsItem;
             }
+            else if (pageType == typeof(DebugPage) || pageType == typeof(SaveTranslatorPage))
+            {
+                // For debug/tools pages, keep settings selected since they're accessed from settings
+                NavView.SelectedItem = NavView.SettingsItem;
+            }
             else
             {
                 NavView.SelectedItem = null;

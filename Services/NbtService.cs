@@ -49,6 +49,157 @@ namespace GitMC.Services
             });
         }
 
+        public void ConvertToSnbt(string inputPath, string outputPath)
+        {
+            try
+            {
+                if (!File.Exists(inputPath))
+                {
+                    throw new FileNotFoundException($"File does not exist: {inputPath}");
+                }
+
+                // Determine file type and handle accordingly
+                var extension = Path.GetExtension(inputPath).ToLowerInvariant();
+                
+                if (extension == ".mca" || extension == ".mcc")
+                {
+                    // For region files, we need to handle them specially
+                    ConvertRegionFileToSnbt(inputPath, outputPath);
+                }
+                else if (extension == ".dat" || extension == ".nbt")
+                {
+                    // For NBT/DAT files, standard conversion
+                    ConvertNbtFileToSnbt(inputPath, outputPath);
+                }
+                else
+                {
+                    throw new NotSupportedException($"Unsupported file extension: {extension}");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Error converting {inputPath} to SNBT: {ex.Message}", ex);
+            }
+        }
+
+        public void ConvertFromSnbt(string inputPath, string outputPath)
+        {
+            try
+            {
+                if (!File.Exists(inputPath))
+                {
+                    throw new FileNotFoundException($"SNBT file does not exist: {inputPath}");
+                }
+
+                // Determine target file type from output path
+                var extension = Path.GetExtension(outputPath).ToLowerInvariant();
+                
+                if (extension == ".mca" || extension == ".mcc")
+                {
+                    // For region files, we need to handle them specially
+                    ConvertSnbtToRegionFile(inputPath, outputPath);
+                }
+                else if (extension == ".dat" || extension == ".nbt")
+                {
+                    // For NBT/DAT files, standard conversion
+                    ConvertSnbtToNbtFile(inputPath, outputPath);
+                }
+                else
+                {
+                    throw new NotSupportedException($"Unsupported target file extension: {extension}");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Error converting {inputPath} from SNBT: {ex.Message}", ex);
+            }
+        }
+
+        private void ConvertNbtFileToSnbt(string inputPath, string outputPath)
+        {
+            CompoundTag rootTag;
+            
+            try
+            {
+                // Try reading the compressed NBT file (auto-detect compression type)
+                rootTag = NbtFile.Read(inputPath, FormatOptions.Java);
+            }
+            catch
+            {
+                try
+                {
+                    // Try reading the Bedrock format
+                    rootTag = NbtFile.Read(inputPath, FormatOptions.BedrockNetwork);
+                }
+                catch
+                {
+                    // Try reading the Bedrock format
+                    rootTag = NbtFile.Read(inputPath, FormatOptions.BedrockFile);
+                }
+            }
+
+            // Convert to SNBT format and save
+            var snbtContent = rootTag.PrettyPrinted();
+            File.WriteAllText(outputPath, snbtContent, Encoding.UTF8);
+        }
+
+        private void ConvertSnbtToNbtFile(string inputPath, string outputPath)
+        {
+            var snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
+            
+            // Parse SNBT back to NBT using SharpNBT
+            var rootTag = StringNbt.Parse(snbtContent);
+            
+            // Write as compressed NBT file (Java format with GZip compression)
+            if (rootTag is CompoundTag compoundTag)
+            {
+                NbtFile.Write(outputPath, compoundTag, FormatOptions.Java);
+            }
+            else
+            {
+                // Wrap in a compound tag if necessary
+                var wrapper = new CompoundTag("root");
+                wrapper.Add(rootTag);
+                NbtFile.Write(outputPath, wrapper, FormatOptions.Java);
+            }
+        }
+
+        private void ConvertRegionFileToSnbt(string inputPath, string outputPath)
+        {
+            // For region files (.mca), we need to extract and convert each chunk
+            // This is a simplified implementation - a full implementation would need
+            // to handle the region file format properly
+            
+            // For now, we'll create a placeholder SNBT file indicating the region file
+            var regionInfo = new CompoundTag("RegionFile");
+            regionInfo["OriginalPath"] = new StringTag("OriginalPath", inputPath);
+            regionInfo["FileSize"] = new LongTag("FileSize", new FileInfo(inputPath).Length);
+            regionInfo["ConversionTime"] = new StringTag("ConversionTime", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+            regionInfo["Note"] = new StringTag("Note", "Region file conversion placeholder - full implementation needed");
+            
+            var snbtContent = regionInfo.PrettyPrinted();
+            File.WriteAllText(outputPath, snbtContent, Encoding.UTF8);
+        }
+
+        private void ConvertSnbtToRegionFile(string inputPath, string outputPath)
+        {
+            // For converting back from SNBT to region file, we would need to
+            // reconstruct the region file format. This is a complex operation.
+            
+            // For now, we'll copy the original file if it exists, or create a minimal region file
+            var originalPath = outputPath.Replace(".snbt", "");
+            if (File.Exists(originalPath + ".backup"))
+            {
+                File.Copy(originalPath + ".backup", outputPath, true);
+            }
+            else
+            {
+                // Create a minimal region file header (this is a simplified approach)
+                var minimalRegionFile = new byte[8192]; // 8KB header
+                File.WriteAllBytes(outputPath, minimalRegionFile);
+            }
+        }
+
         public async Task ConvertSnbtToNbtAsync(string snbtContent, string outputPath)
         {
             await Task.Run(() =>

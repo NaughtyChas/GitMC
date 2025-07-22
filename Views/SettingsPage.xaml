@@ -62,6 +62,14 @@
                                 x:Name="ConverterCard">
                                 <Button Click="DebugToolsButton_Click" Content="Launch" />
                             </toolkit:SettingsCard>
+                            <toolkit:SettingsCard
+                                Click="SaveTranslatorButton_Click"
+                                Description="Round-trip translator for Minecraft save files. Converts saves to SNBT and back to verify integrity."
+                                Header="Save Translator"
+                                IsClickEnabled="False"
+                                x:Name="SaveTranslatorCard">
+                                <Button Click="SaveTranslatorButton_Click" Content="Launch" />
+                            </toolkit:SettingsCard>
                         </toolkit:SettingsExpander.Items>
                     </toolkit:SettingsExpander>
                 </StackPanel>

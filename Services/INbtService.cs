@@ -14,6 +14,20 @@ namespace GitMC.Services
         Task<string> ConvertNbtToSnbtAsync(string filePath);
 
         /// <summary>
+        /// Convert NBT file to SNBT file
+        /// </summary>
+        /// <param name="inputPath">Input NBT file path</param>
+        /// <param name="outputPath">Output SNBT file path</param>
+        void ConvertToSnbt(string inputPath, string outputPath);
+
+        /// <summary>
+        /// Convert SNBT file back to NBT file
+        /// </summary>
+        /// <param name="inputPath">Input SNBT file path</param>
+        /// <param name="outputPath">Output NBT file path</param>
+        void ConvertFromSnbt(string inputPath, string outputPath);
+
+        /// <summary>
         /// Translate SNBT string to NBT file
         /// </summary>
         /// <param name="snbtContent">SNBT string content</param>

@@ -19,5 +19,14 @@ namespace GitMC.Views
                 mainWindow.NavigateToPage(typeof(DebugPage));
             }
         }
+
+        private void SaveTranslatorButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Navigate to the SaveTranslatorPage using the MainWindow's navigation method
+            if (App.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.NavigateToPage(typeof(SaveTranslatorPage));
+            }
+        }
     }
 }
