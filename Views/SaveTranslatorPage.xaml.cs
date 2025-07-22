@@ -409,7 +409,7 @@ namespace GitMC.Views
 
         private async Task ConvertToSnbt(string inputPath, string outputPath, string extension, CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
+                await Task.Run(() =>
             {
                 // Use the NbtService to convert to SNBT
                 _nbtService.ConvertToSnbt(inputPath, outputPath);
