@@ -19,8 +19,9 @@
             x:Name="TitleBar"
             Title="GitMC"
             Grid.Row="0"
-            IsBackButtonEnabled="True"
-            IsBackButtonVisible="True"/>
+            IsBackButtonEnabled="{Binding ElementName=ContentFrame, Path=CanGoBack}"
+            IsBackButtonVisible="True"
+            BackRequested="TitleBar_BackButtonClick"/>
         
         <NavigationView Grid.Row="1" x:Name="NavView"
                         IsBackButtonVisible="Collapsed"
