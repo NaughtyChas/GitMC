@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using SharpNBT;
 using SharpNBT.SNBT;
 
@@ -28,19 +23,19 @@ namespace GitMC.Services
                     try
                     {
                         // Try reading the compressed NBT file (auto-detect compression type)
-                        rootTag = NbtFile.Read(filePath, FormatOptions.Java, CompressionType.AutoDetect);
+                        rootTag = NbtFile.Read(filePath, FormatOptions.Java);
                     }
                     catch
                     {
                         try
                         {
                             // Try reading the Bedrock format
-                            rootTag = NbtFile.Read(filePath, FormatOptions.BedrockNetwork, CompressionType.AutoDetect);
+                            rootTag = NbtFile.Read(filePath, FormatOptions.BedrockNetwork);
                         }
                         catch
                         {
                             // Try reading the Bedrock format
-                            rootTag = NbtFile.Read(filePath, FormatOptions.BedrockFile, CompressionType.AutoDetect);
+                            rootTag = NbtFile.Read(filePath, FormatOptions.BedrockFile);
                         }
                     }
 
@@ -80,7 +75,7 @@ namespace GitMC.Services
                     var compression = extension == ".dat" ? CompressionType.GZip : CompressionType.None;
 
                     // Write NBT file
-                    if (rootTag is CompoundTag compound)
+                    if (rootTag is { } compound)
                     {
                         NbtFile.Write(outputPath, compound, FormatOptions.Java, compression);
                     }
@@ -113,21 +108,21 @@ namespace GitMC.Services
                     // Try reading the file
                     try
                     {
-                        _ = NbtFile.Read(filePath, FormatOptions.Java, CompressionType.AutoDetect);
+                        _ = NbtFile.Read(filePath, FormatOptions.Java);
                         return true;
                     }
                     catch
                     {
                         try
                         {
-                            _ = NbtFile.Read(filePath, FormatOptions.BedrockNetwork, CompressionType.AutoDetect);
+                            _ = NbtFile.Read(filePath, FormatOptions.BedrockNetwork);
                             return true;
                         }
                         catch
                         {
                             try
                             {
-                                _ = NbtFile.Read(filePath, FormatOptions.BedrockFile, CompressionType.AutoDetect);
+                                _ = NbtFile.Read(filePath, FormatOptions.BedrockFile);
                                 return true;
                             }
                             catch
@@ -165,13 +160,13 @@ namespace GitMC.Services
                     info.AppendLine();
 
                     // Try parsing NBT file
-                    CompoundTag? rootTag = null;
-                    string compressionType = "Unknown";
-                    string formatType = "Unknown";
+                    CompoundTag? rootTag;
+                    string compressionType;
+                    string formatType;
 
                     try
                     {
-                        rootTag = NbtFile.Read(filePath, FormatOptions.Java, CompressionType.AutoDetect);
+                        rootTag = NbtFile.Read(filePath, FormatOptions.Java);
                         formatType = "Java version";
                         compressionType = DetermineCompressionType(filePath);
                     }
@@ -179,7 +174,7 @@ namespace GitMC.Services
                     {
                         try
                         {
-                            rootTag = NbtFile.Read(filePath, FormatOptions.BedrockNetwork, CompressionType.AutoDetect);
+                            rootTag = NbtFile.Read(filePath, FormatOptions.BedrockNetwork);
                             formatType = "Bedrock Version (Network)";
                             compressionType = DetermineCompressionType(filePath);
                         }
@@ -187,13 +182,13 @@ namespace GitMC.Services
                         {
                             try
                             {
-                                rootTag = NbtFile.Read(filePath, FormatOptions.BedrockFile, CompressionType.AutoDetect);
+                                rootTag = NbtFile.Read(filePath, FormatOptions.BedrockFile);
                                 formatType = "Bedrock Version (File)";
                                 compressionType = DetermineCompressionType(filePath);
                             }
                             catch
                             {
-                                return info.ToString() + "Error reading NBT file: Unable to determine format or compression type.";
+                                return info + "Error reading NBT file: Unable to determine format or compression type.";
                             }
                         }
                     }
@@ -294,7 +289,7 @@ namespace GitMC.Services
                     {
                         fs.Seek(i * 4, SeekOrigin.Begin);
                         var locationData = new byte[4];
-                        fs.Read(locationData, 0, 4);
+                        fs.ReadExactly(locationData, 0, 4);
                         
                         if (BitConverter.IsLittleEndian)
                             Array.Reverse(locationData);
@@ -349,7 +344,7 @@ namespace GitMC.Services
                             // Read location data
                             fs.Seek(index * 4, SeekOrigin.Begin);
                             var locationData = new byte[4];
-                            fs.Read(locationData, 0, 4);
+                            fs.ReadExactly(locationData, 0, 4);
                             
                             if (BitConverter.IsLittleEndian)
                                 Array.Reverse(locationData);
@@ -361,7 +356,7 @@ namespace GitMC.Services
                             // Read timestamp
                             fs.Seek(4096 + index * 4, SeekOrigin.Begin);
                             var timestampData = new byte[4];
-                            fs.Read(timestampData, 0, 4);
+                            fs.ReadExactly(timestampData, 0, 4);
                             
                             if (BitConverter.IsLittleEndian)
                                 Array.Reverse(timestampData);
@@ -380,7 +375,7 @@ namespace GitMC.Services
                                     // Read chunk data header
                                     fs.Seek(offset * 4096, SeekOrigin.Begin);
                                     var chunkHeader = new byte[5];
-                                    fs.Read(chunkHeader, 0, 5);
+                                    fs.ReadExactly(chunkHeader, 0, 5);
 
                                     if (BitConverter.IsLittleEndian)
                                         Array.Reverse(chunkHeader, 0, 4);
@@ -462,7 +457,7 @@ namespace GitMC.Services
                     
                     // Read chunk header
                     var header = new byte[5];
-                    fs.Read(header, 0, 5);
+                    fs.ReadExactly(header, 0, 5);
                     
                     if (BitConverter.IsLittleEndian)
                         Array.Reverse(header, 0, 4);
@@ -472,7 +467,7 @@ namespace GitMC.Services
                     
                     // Read compressed data
                     var compressedData = new byte[dataLength - 1]; // -1 because dataLength includes compression type byte
-                    fs.Read(compressedData, 0, compressedData.Length);
+                    fs.ReadExactly(compressedData);
                     
                     // Decompress based on compression type
                     byte[] decompressedData;

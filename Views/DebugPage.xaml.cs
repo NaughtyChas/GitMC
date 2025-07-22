@@ -101,7 +101,7 @@ namespace GitMC.Views
                     var isValid = await _nbtService.IsValidAnvilFileAsync(_selectedFilePath!);
                     var fileInfo = new FileInfo(_selectedFilePath!);
                     
-                    if (Path.GetExtension(_selectedFilePath).ToLowerInvariant() == ".mca")
+                    if (Path.GetExtension(_selectedFilePath)?.ToLowerInvariant() == ".mca")
                     {
                         var regionInfo = await _nbtService.GetRegionInfoAsync(_selectedFilePath!);
                         FileInfoTextBlock.Text = $"Anvil Region File | Size: {fileInfo.Length / 1024.0:F1} KB | Valid: {(isValid ? "Yes" : "No")}";
