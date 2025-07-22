@@ -359,7 +359,8 @@ namespace GitMC.Views
             foreach (var subDir in source.GetDirectories())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (subDir.Name.Equals("GitMC", StringComparison.OrdinalIgnoreCase))
+                if (subDir.Name.Equals("GitMC", StringComparison.OrdinalIgnoreCase) &&
+                    !source.FullName.Equals(_selectedSavePath, StringComparison.OrdinalIgnoreCase))
                 {
                     continue; // Skip copying the GitMC folder itself
                 }
