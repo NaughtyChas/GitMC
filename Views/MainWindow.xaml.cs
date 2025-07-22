@@ -1,27 +1,25 @@
-using GitMC.Views;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using System;
+using Microsoft.UI.Windowing;
 
 namespace GitMC.Views
 {
     public partial class MainWindow : Window
     {
-        private void InitializeTitleBar()
-        {
-            // Since this is now the actual Window, we can configure it directly
-            this.Title = "GitMC - Minecraft Save Manager";
-            this.ExtendsContentIntoTitleBar = false; // Show the title bar
-        }
-
         public MainWindow()
         {
             this.InitializeComponent();
-            this.InitializeTitleBar();
-            // Navigate to the HomePage by default
+            SetWindowProperties();
             ContentFrame.Navigate(typeof(HomePage));
         }
 
+        private void SetWindowProperties()
+        {
+            this.Title = "GitMC";
+            this.ExtendsContentIntoTitleBar = true;
+            this.SetTitleBar(this.TitleBar);
+            this.AppWindow.SetIcon("Assets/StoreLogo.png");
+            this.AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
+        }
+        
         public void NavigateToPage(Type pageType)
         {
             ContentFrame.Navigate(pageType);

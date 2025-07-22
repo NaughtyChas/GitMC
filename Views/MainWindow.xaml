@@ -4,11 +4,25 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:local="using:GitMC"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
+    <Window.SystemBackdrop>
+        <MicaBackdrop/>
+    </Window.SystemBackdrop>
     <Grid>
-        <NavigationView x:Name="NavView"
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <TitleBar
+            x:Name="TitleBar"
+            Title="GitMC"
+            Grid.Row="0"
+            IsBackButtonEnabled="True"
+            IsBackButtonVisible="True"/>
+        
+        <NavigationView Grid.Row="1" x:Name="NavView"
                         IsBackButtonVisible="Collapsed"
                         IsSettingsVisible="True"
                         PaneDisplayMode="Left"
@@ -18,10 +32,8 @@
                 <NavigationViewItem Content="Home" Icon="Home" Tag="Home" />
                 <NavigationViewItemSeparator />
                 <NavigationViewItemHeader Content="Managed Saves" />
-                <!-- Saves will be populated here -->
             </NavigationView.MenuItems>
-
-            <Frame x:Name="ContentFrame" />
+            <Frame x:Name="ContentFrame"/>
         </NavigationView>
     </Grid>
 </Window>
