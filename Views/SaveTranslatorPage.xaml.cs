@@ -214,19 +214,21 @@ namespace GitMC.Views
         {
             if (string.IsNullOrEmpty(_selectedSavePath))
             {
-                LogMessage("Error: Selected file path is empty");
+                LogMessage("Error: Selected save directory is empty");
                 return;
             }
 
             LogMessage("=== Starting save translation process ===");
 
+            var verifyIntegrity = VerifyIntegrityCheckBox.IsChecked == true;
+            
             // Step 1: Create GitMC folder
             var gitMcPath = Path.Combine(_selectedSavePath, "GitMC");
             LogMessage($"Create GitMC folder: {gitMcPath}");
             Directory.CreateDirectory(gitMcPath);
-
-            UpdateProgress(5, "Analyzing save structure...");
-
+            
+            UpdateProgress(5, "Analyzing file structure...");
+            
             // Step 2: Scan for files to process
             var filesToProcess = await ScanForFiles(_selectedSavePath, cancellationToken);
             LogMessage($"Found {filesToProcess.Count} files to process");
@@ -235,7 +237,7 @@ namespace GitMC.Views
             
             // Step 3: Copy all files first
             await CopyAllFiles(_selectedSavePath, gitMcPath, cancellationToken);
-
+            
             UpdateProgress(30, "Starting NBT translation process...");
             
             // Step 4: Process selected file types
@@ -268,7 +270,7 @@ namespace GitMC.Views
             UpdateProgress(95, "Verifying translation results...");
 
             // Step 5: Verify if enabled
-            if (VerifyIntegrityCheckBox.IsChecked == true)
+            if (verifyIntegrity)
             {
                 await VerifyTranslation(_selectedSavePath, gitMcPath, cancellationToken);
             }
@@ -283,26 +285,30 @@ namespace GitMC.Views
             var files = new List<FileInfo>();
             var directory = new DirectoryInfo(savePath);
             
+            var processRegionFiles = RegionFilesCheckBox.IsChecked == true;
+            var processDataFiles = DataFilesCheckBox.IsChecked == true;
+            var processNbtFiles = NbtFilesCheckBox.IsChecked == true;
+            var processLevelData = LevelDataCheckBox.IsChecked == true;
+            
             await Task.Run(() =>
             {
-                // Scan for different file types based on checkboxes
-                if (RegionFilesCheckBox.IsChecked == true)
+                if (processRegionFiles)
                 {
                     ScanDirectory(directory, "*.mca", files, cancellationToken);
                     ScanDirectory(directory, "*.mcc", files, cancellationToken);
                 }
                 
-                if (DataFilesCheckBox.IsChecked == true)
+                if (processDataFiles)
                 {
                     ScanDirectory(directory, "*.dat", files, cancellationToken);
                 }
                 
-                if (NbtFilesCheckBox.IsChecked == true)
+                if (processNbtFiles)
                 {
                     ScanDirectory(directory, "*.nbt", files, cancellationToken);
                 }
                 
-                if (LevelDataCheckBox.IsChecked == true)
+                if (processLevelData)
                 {
                     var levelDat = new FileInfo(Path.Combine(savePath, "level.dat"));
                     if (levelDat.Exists) files.Add(levelDat);
