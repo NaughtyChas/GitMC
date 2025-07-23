@@ -48,9 +48,9 @@ namespace GitMC.Services
                     // For region files, we need to handle them specially
                     ConvertRegionFileToSnbt(inputPath, outputPath);
                 }
-                else if (extension == ".dat" || extension == ".nbt")
+                else if (extension == ".dat" || extension == ".nbt" || extension == ".dat_old")
                 {
-                    // For NBT/DAT files, standard conversion
+                    // For NBT/DAT/DAT_OLD files, standard conversion
                     ConvertNbtFileToSnbt(inputPath, outputPath);
                 }
                 else
@@ -81,9 +81,9 @@ namespace GitMC.Services
                     // For region files, we need to handle them specially
                     ConvertSnbtToRegionFile(inputPath, outputPath);
                 }
-                else if (extension == ".dat" || extension == ".nbt")
+                else if (extension == ".dat" || extension == ".nbt" || extension == ".dat_old")
                 {
-                    // For NBT/DAT files, standard conversion
+                    // For NBT/DAT/DAT_OLD files, standard conversion
                     ConvertSnbtToNbtFile(inputPath, outputPath);
                 }
                 else
@@ -113,6 +113,9 @@ namespace GitMC.Services
             
             // Parse SNBT using SnbtCmd's parser
             var rootTag = SnbtParser.Parse(snbtContent, false);
+            
+            // Fix empty lists before creating NBT file
+            FixEmptyLists(rootTag);
             
             // Create NBT file and save
             var nbtFile = new NbtFile();
@@ -178,6 +181,9 @@ namespace GitMC.Services
                 // Parse SNBT using SnbtCmd's parser
                 var rootTag = SnbtParser.Parse(snbtContent, false);
                 
+                // Fix empty lists before creating NBT file
+                FixEmptyLists(rootTag);
+                
                 // Create NBT file and save
                 var nbtFile = new NbtFile();
                 if (rootTag is NbtCompound compound)
@@ -198,6 +204,46 @@ namespace GitMC.Services
                 }
                 nbtFile.SaveToFile(outputPath, NbtCompression.GZip);
             });
+        }
+
+        /// <summary>
+        /// Fixes empty lists with Unknown type by replacing them with empty Compound lists
+        /// This prevents the "NbtList had no elements and an Unknown ListType" error
+        /// </summary>
+        private void FixEmptyLists(NbtTag tag)
+        {
+            if (tag is NbtCompound compound)
+            {
+                foreach (var child in compound.ToArray()) // ToArray to avoid modification during iteration
+                {
+                    FixEmptyLists(child);
+                }
+            }
+            else if (tag is NbtList list)
+            {
+                // Fix empty lists with Unknown type
+                if (list.Count == 0 && list.ListType == NbtTagType.Unknown)
+                {
+                    // Set a concrete type for empty lists (Compound is most common)
+                    // We need to replace the list because ListType is read-only
+                    var fixedList = new NbtList(list.Name, NbtTagType.Compound);
+                    
+                    // Replace in parent if it's in a compound
+                    if (list.Parent is NbtCompound parent && list.Name != null)
+                    {
+                        parent.Remove(list.Name);
+                        parent.Add(fixedList);
+                    }
+                }
+                else
+                {
+                    // Recursively fix child tags
+                    foreach (var child in list.ToArray())
+                    {
+                        FixEmptyLists(child);
+                    }
+                }
+            }
         }
 
         public async Task<bool> IsValidNbtFileAsync(string filePath)
