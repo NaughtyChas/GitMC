@@ -64,6 +64,7 @@
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <TextBlock Text="General:" VerticalAlignment="Center" FontWeight="SemiBold" Width="120"/>
                 <Button x:Name="ClearOutputButton" Content="Clear Output" Click="ClearOutputButton_Click" MinWidth="100"/>
+                <Button x:Name="RunRoundTripTestButton" Content="Run Round-Trip Test" Click="RunRoundTripTestButton_Click" MinWidth="150"/>
             </StackPanel>
         </StackPanel>
 

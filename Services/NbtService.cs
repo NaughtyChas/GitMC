@@ -1,5 +1,6 @@
 using System.Text;
 using fNbt;
+using GitMC.Utils.Nbt;
 
 namespace GitMC.Services
 {
@@ -20,8 +21,8 @@ namespace GitMC.Services
                     var nbtFile = new NbtFile();
                     nbtFile.LoadFromFile(filePath);
                     
-                    // Convert to SNBT format using fNbt's ToString method
-                    return nbtFile.RootTag.ToString("  "); // Pretty-printed SNBT
+                    // Convert to SNBT format using SnbtCmd's implementation
+                    return nbtFile.RootTag.ToSnbt(SnbtOptions.DefaultExpanded);
                 }
                 catch (Exception ex)
                 {
@@ -101,8 +102,8 @@ namespace GitMC.Services
             var nbtFile = new NbtFile();
             nbtFile.LoadFromFile(inputPath);
 
-            // Convert to SNBT format and save
-            var snbtContent = nbtFile.RootTag.ToString("  "); // Pretty-printed
+            // Convert to SNBT format using SnbtCmd's implementation
+            var snbtContent = nbtFile.RootTag.ToSnbt(SnbtOptions.DefaultExpanded);
             File.WriteAllText(outputPath, snbtContent, Encoding.UTF8);
         }
 
@@ -110,9 +111,23 @@ namespace GitMC.Services
         {
             var snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
             
-            // fNbt doesn't have built-in SNBT parsing, so we need to implement this
-            // For now, we'll throw a meaningful error
-            throw new NotImplementedException("SNBT parsing is not implemented in fNbt library. Consider using a different approach or implementing custom SNBT parser.");
+            // Parse SNBT using SnbtCmd's parser
+            var rootTag = SnbtParser.Parse(snbtContent, false);
+            
+            // Create NBT file and save
+            var nbtFile = new NbtFile();
+            if (rootTag is NbtCompound compound)
+            {
+                nbtFile.RootTag = compound;
+            }
+            else
+            {
+                // If it's not a compound, wrap it in one
+                var wrapper = new NbtCompound("");
+                wrapper.Add(rootTag);
+                nbtFile.RootTag = wrapper;
+            }
+            nbtFile.SaveToFile(outputPath, NbtCompression.GZip);
         }
 
         private void ConvertRegionFileToSnbt(string inputPath, string outputPath)
@@ -128,7 +143,7 @@ namespace GitMC.Services
             regionInfo.Add(new NbtString("ConversionTime", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")));
             regionInfo.Add(new NbtString("Note", "Region file conversion placeholder - full implementation needed"));
             
-            var snbtContent = regionInfo.ToString("  ");
+            var snbtContent = regionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
             File.WriteAllText(outputPath, snbtContent, Encoding.UTF8);
         }
 
@@ -155,8 +170,23 @@ namespace GitMC.Services
         {
             await Task.Run(() =>
             {
-                // fNbt doesn't support SNBT parsing directly
-                throw new NotImplementedException("SNBT to NBT conversion is not supported with fNbt library. Consider implementing custom SNBT parser or using a different library.");
+                // Parse SNBT using SnbtCmd's parser
+                var rootTag = SnbtParser.Parse(snbtContent, false);
+                
+                // Create NBT file and save
+                var nbtFile = new NbtFile();
+                if (rootTag is NbtCompound compound)
+                {
+                    nbtFile.RootTag = compound;
+                }
+                else
+                {
+                    // If it's not a compound, wrap it in one
+                    var wrapper = new NbtCompound("");
+                    wrapper.Add(rootTag);
+                    nbtFile.RootTag = wrapper;
+                }
+                nbtFile.SaveToFile(outputPath, NbtCompression.GZip);
             });
         }
 
@@ -238,9 +268,15 @@ namespace GitMC.Services
 
         public bool IsValidSnbt(string snbtContent)
         {
-            // fNbt doesn't have built-in SNBT validation
-            // We'd need to implement a custom SNBT parser for this
-            return false;
+            try
+            {
+                var result = SnbtParser.TryParse(snbtContent, false);
+                return result.IsSuccess;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private string DetermineCompressionType(string filePath)
@@ -270,18 +306,18 @@ namespace GitMC.Services
         
         #region Anvil Region File Support - Placeholder
         
-        public async Task<AnvilRegionInfo> GetRegionInfoAsync(string mcaFilePath)
+        public Task<AnvilRegionInfo> GetRegionInfoAsync(string mcaFilePath)
         {
             // Implementation would be similar but using fNbt types
             throw new NotImplementedException("Region file support needs to be implemented with fNbt");
         }
 
-        public async Task<List<AnvilChunkInfo>> ListChunksInRegionAsync(string mcaFilePath)
+        public Task<List<AnvilChunkInfo>> ListChunksInRegionAsync(string mcaFilePath)
         {
             throw new NotImplementedException("Region file support needs to be implemented with fNbt");
         }
 
-        public async Task<string> ExtractChunkDataAsync(string mcaFilePath, int chunkX, int chunkZ)
+        public Task<string> ExtractChunkDataAsync(string mcaFilePath, int chunkX, int chunkZ)
         {
             throw new NotImplementedException("Region file support needs to be implemented with fNbt");
         }
