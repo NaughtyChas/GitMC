@@ -118,11 +118,16 @@ namespace GitMC.Services
             var nbtFile = new NbtFile();
             if (rootTag is NbtCompound compound)
             {
+                // Ensure the root compound has a name (fNbt requirement)
+                if (string.IsNullOrEmpty(compound.Name))
+                {
+                    compound.Name = ""; // fNbt allows empty string as name
+                }
                 nbtFile.RootTag = compound;
             }
             else
             {
-                // If it's not a compound, wrap it in one
+                // If it's not a compound, wrap it in one with a name
                 var wrapper = new NbtCompound("");
                 wrapper.Add(rootTag);
                 nbtFile.RootTag = wrapper;
@@ -177,11 +182,16 @@ namespace GitMC.Services
                 var nbtFile = new NbtFile();
                 if (rootTag is NbtCompound compound)
                 {
+                    // Ensure the root compound has a name (fNbt requirement)
+                    if (string.IsNullOrEmpty(compound.Name))
+                    {
+                        compound.Name = ""; // fNbt allows empty string as name
+                    }
                     nbtFile.RootTag = compound;
                 }
                 else
                 {
-                    // If it's not a compound, wrap it in one
+                    // If it's not a compound, wrap it in one with a name
                     var wrapper = new NbtCompound("");
                     wrapper.Add(rootTag);
                     nbtFile.RootTag = wrapper;
