@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
 using Microsoft.UI.Dispatching;
+using System.Text;
 
 namespace GitMC.Views
 {
@@ -35,16 +36,20 @@ namespace GitMC.Views
         {
             try
             {
+                // Disable performance counters in debug mode to prevent UI freezing
+                #if !DEBUG
                 _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
                 _memoryCounter = new PerformanceCounter("Memory", "Available MBytes");
+                #endif
                 
                 _performanceTimer = new DispatcherTimer();
-                _performanceTimer.Interval = TimeSpan.FromSeconds(1);
+                _performanceTimer.Interval = TimeSpan.FromSeconds(2); // Reduced frequency
                 _performanceTimer.Tick += UpdatePerformanceMetrics;
             }
             catch (Exception ex)
             {
                 LogMessage($"Performance meter initialization failed: {ex.Message}");
+                // Continue without performance monitoring
             }
         }
 
@@ -251,13 +256,28 @@ namespace GitMC.Views
                     var relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
                     var targetPath = Path.Combine(gitMcPath, relativePath);
                     
-                    LogMessage($"Processing files: {relativePath}");
+                    // Only log every 10th file to reduce UI overhead
+                    if (processedCount % 10 == 0 || processedCount == 0)
+                    {
+                        LogMessage($"Processing files: {relativePath}");
+                    }
                     
                     await ProcessFile(targetPath, fileInfo.Extension, cancellationToken);
                     
                     processedCount++;
                     var progress = 30 + (processedCount * 60 / totalFiles);
-                    UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}: {Path.GetFileName(fileInfo.Name)}");
+                    
+                    // Only update progress every 5 files to reduce UI overhead
+                    if (processedCount % 5 == 0 || processedCount == totalFiles)
+                    {
+                        UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}: {Path.GetFileName(fileInfo.Name)}");
+                        
+                        // Force a UI update every 20 files to prevent freezing
+                        if (processedCount % 20 == 0)
+                        {
+                            await Task.Delay(10, cancellationToken); // Give UI thread a chance
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -377,27 +397,66 @@ namespace GitMC.Views
                 var tempSnbtPath = filePath + ".snbt";
                 var backupPath = CreateBackupCheckBox.IsChecked == true ? filePath + ".backup" : null;
                 
+                // Check if file exists and is accessible
+                if (!File.Exists(filePath))
+                {
+                    LogMessage($"  ⚠ File not found: {Path.GetFileName(filePath)}");
+                    return;
+                }
+                
+                // Check file size and skip very large files that might cause issues
+                var fileInfo = new FileInfo(filePath);
+                if (fileInfo.Length > 50 * 1024 * 1024) // 50MB limit
+                {
+                    LogMessage($"  ⚠ Skipping large file: {Path.GetFileName(filePath)} ({fileInfo.Length / 1024 / 1024}MB)");
+                    return;
+                }
+                
                 // Create backup if requested
                 if (backupPath != null)
                 {
-                    File.Copy(filePath, backupPath, true);
+                    try
+                    {
+                        File.Copy(filePath, backupPath, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"  ⚠ Backup failed for {Path.GetFileName(filePath)}: {ex.Message}");
+                    }
                 }
                 
-                // Convert to SNBT
+                // Convert to SNBT with timeout protection
                 LogMessage($"  Convert to SNBT: {Path.GetFileName(filePath)}");
-                await ConvertToSnbt(filePath, tempSnbtPath, extension, cancellationToken);
                 
-                // Convert back from SNBT
-                LogMessage($"  Convert back from SNBT: {Path.GetFileName(filePath)}");
-                await ConvertFromSnbt(tempSnbtPath, filePath, extension, cancellationToken);
+                using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5))) // 5-minute timeout per file
+                using (var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
+                {
+                    await ConvertToSnbt(filePath, tempSnbtPath, extension, combinedCts.Token);
+                    
+                    // Convert back from SNBT
+                    LogMessage($"  Convert back from SNBT: {Path.GetFileName(filePath)}");
+                    await ConvertFromSnbt(tempSnbtPath, filePath, extension, combinedCts.Token);
+                }
                 
                 // Clean up SNBT file if not preserving
                 if (PreserveSNBTCheckBox.IsChecked != true && File.Exists(tempSnbtPath))
                 {
-                    File.Delete(tempSnbtPath);
+                    try
+                    {
+                        File.Delete(tempSnbtPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"  ⚠ Failed to delete temp SNBT: {ex.Message}");
+                    }
                 }
                 
                 LogMessage($"  ✓ Complete: {Path.GetFileName(filePath)}");
+            }
+            catch (OperationCanceledException)
+            {
+                LogMessage($"  ⏹ Cancelled: {Path.GetFileName(filePath)}");
+                throw;
             }
             catch (Exception ex)
             {
@@ -408,10 +467,41 @@ namespace GitMC.Views
 
         private async Task ConvertToSnbt(string inputPath, string outputPath, string extension, CancellationToken cancellationToken)
         {
-                await Task.Run(() =>
+            await Task.Run(() =>
             {
-                // Use the NbtService to convert to SNBT
-                _nbtService.ConvertToSnbt(inputPath, outputPath);
+                try
+                {
+                    // Add file validation before conversion
+                    if (!File.Exists(inputPath))
+                    {
+                        throw new FileNotFoundException($"Input file not found: {inputPath}");
+                    }
+                    
+                    var fileInfo = new FileInfo(inputPath);
+                    if (fileInfo.Length == 0)
+                    {
+                        throw new InvalidDataException($"Input file is empty: {inputPath}");
+                    }
+                    
+                    // Use the NbtService to convert to SNBT
+                    _nbtService.ConvertToSnbt(inputPath, outputPath);
+                    
+                    // Verify output was created
+                    if (!File.Exists(outputPath))
+                    {
+                        throw new InvalidOperationException($"SNBT output file was not created: {outputPath}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Enhanced error reporting
+                    var errorMessage = $"ConvertToSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
+                    if (ex.InnerException != null)
+                    {
+                        errorMessage += $" Inner: {ex.InnerException.Message}";
+                    }
+                    throw new InvalidOperationException(errorMessage, ex);
+                }
             }, cancellationToken);
         }
 
@@ -419,8 +509,39 @@ namespace GitMC.Views
         {
             await Task.Run(() =>
             {
-                // Use the NbtService to convert from SNBT back to original format
-                _nbtService.ConvertFromSnbt(inputPath, outputPath);
+                try
+                {
+                    // Add file validation before conversion
+                    if (!File.Exists(inputPath))
+                    {
+                        throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
+                    }
+                    
+                    var fileInfo = new FileInfo(inputPath);
+                    if (fileInfo.Length == 0)
+                    {
+                        throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
+                    }
+                    
+                    // Use the NbtService to convert from SNBT back to original format
+                    _nbtService.ConvertFromSnbt(inputPath, outputPath);
+                    
+                    // Verify output was created
+                    if (!File.Exists(outputPath))
+                    {
+                        throw new InvalidOperationException($"NBT output file was not created: {outputPath}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Enhanced error reporting
+                    var errorMessage = $"ConvertFromSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
+                    if (ex.InnerException != null)
+                    {
+                        errorMessage += $" Inner: {ex.InnerException.Message}";
+                    }
+                    throw new InvalidOperationException(errorMessage, ex);
+                }
             }, cancellationToken);
         }
 
@@ -472,11 +593,20 @@ namespace GitMC.Views
 
         private void UpdateProgress(int value, string text)
         {
-            DispatcherQueue.TryEnqueue(() =>
+            // Use synchronous Enqueue instead of TryEnqueue to ensure UI updates are processed
+            try
             {
-                OverallProgressBar.Value = value;
-                ProgressTextBlock.Text = text;
-            });
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal, () =>
+                {
+                    if (OverallProgressBar != null) OverallProgressBar.Value = value;
+                    if (ProgressTextBlock != null) ProgressTextBlock.Text = text;
+                });
+            }
+            catch (Exception ex)
+            {
+                // Fallback - ignore UI update errors during debug
+                System.Diagnostics.Debug.WriteLine($"UI Update Error: {ex.Message}");
+            }
         }
 
         private void LogMessage(string message)
@@ -484,16 +614,50 @@ namespace GitMC.Views
             var timestamp = DateTime.Now.ToString("HH:mm:ss");
             var logEntry = $"[{timestamp}] {message}";
             
-            DispatcherQueue.TryEnqueue(() =>
+            try
             {
-                LogTextBox.Text += logEntry + "\n";
+                // Use high priority for critical messages, low priority for normal messages
+                var priority = message.Contains("Error") || message.Contains("Failed") || message.Contains("❌") 
+                    ? Microsoft.UI.Dispatching.DispatcherQueuePriority.High 
+                    : Microsoft.UI.Dispatching.DispatcherQueuePriority.Low;
                 
-                // Auto-scroll to bottom
-                if (LogTextBox.Parent is ScrollViewer scrollViewer)
+                DispatcherQueue.TryEnqueue(priority, () =>
                 {
-                    scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null);
-                }
-            });
+                    try
+                    {
+                        if (LogTextBox != null)
+                        {
+                            // Limit log text box size to prevent memory issues
+                            if (LogTextBox.Text.Length > 50000) // ~50KB limit
+                            {
+                                var lines = LogTextBox.Text.Split('\n');
+                                var keepLines = lines.Skip(lines.Length / 2); // Keep last half
+                                LogTextBox.Text = string.Join('\n', keepLines);
+                            }
+                            
+                            LogTextBox.Text += logEntry + "\n";
+                            
+                            // Only auto-scroll for important messages to reduce UI overhead
+                            if (priority == Microsoft.UI.Dispatching.DispatcherQueuePriority.High)
+                            {
+                                if (LogTextBox.Parent is ScrollViewer scrollViewer)
+                                {
+                                    scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        // Ignore UI errors during heavy processing
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                // Fallback - output to debug console
+                System.Diagnostics.Debug.WriteLine($"Log Error: {ex.Message} - Message: {logEntry}");
+            }
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
