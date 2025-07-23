@@ -483,18 +483,16 @@ namespace GitMC.Views
         {
             var timestamp = DateTime.Now.ToString("HH:mm:ss");
             var logEntry = $"[{timestamp}] {message}";
-
+            
             DispatcherQueue.TryEnqueue(() =>
             {
-                // Use a StringBuilder or limit log size to avoid LOH allocations
-                if (LogTextBox.Text.Length > 100000)
-                {
-                    LogTextBox.Text = LogTextBox.Text.Substring(LogTextBox.Text.Length - 50000);
-                }
                 LogTextBox.Text += logEntry + "\n";
-
+                
                 // Auto-scroll to bottom
-                LogTextBox.SelectionStart = LogTextBox.Text.Length;
+                if (LogTextBox.Parent is ScrollViewer scrollViewer)
+                {
+                    scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null);
+                }
             });
         }
 

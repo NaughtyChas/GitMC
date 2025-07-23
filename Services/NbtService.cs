@@ -6,7 +6,6 @@ namespace GitMC.Services
 {
     public class NbtService : INbtService
     {
-        private static readonly object FileLock = new object();
         public async Task<string> ConvertNbtToSnbtAsync(string filePath)
         {
             return await Task.Run(() =>
@@ -98,156 +97,45 @@ namespace GitMC.Services
             }
         }
 
-        /// <summary>
-        /// Improved batch conversion method designed to handle large numbers of files without freezing
-        /// Uses minimal locking and proper resource management to prevent the program from "stopping"
-        /// </summary>
-        public async Task<(int successful, int failed, List<string> errors)> ConvertBatchImprovedAsync(
-            IEnumerable<string> inputFiles, 
-            string outputDirectory,
-            string targetExtension,
-            CancellationToken cancellationToken = default)
-        {
-            var files = inputFiles.ToList();
-            var successful = 0;
-            var failed = 0;
-            var errors = new List<string>();
-            
-            // Process files with minimal lock contention
-            var semaphore = new SemaphoreSlim(Environment.ProcessorCount, Environment.ProcessorCount);
-            
-            var tasks = files.Select(async (inputFile, index) =>
-            {
-                await semaphore.WaitAsync(cancellationToken);
-                try
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    
-                    var fileName = Path.GetFileNameWithoutExtension(inputFile);
-                    var outputPath = Path.Combine(outputDirectory, fileName + targetExtension);
-                    
-                    // Ensure output directory exists
-                    var outputDir = Path.GetDirectoryName(outputPath);
-                    if (!string.IsNullOrEmpty(outputDir))
-                    {
-                        Directory.CreateDirectory(outputDir);
-                    }
-                    
-                    // Use individual conversion methods without global locking for better performance
-                    if (targetExtension == ".snbt")
-                    {
-                        ConvertToSnbt(inputFile, outputPath);
-                    }
-                    else
-                    {
-                        ConvertFromSnbt(inputFile, outputPath);
-                    }
-                    
-                    Interlocked.Increment(ref successful);
-                    
-                    // Periodic cleanup to prevent memory issues
-                    if ((index + 1) % 50 == 0)
-                    {
-                        await Task.Delay(10, cancellationToken); // Brief pause
-                        GC.Collect();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Interlocked.Increment(ref failed);
-                    lock (errors)
-                    {
-                        errors.Add($"{inputFile}: {ex.Message}");
-                    }
-                }
-                finally
-                {
-                    semaphore.Release();
-                }
-            });
-            
-            await Task.WhenAll(tasks);
-            semaphore.Dispose();
-            
-            return (successful, failed, errors);
-        }
-
         private void ConvertNbtFileToSnbt(string inputPath, string outputPath)
         {
-            lock (FileLock)
-            {
-                try
-                {
-                    var nbtFile = new NbtFile();
-                    nbtFile.LoadFromFile(inputPath);
+            var nbtFile = new NbtFile();
+            nbtFile.LoadFromFile(inputPath);
 
-                    if (nbtFile.RootTag == null)
-                    {
-                        throw new InvalidDataException($"NBT file has no root tag: {inputPath}");
-                    }
-
-                    // Convert to SNBT format using SnbtCmd's implementation
-                    var snbtContent = nbtFile.RootTag.ToSnbt(SnbtOptions.DefaultExpanded);
-                    
-                    // Validate SNBT content before writing
-                    if (string.IsNullOrEmpty(snbtContent))
-                    {
-                        throw new InvalidDataException($"Generated SNBT content is empty for file: {inputPath}");
-                    }
-                    
-                    // Use atomic write operation to prevent file corruption
-                    WriteFileAtomically(outputPath, snbtContent);
-                }
-                catch (Exception ex)
-                {
-                    throw new InvalidOperationException($"Failed to convert NBT to SNBT for {inputPath}: {ex.Message}", ex);
-                }
-                finally
-                {
-                    // Force garbage collection periodically to prevent memory buildup
-                    if (System.Environment.TickCount % 10 == 0)
-                    {
-                        GC.Collect();
-                        GC.WaitForPendingFinalizers();
-                    }
-                }
-            }
+            // Convert to SNBT format using SnbtCmd's implementation
+            var snbtContent = nbtFile.RootTag.ToSnbt(SnbtOptions.DefaultExpanded);
+            File.WriteAllText(outputPath, snbtContent, Encoding.UTF8);
         }
 
         private void ConvertSnbtToNbtFile(string inputPath, string outputPath)
         {
-            lock (FileLock)
+            var snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
+            
+            // Parse SNBT using SnbtCmd's parser
+            var rootTag = SnbtParser.Parse(snbtContent, false);
+            
+            // Fix empty lists before creating NBT file
+            FixEmptyLists(rootTag);
+            
+            // Create NBT file and save
+            var nbtFile = new NbtFile();
+            if (rootTag is NbtCompound compound)
             {
-                var snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
-                
-                // Parse SNBT using SnbtCmd's parser
-                var rootTag = SnbtParser.Parse(snbtContent, false);
-                
-                // Fix empty lists before creating NBT file
-                FixEmptyLists(rootTag);
-                
-                // Create NBT file and save
-                var nbtFile = new NbtFile();
-                if (rootTag is NbtCompound compound)
+                // Ensure the root compound has a name (fNbt requirement)
+                if (string.IsNullOrEmpty(compound.Name))
                 {
-                    // Ensure the root compound has a name (fNbt requirement)
-                    if (string.IsNullOrEmpty(compound.Name))
-                    {
-                        compound.Name = ""; // fNbt allows empty string as name
-                    }
-                    nbtFile.RootTag = compound;
+                    compound.Name = ""; // fNbt allows empty string as name
                 }
-                else
-                {
-                    // If it's not a compound, wrap it in one with a name
-                    var wrapper = new NbtCompound("");
-                    wrapper.Add(rootTag);
-                    nbtFile.RootTag = wrapper;
-                }
-                
-                // Use atomic write operation to prevent file corruption
-                SaveNbtFileAtomically(nbtFile, outputPath);
+                nbtFile.RootTag = compound;
             }
+            else
+            {
+                // If it's not a compound, wrap it in one with a name
+                var wrapper = new NbtCompound("");
+                wrapper.Add(rootTag);
+                nbtFile.RootTag = wrapper;
+            }
+            nbtFile.SaveToFile(outputPath, NbtCompression.GZip);
         }
 
         private void ConvertRegionFileToSnbt(string inputPath, string outputPath)
@@ -290,146 +178,70 @@ namespace GitMC.Services
         {
             await Task.Run(() =>
             {
-                lock (FileLock)
+                // Parse SNBT using SnbtCmd's parser
+                var rootTag = SnbtParser.Parse(snbtContent, false);
+                
+                // Fix empty lists before creating NBT file
+                FixEmptyLists(rootTag);
+                
+                // Create NBT file and save
+                var nbtFile = new NbtFile();
+                if (rootTag is NbtCompound compound)
                 {
-                    // Parse SNBT using SnbtCmd's parser
-                    var rootTag = SnbtParser.Parse(snbtContent, false);
-                    
-                    // Fix empty lists before creating NBT file
-                    FixEmptyLists(rootTag);
-                    
-                    // Create NBT file and save
-                    var nbtFile = new NbtFile();
-                    if (rootTag is NbtCompound compound)
+                    // Ensure the root compound has a name (fNbt requirement)
+                    if (string.IsNullOrEmpty(compound.Name))
                     {
-                        // Ensure the root compound has a name (fNbt requirement)
-                        if (string.IsNullOrEmpty(compound.Name))
-                        {
-                            compound.Name = ""; // fNbt allows empty string as name
-                        }
-                        nbtFile.RootTag = compound;
+                        compound.Name = ""; // fNbt allows empty string as name
                     }
-                    else
-                    {
-                        // If it's not a compound, wrap it in one with a name
-                        var wrapper = new NbtCompound("");
-                        wrapper.Add(rootTag);
-                        nbtFile.RootTag = wrapper;
-                    }
-                    
-                    // Use atomic write operation to prevent file corruption
-                    SaveNbtFileAtomically(nbtFile, outputPath);
+                    nbtFile.RootTag = compound;
                 }
+                else
+                {
+                    // If it's not a compound, wrap it in one with a name
+                    var wrapper = new NbtCompound("");
+                    wrapper.Add(rootTag);
+                    nbtFile.RootTag = wrapper;
+                }
+                nbtFile.SaveToFile(outputPath, NbtCompression.GZip);
             });
         }
 
         /// <summary>
         /// Fixes empty lists with Unknown type by replacing them with empty Compound lists
         /// This prevents the "NbtList had no elements and an Unknown ListType" error
-        /// Enhanced to handle deeply nested structures
         /// </summary>
         private void FixEmptyLists(NbtTag tag)
         {
             if (tag is NbtCompound compound)
             {
-                var childrenToReplace = new List<(string name, NbtTag newTag)>();
-                
-                foreach (var child in compound)
-                {
-                    if (child is NbtList list && list.Count == 0 && list.ListType == NbtTagType.Unknown)
-                    {
-                        // Create a replacement list with a concrete type
-                        var fixedList = new NbtList(child.Name, NbtTagType.Compound);
-                        if (child.Name != null)
-                        {
-                            childrenToReplace.Add((child.Name, fixedList));
-                        }
-                    }
-                    else
-                    {
-                        // Recursively fix child tags
-                        FixEmptyLists(child);
-                    }
-                }
-                
-                // Replace empty lists with fixed versions
-                foreach (var (name, newTag) in childrenToReplace)
-                {
-                    compound.Remove(name);
-                    compound.Add(newTag);
-                }
-            }
-            else if (tag is NbtList list)
-            {
-                // Fix empty lists with Unknown type at this level
-                if (list.Count == 0 && list.ListType == NbtTagType.Unknown)
-                {
-                    // Cannot modify in-place, this needs to be handled by parent
-                    return;
-                }
-                
-                // Recursively fix child tags
-                foreach (var child in list.ToArray())
+                foreach (var child in compound.ToArray()) // ToArray to avoid modification during iteration
                 {
                     FixEmptyLists(child);
                 }
             }
-        }
-
-        /// <summary>
-        /// Atomically writes a text file to prevent corruption from concurrent access
-        /// </summary>
-        private void WriteFileAtomically(string filePath, string content)
-        {
-            var tempPath = filePath + ".tmp";
-            try
+            else if (tag is NbtList list)
             {
-                File.WriteAllText(tempPath, content, Encoding.UTF8);
-                
-                // Ensure the write is complete
-                using (var fs = File.OpenWrite(tempPath))
+                // Fix empty lists with Unknown type
+                if (list.Count == 0 && list.ListType == NbtTagType.Unknown)
                 {
-                    fs.Flush();
+                    // Set a concrete type for empty lists (Compound is most common)
+                    // We need to replace the list because ListType is read-only
+                    var fixedList = new NbtList(list.Name, NbtTagType.Compound);
+                    
+                    // Replace in parent if it's in a compound
+                    if (list.Parent is NbtCompound parent && list.Name != null)
+                    {
+                        parent.Remove(list.Name);
+                        parent.Add(fixedList);
+                    }
                 }
-                
-                // Atomic move to final location
-                if (File.Exists(filePath))
+                else
                 {
-                    File.Delete(filePath);
-                }
-                File.Move(tempPath, filePath);
-            }
-            finally
-            {
-                if (File.Exists(tempPath))
-                {
-                    File.Delete(tempPath);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Atomically saves an NBT file to prevent corruption from concurrent access
-        /// </summary>
-        private void SaveNbtFileAtomically(NbtFile nbtFile, string filePath)
-        {
-            var tempPath = filePath + ".tmp";
-            try
-            {
-                nbtFile.SaveToFile(tempPath, NbtCompression.GZip);
-                
-                // Atomic move to final location
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
-                File.Move(tempPath, filePath);
-            }
-            finally
-            {
-                if (File.Exists(tempPath))
-                {
-                    File.Delete(tempPath);
+                    // Recursively fix child tags
+                    foreach (var child in list.ToArray())
+                    {
+                        FixEmptyLists(child);
+                    }
                 }
             }
         }
