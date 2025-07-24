@@ -185,10 +185,10 @@ namespace GitMC.Services
                 // Use McaRegionFile to parse MCA files
                 using var mcaFile = new McaRegionFile(inputPath);
                 mcaFile.LoadAsync().Wait();
-                
+
                 // Get existing chunks
                 var existingChunks = mcaFile.GetExistingChunks();
-                
+
                 if (existingChunks.Count == 0)
                 {
                     // If there are no chunks, create empty file info
@@ -198,20 +198,29 @@ namespace GitMC.Services
                     emptyRegionInfo.Add(new NbtString("OriginalPath", inputPath));
                     emptyRegionInfo.Add(new NbtString("RegionCoordinates", mcaFile.RegionCoordinates.ToString()));
                     emptyRegionInfo.Add(new NbtString("Note", "This region file contains no chunks"));
-                    
+
                     var emptySnbtContent = emptyRegionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
-                    File.WriteAllText(outputPath, emptySnbtContent, Encoding.UTF8);
+
+                    // Use Stream instead
+                    using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    {
+                        writer.Write(emptySnbtContent);
+                        writer.Flush();
+                        fs.Flush();
+                    }
+
                     return;
                 }
-                
+
                 var snbtContent = new StringBuilder();
-                
+
                 // If there is only one chunk, write in NBT directly
                 if (existingChunks.Count == 1)
                 {
                     var chunkCoord = existingChunks[0];
                     var chunkData = mcaFile.GetChunkAsync(chunkCoord).Result;
-                    
+
                     if (chunkData?.NbtData != null)
                     {
                         snbtContent.AppendLine($"// SNBT for chunk {chunkCoord.X}, {chunkCoord.Z}:");
@@ -233,7 +242,7 @@ namespace GitMC.Services
                                 {
                                     snbtContent.AppendLine("// ==========================================");
                                 }
-                                
+
                                 snbtContent.AppendLine($"// SNBT for chunk {chunkCoord.X}, {chunkCoord.Z}:");
                                 snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
                                 isFirst = false;
@@ -247,14 +256,22 @@ namespace GitMC.Services
                                 snbtContent.AppendLine("// ==========================================");
                                 snbtContent.AppendLine();
                             }
-                            
+
                             snbtContent.AppendLine($"// ERROR in chunk {chunkCoord.X}, {chunkCoord.Z}: {ex.Message}");
                             isFirst = false;
                         }
                     }
                 }
-                
-                File.WriteAllText(outputPath, snbtContent.ToString(), Encoding.UTF8);
+
+                using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    {
+                        writer.Write(snbtContent.ToString());
+                        writer.Flush();
+                        fs.Flush();
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -266,9 +283,16 @@ namespace GitMC.Services
                 errorInfo.Add(new NbtString("Error", ex.Message));
                 errorInfo.Add(new NbtString("ErrorType", ex.GetType().Name));
                 errorInfo.Add(new NbtString("Note", "MCA parsing failed - this indicates a compression or parsing issue"));
-                
+
                 var errorSnbtContent = errorInfo.ToSnbt(SnbtOptions.DefaultExpanded);
-                File.WriteAllText(outputPath, errorSnbtContent, Encoding.UTF8);
+                using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    {
+                        writer.Write(errorSnbtContent);
+                        writer.Flush();
+                    }
+                }
             }
         }
 
@@ -392,8 +416,15 @@ namespace GitMC.Services
                 
                 // Save as *.reconstruct.snbt for now
                 var infoSnbt = reconstructionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
-                File.WriteAllText(outputPath + ".reconstruction.snbt", infoSnbt, Encoding.UTF8);
-                
+                using (var fs = new FileStream(outputPath + ".reconstruction.snbt", FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    {
+                        writer.Write(infoSnbt);
+                        writer.Flush();
+                    }
+                }
+
                 // Create a 8KB sized placeholder MCA file
                 var minimalMcaData = new byte[8192];
                 File.WriteAllBytes(outputPath, minimalMcaData);
@@ -402,8 +433,15 @@ namespace GitMC.Services
             {
                 // Create error log if conversion fails
                 var errorInfo = $"// Error converting SNBT to MCA: {ex.Message}\n// Original file: {inputPath}\n// Target file: {outputPath}\n// Time: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}";
-                File.WriteAllText(outputPath + ".error.txt", errorInfo, Encoding.UTF8);
-                
+                using (var fs = new FileStream(outputPath + ".error.txt", FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    {
+                        writer.Write(errorInfo);
+                        writer.Flush();
+                    }
+                }
+
                 // Create an empty MCA file
                 var emptyMcaData = new byte[8192];
                 File.WriteAllBytes(outputPath, emptyMcaData);
