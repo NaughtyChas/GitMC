@@ -255,9 +255,9 @@ namespace GitMC.Utils.Nbt
 
         private static void AddSnbtCompound(NbtCompound tag, SnbtOptions options, StringBuilder sb, string indent_string, int indent_level, bool include_name)
         {
+            AddIndents(sb, indent_string, indent_level);
             if (include_name)
                 sb.Append(GetNameBeforeValue(tag, options));
-            AddIndents(sb, indent_string, indent_level);
             sb.Append(COMPOUND_OPEN);
             if (tag.Count > 0)
             {
@@ -277,9 +277,9 @@ namespace GitMC.Utils.Nbt
 
         private static void AddSnbtList(NbtList tag, SnbtOptions options, StringBuilder sb, string indent_string, int indent_level, bool include_name)
         {
+            AddIndents(sb, indent_string, indent_level);
             if (include_name)
                 sb.Append(GetNameBeforeValue(tag, options));
-            AddIndents(sb, indent_string, indent_level);
             bool compressed = ShouldCompressListOf(tag.ListType);
             if (compressed)
                 sb.Append(ListToString("", x => x.ToSnbt(options, include_name: false), tag, options));
