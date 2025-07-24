@@ -144,18 +144,75 @@ namespace GitMC.Utils.Mca
 
         private static byte[] CompressZlib(byte[] data)
         {
-            // .NET's DeflateStream implements the
-            using var memoryStream = new MemoryStream();
-            using (var deflateStream = new System.IO.Compression.DeflateStream(memoryStream, System.IO.Compression.CompressionMode.Compress))
+            // Zlib format: [CMF][FLG][...compressed data...][ADLER32]
+            using var resultStream = new MemoryStream();
+            
+            // Write zlib header
+            // CMF (Compression Method and flags): 0x78 (deflate method with 32K window)
+            // FLG (FLaGs): calculated to make (CMF*256 + FLG) % 31 == 0
+            byte cmf = 0x78;
+            byte flg = 0x9C; // This makes (0x78*256 + 0x9C) % 31 == 0
+            
+            resultStream.WriteByte(cmf);
+            resultStream.WriteByte(flg);
+            
+            // Compress data using DeflateStream
+            using (var deflateStream = new System.IO.Compression.DeflateStream(resultStream, System.IO.Compression.CompressionMode.Compress, true))
             {
                 deflateStream.Write(data, 0, data.Length);
             }
-            return memoryStream.ToArray();
+            
+            // Calculate and write Adler-32 checksum
+            uint adler32 = CalculateAdler32(data);
+            resultStream.WriteByte((byte)(adler32 >> 24));
+            resultStream.WriteByte((byte)(adler32 >> 16));
+            resultStream.WriteByte((byte)(adler32 >> 8));
+            resultStream.WriteByte((byte)adler32);
+            
+            return resultStream.ToArray();
+        }
+        
+        private static uint CalculateAdler32(byte[] data)
+        {
+            const uint MOD_ADLER = 65521;
+            uint a = 1, b = 0;
+            
+            foreach (byte bt in data)
+            {
+                a = (a + bt) % MOD_ADLER;
+                b = (b + a) % MOD_ADLER;
+            }
+            
+            return (b << 16) | a;
         }
 
         private static byte[] DecompressZlib(byte[] compressedData)
         {
-            using var memoryStream = new MemoryStream(compressedData);
+            // Zlib format: [CMF][FLG][...compressed data...][ADLER32]
+            // We need to skip the zlib header (2 bytes) and checksum (4 bytes at end)
+            // and extract just the deflate-compressed data
+            
+            if (compressedData.Length < 6)
+            {
+                throw new ArgumentException("Invalid zlib data: too short");
+            }
+            
+            // Check zlib header magic bytes
+            byte cmf = compressedData[0];
+            byte flg = compressedData[1];
+            
+            // Validate zlib header
+            if ((cmf * 256 + flg) % 31 != 0)
+            {
+                throw new ArgumentException("Invalid zlib header checksum");
+            }
+            
+            // Extract deflate data (skip 2-byte header, ignore 4-byte checksum at end)
+            var deflateData = new byte[compressedData.Length - 6];
+            Array.Copy(compressedData, 2, deflateData, 0, deflateData.Length);
+            
+            // Decompress using DeflateStream
+            using var memoryStream = new MemoryStream(deflateData);
             using var deflateStream = new System.IO.Compression.DeflateStream(memoryStream, System.IO.Compression.CompressionMode.Decompress);
             using var resultStream = new MemoryStream();
             deflateStream.CopyTo(resultStream);
