@@ -281,6 +281,31 @@ namespace GitMC.Utils.Nbt
         private const char SINGLE_QUOTE = '\'';
         private readonly string String;
         public int Cursor { get; private set; }
+        
+        // Optimized: Reusable StringBuilder to avoid string allocations
+        private readonly StringBuilder _stringBuilder = new StringBuilder(32);
+        
+        // Optimized: Cache for common short strings (numbers 0-255, common tokens)
+        private static readonly Dictionary<string, string> _stringCache = new Dictionary<string, string>();
+        private static readonly object _cacheLock = new object();
+        
+        static StringReader()
+        {
+            // Pre-populate cache with common values
+            for (int i = 0; i <= 255; i++)
+            {
+                var str = i.ToString();
+                _stringCache[str] = str;
+            }
+            
+            // Add common boolean and special values
+            _stringCache["true"] = "true";
+            _stringCache["false"] = "false";
+            _stringCache["null"] = "null";
+            _stringCache["Infinity"] = "Infinity";
+            _stringCache["-Infinity"] = "-Infinity";
+            _stringCache["NaN"] = "NaN";
+        }
 
         public StringReader(string str)
         {
@@ -369,12 +394,33 @@ namespace GitMC.Utils.Nbt
 
         public string ReadUnquotedString()
         {
-            int start = Cursor;
+            // Optimized: Use StringBuilder instead of String.Substring to avoid memory allocations
+            _stringBuilder.Clear();
+            
             while (CanRead() && UnquotedAllowed(Peek()))
             {
-                Read();
+                _stringBuilder.Append(Read());
             }
-            return String[start..Cursor];
+            
+            var result = _stringBuilder.ToString();
+            
+            // Optimized: Check cache for common strings to reduce allocations
+            if (result.Length <= 3) // Only cache short strings
+            {
+                lock (_cacheLock)
+                {
+                    if (_stringCache.TryGetValue(result, out var cached))
+                        return cached;
+                    
+                    // Cache new short strings (with size limit)
+                    if (_stringCache.Count < 1000)
+                    {
+                        _stringCache[result] = result;
+                    }
+                }
+            }
+            
+            return result;
         }
 
         public string ReadQuotedString()
