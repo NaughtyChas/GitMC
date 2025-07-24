@@ -1,6 +1,8 @@
 using System.Text;
 using fNbt;
 using GitMC.Utils.Nbt;
+using GitMC.Utils.Mca;
+using GitMC.Utils;
 
 namespace GitMC.Services
 {
@@ -356,24 +358,127 @@ namespace GitMC.Services
         }
 
         // Region file support methods remain similar but using fNbt types
-        // ... (keeping existing anvil region methods for now)
         
-        #region Anvil Region File Support - Placeholder
+        #region Anvil Region File Support
         
-        public Task<AnvilRegionInfo> GetRegionInfoAsync(string mcaFilePath)
+        public async Task<AnvilRegionInfo> GetRegionInfoAsync(string mcaFilePath)
         {
-            // Implementation would be similar but using fNbt types
-            throw new NotImplementedException("Region file support needs to be implemented with fNbt");
+            try
+            {
+                using var regionFile = new McaRegionFile(mcaFilePath);
+                await regionFile.LoadAsync();
+
+                var fileInfo = new FileInfo(mcaFilePath);
+                var existingChunks = regionFile.GetExistingChunks();
+
+                return new AnvilRegionInfo
+                {
+                    RegionX = regionFile.RegionCoordinates.X,
+                    RegionZ = regionFile.RegionCoordinates.Z,
+                    FilePath = mcaFilePath,
+                    FileSize = fileInfo.Length,
+                    TotalChunks = 1024, // 32x32 region
+                    ValidChunks = existingChunks.Count,
+                    LastModified = fileInfo.LastWriteTime
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to get region info from {mcaFilePath}: {ex.Message}", ex);
+            }
         }
 
-        public Task<List<AnvilChunkInfo>> ListChunksInRegionAsync(string mcaFilePath)
+        public async Task<List<AnvilChunkInfo>> ListChunksInRegionAsync(string mcaFilePath)
         {
-            throw new NotImplementedException("Region file support needs to be implemented with fNbt");
+            try
+            {
+                using var regionFile = new McaRegionFile(mcaFilePath);
+                await regionFile.LoadAsync();
+
+                var chunkInfos = new List<AnvilChunkInfo>();
+                var existingChunks = regionFile.GetExistingChunks();
+
+                if (regionFile.Header == null) return chunkInfos;
+
+                for (int i = 0; i < 1024; i++)
+                {
+                    var chunkInfo = regionFile.Header.ChunkInfos[i];
+                    if (chunkInfo.SectorOffset == 0) continue; // 跳过不存在的区块
+
+                    var localCoords = Point2i.FromChunkIndex(i);
+                    var globalCoords = new Point2i(
+                        regionFile.RegionCoordinates.X * 32 + localCoords.X,
+                        regionFile.RegionCoordinates.Z * 32 + localCoords.Z
+                    );
+
+                    // 尝试读取区块数据来获取详细信息
+                    var compressionType = AnvilCompressionType.Zlib; // 默认值
+                    var isOversized = false;
+                    var dataSize = 0L;
+                    var isValid = true;
+
+                    try
+                    {
+                        var chunkData = await regionFile.GetChunkAsync(globalCoords);
+                        if (chunkData != null)
+                        {
+                            compressionType = ConvertCompressionType(chunkData.CompressionType);
+                            isOversized = chunkData.IsExternal;
+                            dataSize = chunkData.DataLength;
+                        }
+                    }
+                    catch
+                    {
+                        isValid = false;
+                    }
+
+                    chunkInfos.Add(new AnvilChunkInfo
+                    {
+                        ChunkX = globalCoords.X,
+                        ChunkZ = globalCoords.Z,
+                        LocalX = localCoords.X,
+                        LocalZ = localCoords.Z,
+                        SectorOffset = chunkInfo.SectorOffset,
+                        SectorCount = chunkInfo.SectorCount,
+                        Timestamp = chunkInfo.Timestamp,
+                        LastModified = DateTimeOffset.FromUnixTimeSeconds(chunkInfo.Timestamp).DateTime,
+                        DataSize = dataSize,
+                        CompressionType = compressionType,
+                        IsValid = isValid,
+                        IsOversized = isOversized
+                    });
+                }
+
+                return chunkInfos;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to list chunks in {mcaFilePath}: {ex.Message}", ex);
+            }
         }
 
-        public Task<string> ExtractChunkDataAsync(string mcaFilePath, int chunkX, int chunkZ)
+        public async Task<string> ExtractChunkDataAsync(string mcaFilePath, int chunkX, int chunkZ)
         {
-            throw new NotImplementedException("Region file support needs to be implemented with fNbt");
+            try
+            {
+                using var regionFile = new McaRegionFile(mcaFilePath);
+                await regionFile.LoadAsync();
+
+                var chunkCoords = new Point2i(chunkX, chunkZ);
+                var chunkData = await regionFile.GetChunkAsync(chunkCoords);
+
+                if (chunkData?.NbtData == null)
+                {
+                    throw new InvalidOperationException($"Chunk ({chunkX}, {chunkZ}) not found or is empty");
+                }
+
+                // 转换为SNBT格式
+                return chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to extract chunk ({chunkX}, {chunkZ}) from {mcaFilePath}: {ex.Message}", ex);
+            }
         }
 
         public async Task<bool> IsValidAnvilFileAsync(string filePath)
@@ -391,19 +496,42 @@ namespace GitMC.Services
 
                     if (extension == ".mcc")
                     {
-                        // .mcc files are oversized chunk files, validate as regular NBT
+                        // .mcc files are oversized chunk files, validate as NBT data
                         return IsValidNbtFileAsync(filePath).Result;
                     }
 
                     // Basic .mca file validation
                     using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                    return fs.Length >= 8192; // Minimum 8KB header
+                    if (fs.Length < 8192) // Minimum 8KB header
+                        return false;
+
+                    // Try to load the region file
+                    using var regionFile = new McaRegionFile(filePath);
+                    regionFile.LoadAsync().Wait();
+                    return regionFile.IsLoaded;
                 }
                 catch
                 {
                     return false;
                 }
             });
+        }
+
+        /// <summary>
+        /// 转换压缩类型枚举
+        /// </summary>
+        private static AnvilCompressionType ConvertCompressionType(CompressionType mcaType)
+        {
+            var baseType = mcaType.GetBaseType();
+            return baseType switch
+            {
+                CompressionType.GZip => AnvilCompressionType.GZip,
+                CompressionType.Zlib => AnvilCompressionType.Zlib,
+                CompressionType.Uncompressed => AnvilCompressionType.Uncompressed,
+                CompressionType.LZ4 => AnvilCompressionType.LZ4,
+                CompressionType.Custom => AnvilCompressionType.Custom,
+                _ => AnvilCompressionType.Zlib
+            };
         }
 
         #endregion
