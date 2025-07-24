@@ -270,7 +270,7 @@ namespace GitMC.Views
                     // Only update progress every 5 files to reduce UI overhead
                     if (processedCount % 5 == 0 || processedCount == totalFiles)
                     {
-                        UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}: {Path.GetFileName(fileInfo.Name)}");
+                        UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}: {fileInfo.Name}");
                         
                         // Force a UI update every 20 files to prevent freezing
                         if (processedCount % 20 == 0)

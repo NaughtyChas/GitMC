@@ -797,9 +797,16 @@ namespace GitMC.Services
             var tempPath = filePath + ".tmp";
             try
             {
-                File.WriteAllText(tempPath, content, Encoding.UTF8);
+                // Use StreamWriter to improve memory efficiency
+                using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                {
+                    writer.Write(content);
+                    writer.Flush();
+                    fs.Flush();
+                }
                 
-                // Ensure the write is complete
+                // Ensure to write is complete
                 using (var fs = File.OpenWrite(tempPath))
                 {
                     fs.Flush();
