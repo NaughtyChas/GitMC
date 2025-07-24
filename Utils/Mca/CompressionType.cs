@@ -191,31 +191,38 @@ namespace GitMC.Utils.Mca
             // Zlib format: [CMF][FLG][...compressed data...][ADLER32]
             // We need to skip the zlib header (2 bytes) and checksum (4 bytes at end)
             // and extract just the deflate-compressed data
-            
+
             if (compressedData.Length < 6)
             {
                 throw new ArgumentException("Invalid zlib data: too short");
             }
-            
+
             // Check zlib header magic bytes
             byte cmf = compressedData[0];
             byte flg = compressedData[1];
-            
+
             // Validate zlib header
             if ((cmf * 256 + flg) % 31 != 0)
             {
                 throw new ArgumentException("Invalid zlib header checksum");
             }
-            
+
             // Extract deflate data (skip 2-byte header, ignore 4-byte checksum at end)
             var deflateData = new byte[compressedData.Length - 6];
             Array.Copy(compressedData, 2, deflateData, 0, deflateData.Length);
-            
-            // Decompress using DeflateStream
+
+            // Decompress using DeflateStream with a buffered approach
             using var memoryStream = new MemoryStream(deflateData);
             using var deflateStream = new System.IO.Compression.DeflateStream(memoryStream, System.IO.Compression.CompressionMode.Decompress);
             using var resultStream = new MemoryStream();
-            deflateStream.CopyTo(resultStream);
+
+            byte[] buffer = new byte[8192]; // 8 KB buffer
+            int bytesRead;
+            while ((bytesRead = deflateStream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                resultStream.Write(buffer, 0, bytesRead);
+            }
+
             return resultStream.ToArray();
         }
 
