@@ -305,16 +305,27 @@ namespace GitMC.Services
                     var chunkCoord = existingChunks[0];
                     var chunkData = mcaFile.GetChunkAsync(chunkCoord).Result;
 
+                    // Add region information header even for single chunk
+                    snbtContent.AppendLine($"// Region file: {Path.GetFileName(inputPath)}");
+                    snbtContent.AppendLine($"// Region coordinates: {mcaFile.RegionCoordinates.X}, {mcaFile.RegionCoordinates.Z}");
+                    snbtContent.AppendLine($"// Total chunks: 1");
+                    snbtContent.AppendLine();
+
                     if (chunkData?.NbtData != null)
                     {
-                        snbtContent.AppendLine($"// SNBT for chunk {chunkCoord.X}, {chunkCoord.Z}:");
+                        snbtContent.AppendLine($"// Chunk({chunkCoord.X},{chunkCoord.Z})");
                         snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
                     }
                 }
                 else
                 {
                     // Create multiple SNBT entries if there are multiple chunks
-                    bool isFirst = true;
+                    // Add a header with region information
+                    snbtContent.AppendLine($"// Region file: {Path.GetFileName(inputPath)}");
+                    snbtContent.AppendLine($"// Region coordinates: {mcaFile.RegionCoordinates.X}, {mcaFile.RegionCoordinates.Z}");
+                    snbtContent.AppendLine($"// Total chunks: {existingChunks.Count}");
+                    snbtContent.AppendLine();
+                    
                     foreach (var chunkCoord in existingChunks)
                     {
                         try
@@ -322,27 +333,16 @@ namespace GitMC.Services
                             var chunkData = mcaFile.GetChunkAsync(chunkCoord).Result;
                             if (chunkData?.NbtData != null)
                             {
-                                if (!isFirst)
-                                {
-                                    snbtContent.AppendLine("// ==========================================");
-                                }
-
-                                snbtContent.AppendLine($"// SNBT for chunk {chunkCoord.X}, {chunkCoord.Z}:");
+                                // Simplified chunk header
+                                snbtContent.AppendLine($"// Chunk({chunkCoord.X},{chunkCoord.Z})");
                                 snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
-                                isFirst = false;
+                                snbtContent.AppendLine(); // Just add a blank line between chunks
                             }
                         }
                         catch (Exception ex)
                         {
-                            if (!isFirst)
-                            {
-                                snbtContent.AppendLine();
-                                snbtContent.AppendLine("// ==========================================");
-                                snbtContent.AppendLine();
-                            }
-
                             snbtContent.AppendLine($"// ERROR in chunk {chunkCoord.X}, {chunkCoord.Z}: {ex.Message}");
-                            isFirst = false;
+                            snbtContent.AppendLine();
                         }
                     }
                 }
@@ -431,16 +431,27 @@ namespace GitMC.Services
                     progress?.Report($"Converting single chunk ({chunkCoord.X}, {chunkCoord.Z})...");
                     var chunkData = await mcaFile.GetChunkAsync(chunkCoord);
 
+                    // Add region information header even for single chunk
+                    snbtContent.AppendLine($"// Region file: {Path.GetFileName(inputPath)}");
+                    snbtContent.AppendLine($"// Region coordinates: {mcaFile.RegionCoordinates.X}, {mcaFile.RegionCoordinates.Z}");
+                    snbtContent.AppendLine($"// Total chunks: 1");
+                    snbtContent.AppendLine();
+
                     if (chunkData?.NbtData != null)
                     {
-                        snbtContent.AppendLine($"// SNBT for chunk {chunkCoord.X}, {chunkCoord.Z}:");
+                        snbtContent.AppendLine($"// Chunk({chunkCoord.X},{chunkCoord.Z})");
                         snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
                     }
                 }
                 else
                 {
-                    // Create multiple snbt entries when there are multiple chunks
-                    bool isFirst = true;
+                    // Create multiple SNBT entries when there are multiple chunks
+                    // Add a header with region information
+                    snbtContent.AppendLine($"// Region file: {Path.GetFileName(inputPath)}");
+                    snbtContent.AppendLine($"// Region coordinates: {mcaFile.RegionCoordinates.X}, {mcaFile.RegionCoordinates.Z}");
+                    snbtContent.AppendLine($"// Total chunks: {existingChunks.Count}");
+                    snbtContent.AppendLine();
+                    
                     int processedCount = 0;
                     
                     foreach (var chunkCoord in existingChunks)
@@ -456,27 +467,16 @@ namespace GitMC.Services
                             var chunkData = await mcaFile.GetChunkAsync(chunkCoord);
                             if (chunkData?.NbtData != null)
                             {
-                                if (!isFirst)
-                                {
-                                    snbtContent.AppendLine("// ==========================================");
-                                }
-
-                                snbtContent.AppendLine($"// SNBT for chunk {chunkCoord.X}, {chunkCoord.Z}:");
+                                // Simplified chunk header
+                                snbtContent.AppendLine($"// Chunk({chunkCoord.X},{chunkCoord.Z})");
                                 snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
-                                isFirst = false;
+                                snbtContent.AppendLine(); // Just add a blank line between chunks
                             }
                         }
                         catch (Exception ex)
                         {
-                            if (!isFirst)
-                            {
-                                snbtContent.AppendLine();
-                                snbtContent.AppendLine("// ==========================================");
-                                snbtContent.AppendLine();
-                            }
-
                             snbtContent.AppendLine($"// ERROR in chunk {chunkCoord.X}, {chunkCoord.Z}: {ex.Message}");
-                            isFirst = false;
+                            snbtContent.AppendLine();
                         }
                         
                         processedCount++;
@@ -586,10 +586,25 @@ namespace GitMC.Services
                     throw new InvalidOperationException("No valid chunk data found in SNBT file");
                 }
                 
-                // Extract region coordinates from output file path
-                var regionCoords = ExtractRegionCoordinatesFromMcaPath(outputPath);
+                // Calculate correct region coordinates from chunk coordinates based on first chunk
+                var firstChunk = chunks.First().Key;
+                int regionX = (int)Math.Floor(firstChunk.X / 32.0);
+                int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
+                var regionCoords = new Point2i(regionX, regionZ);
                 
-                // Create MCA writer
+                // Verify all chunks belong to the same region
+                foreach (var chunk in chunks)
+                {
+                    int chunkRegionX = (int)Math.Floor(chunk.Key.X / 32.0);
+                    int chunkRegionZ = (int)Math.Floor(chunk.Key.Z / 32.0);
+                    
+                    if (chunkRegionX != regionX || chunkRegionZ != regionZ)
+                    {
+                        throw new InvalidOperationException($"Chunk ({chunk.Key.X}, {chunk.Key.Z}) belongs to region ({chunkRegionX}, {chunkRegionZ}), not ({regionX}, {regionZ})");
+                    }
+                }
+                
+                // Create MCA writer with correct region coordinates
                 using var mcaWriter = new McaRegionWriter(outputPath, regionCoords);
                 
                 // Add all chunks to the writer
@@ -1295,8 +1310,8 @@ namespace GitMC.Services
                 
                 ReadOnlySpan<char> line = section.Slice(lineStart, lineEnd);
                 
-                // Check if this line contains chunk header
-                if (line.IndexOf("// SNBT for chunk".AsSpan()) >= 0)
+                // Check if this line contains chunk header - support both old and new format
+                if (line.IndexOf("// SNBT for chunk".AsSpan()) >= 0 || line.IndexOf("// Chunk(".AsSpan()) >= 0)
                 {
                     headerLine = line.ToString();
                     break;
@@ -1307,53 +1322,75 @@ namespace GitMC.Services
             
             if (headerLine != null)
             {
-                // Extract chunk coordinates using regex
-                var coordMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
-                if (coordMatch.Success)
+                int x = 0;
+                int z = 0;
+                bool coordinatesFound = false;
+                
+                // Extract chunk coordinates using regex for different formats
+                // Try old format: "// SNBT for chunk X, Z:"
+                var oldFormatMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
+                // Try new format: "// Chunk(X,Z)"
+                var newFormatMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"Chunk\((-?\d+),(-?\d+)\)");
+                
+                if (oldFormatMatch.Success)
                 {
-                    var x = int.Parse(coordMatch.Groups[1].Value);
-                    var z = int.Parse(coordMatch.Groups[2].Value);
-                    var chunkCoord = new Point2i(x, z);
+                    x = int.Parse(oldFormatMatch.Groups[1].Value);
+                    z = int.Parse(oldFormatMatch.Groups[2].Value);
+                    coordinatesFound = true;
+                }
+                else if (newFormatMatch.Success)
+                {
+                    x = int.Parse(newFormatMatch.Groups[1].Value);
+                    z = int.Parse(newFormatMatch.Groups[2].Value);
+                    coordinatesFound = true;
+                }
+                
+                if (!coordinatesFound)
+                {
+                    // Can't parse coordinates, skip this section
+                    return;
+                }
+                
+                var chunkCoord = new Point2i(x, z);
+                
+                // Build SNBT content excluding comment lines
+                var snbtBuilder = new StringBuilder();
+                lineStart = 0;
+                
+                while (lineStart < section.Length)
+                {
+                    int lineEnd = section.Slice(lineStart).IndexOf('\n');
+                    if (lineEnd < 0) lineEnd = section.Length - lineStart;
                     
-                    // Build SNBT content excluding comment lines
-                    var snbtBuilder = new StringBuilder();
-                    lineStart = 0;
+                    ReadOnlySpan<char> line = section.Slice(lineStart, lineEnd);
                     
-                    while (lineStart < section.Length)
+                    // Skip comment lines
+                    ReadOnlySpan<char> trimmedLine = line.Trim();
+                    if (!trimmedLine.StartsWith("//".AsSpan()))
                     {
-                        int lineEnd = section.Slice(lineStart).IndexOf('\n');
-                        if (lineEnd < 0) lineEnd = section.Length - lineStart;
-                        
-                        ReadOnlySpan<char> line = section.Slice(lineStart, lineEnd);
-                        
-                        // Skip comment lines
-                        ReadOnlySpan<char> trimmedLine = line.Trim();
-                        if (!trimmedLine.StartsWith("//".AsSpan()))
-                        {
-                            if (snbtBuilder.Length > 0)
-                                snbtBuilder.AppendLine();
-                            snbtBuilder.Append(line);
-                        }
-                        
-                        lineStart += lineEnd + 1;
+                        if (snbtBuilder.Length > 0)
+                            snbtBuilder.AppendLine();
+                        snbtBuilder.Append(line);
                     }
                     
-                    string chunkSnbt = snbtBuilder.ToString();
-                    if (!string.IsNullOrWhiteSpace(chunkSnbt))
+                    lineStart += lineEnd + 1;
+                }
+                
+                string chunkSnbt = snbtBuilder.ToString();
+                if (!string.IsNullOrWhiteSpace(chunkSnbt))
+                {
+                    try
                     {
-                        try
+                        var chunkNbt = SnbtParser.Parse(chunkSnbt, false) as NbtCompound;
+                        if (chunkNbt != null)
                         {
-                            var chunkNbt = SnbtParser.Parse(chunkSnbt, false) as NbtCompound;
-                            if (chunkNbt != null)
-                            {
-                                chunks[chunkCoord] = chunkNbt;
-                            }
+                            chunks[chunkCoord] = chunkNbt;
                         }
-                        catch (Exception ex)
-                        {
-                            // Log parsing error but continue with other chunks
-                            Console.WriteLine($"Failed to parse chunk {x},{z}: {ex.Message}");
-                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log parsing error but continue with other chunks
+                        Console.WriteLine($"Failed to parse chunk {x},{z}: {ex.Message}");
                     }
                 }
             }
