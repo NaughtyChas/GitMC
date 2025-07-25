@@ -228,26 +228,26 @@ namespace GitMC.Utils.Mca
 
         private static byte[] CompressLZ4(byte[] data)
         {
-            // 注意：这需要 LZ4 NuGet 包
-            // 为了保持兼容性，暂时抛出异常
+            // Note: This requires the LZ4 NuGet package
+            // To maintain compatibility, throw an exception for now
             throw new NotImplementedException("LZ4 compression requires additional NuGet package");
         }
 
         private static byte[] DecompressLZ4(byte[] compressedData)
         {
-            // 注意：这需要 LZ4 NuGet 包
-            // 为了保持兼容性，暂时抛出异常
+            // Note: This requires the LZ4 NuGet package
+            // To maintain compatibility, throw an exception for now
             throw new NotImplementedException("LZ4 decompression requires additional NuGet package");
         }
     }
 
     /// <summary>
-    /// CompressionType 扩展方法
+    /// CompressionType extension methods
     /// </summary>
     public static class CompressionTypeExtensions
     {
         /// <summary>
-        /// 检查压缩类型是否指示外部文件(.mcc)
+        /// Check if the compression type indicates an external file (.mcc)
         /// </summary>
         public static bool IsExternal(this CompressionType type)
         {
@@ -255,7 +255,7 @@ namespace GitMC.Utils.Mca
         }
 
         /// <summary>
-        /// 获取基础压缩类型（不带外部标志）
+        /// Get the base compression type (without external flag)
         /// </summary>
         public static CompressionType GetBaseType(this CompressionType type)
         {
@@ -263,7 +263,7 @@ namespace GitMC.Utils.Mca
         }
 
         /// <summary>
-        /// 获取外部版本的压缩类型
+        /// Get the external version of the compression type
         /// </summary>
         public static CompressionType GetExternalType(this CompressionType type)
         {
