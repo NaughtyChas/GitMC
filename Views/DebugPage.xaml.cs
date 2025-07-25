@@ -360,6 +360,32 @@ namespace GitMC.Views
             }
         }
 
+        private async void RunRoundTripTestButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                OutputTextBox.Text = "🧪 Running NBT Round-Trip Test...\n\n";
+                
+                var test = new GitMC.Tests.NbtRoundTripTest();
+                var success = await test.TestRoundTripConversion();
+                
+                if (success)
+                {
+                    OutputTextBox.Text += "\n✅ Round-Trip Test PASSED!\n";
+                    OutputTextBox.Text += "NBT → SNBT → NBT conversion works correctly.";
+                }
+                else
+                {
+                    OutputTextBox.Text += "\n❌ Round-Trip Test FAILED!\n";
+                    OutputTextBox.Text += "There was an issue with the conversion process.";
+                }
+            }
+            catch (Exception ex)
+            {
+                OutputTextBox.Text = $"❌ Error running round-trip test: {ex.Message}\n\nStack trace:\n{ex.StackTrace}";
+            }
+        }
+
         private void ClearOutputButton_Click(object sender, RoutedEventArgs e)
         {
             OutputTextBox.Text = "Ready...Select an NBT, DAT, or Anvil (.mca/.mcc) file to start debugging.";
