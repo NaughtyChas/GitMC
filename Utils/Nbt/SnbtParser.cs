@@ -144,28 +144,46 @@ namespace GitMC.Utils.Nbt
 
         private NbtTag ReadArray(NbtTagType arraytype)
         {
-            var list = new ArrayList();
-            while (Reader.Peek() != Snbt.LIST_CLOSE)
-            {
-                var tag = ReadValue();
-                if (arraytype != tag.TagType)
-                    throw new FormatException($"Array of type {arraytype} cannot contain tags of type {tag.TagType}");
-                if (arraytype == NbtTagType.Byte)
-                    list.Add(tag.ByteValue);
-                else if (arraytype == NbtTagType.Long)
-                    list.Add(tag.LongValue);
-                else
-                    list.Add(tag.IntValue);
-                if (!ReadSeparator())
-                    break;
-            }
-            Expect(Snbt.LIST_CLOSE);
+            // Optimized: Use specialized arrays and direct value parsing to avoid creating temporary NBT objects
             if (arraytype == NbtTagType.Byte)
-                return new NbtByteArray(list.Cast<byte>().ToArray());
+            {
+                var list = new List<byte>();
+                while (Reader.Peek() != Snbt.LIST_CLOSE)
+                {
+                    var value = ReadDirectByteValue();
+                    list.Add(value);
+                    if (!ReadSeparator())
+                        break;
+                }
+                Expect(Snbt.LIST_CLOSE);
+                return new NbtByteArray(list.ToArray());
+            }
             else if (arraytype == NbtTagType.Long)
-                return new NbtLongArray(list.Cast<long>().ToArray());
-            else
-                return new NbtIntArray(list.Cast<int>().ToArray());
+            {
+                var list = new List<long>();
+                while (Reader.Peek() != Snbt.LIST_CLOSE)
+                {
+                    var value = ReadDirectLongValue();
+                    list.Add(value);
+                    if (!ReadSeparator())
+                        break;
+                }
+                Expect(Snbt.LIST_CLOSE);
+                return new NbtLongArray(list.ToArray());
+            }
+            else // Int array
+            {
+                var list = new List<int>();
+                while (Reader.Peek() != Snbt.LIST_CLOSE)
+                {
+                    var value = ReadDirectIntValue();
+                    list.Add(value);
+                    if (!ReadSeparator())
+                        break;
+                }
+                Expect(Snbt.LIST_CLOSE);
+                return new NbtIntArray(list.ToArray());
+            }
         }
 
         private NbtList ReadList()
@@ -259,6 +277,120 @@ namespace GitMC.Utils.Nbt
             if (value.Equals("false", StringComparison.OrdinalIgnoreCase))
                 return 0;
             return null;
+        }
+
+        // Optimized: Direct value parsing methods to avoid creating temporary NBT objects for arrays
+        private byte ReadDirectByteValue()
+        {
+            Reader.SkipWhitespace();
+            if (StringReader.IsQuote(Reader.Peek()))
+                throw new FormatException("Array values cannot be quoted strings");
+            
+            string str = Reader.ReadUnquotedString();
+            if (str == "")
+                throw new FormatException("Expected byte value to be non-empty");
+
+            try
+            {
+                // Handle special boolean cases
+                if (str.Equals("true", StringComparison.OrdinalIgnoreCase))
+                    return 1;
+                if (str.Equals("false", StringComparison.OrdinalIgnoreCase))
+                    return 0;
+
+                // Handle byte suffix
+                if (BYTE_PATTERN.IsMatch(str))
+                {
+                    string sub = str[0..^1];
+                    return (byte)sbyte.Parse(sub);
+                }
+                
+                // Handle plain integer that fits in byte range
+                if (INT_PATTERN.IsMatch(str))
+                {
+                    var intVal = int.Parse(str);
+                    if (intVal >= sbyte.MinValue && intVal <= sbyte.MaxValue)
+                        return (byte)(sbyte)intVal;
+                    throw new OverflowException($"Value {intVal} is out of range for byte");
+                }
+                
+                throw new FormatException($"'{str}' is not a valid byte value");
+            }
+            catch (FormatException)
+            {
+                throw;
+            }
+            catch (OverflowException)
+            {
+                throw;
+            }
+        }
+
+        private long ReadDirectLongValue()
+        {
+            Reader.SkipWhitespace();
+            if (StringReader.IsQuote(Reader.Peek()))
+                throw new FormatException("Array values cannot be quoted strings");
+            
+            string str = Reader.ReadUnquotedString();
+            if (str == "")
+                throw new FormatException("Expected long value to be non-empty");
+
+            try
+            {
+                // Handle long suffix
+                if (LONG_PATTERN.IsMatch(str))
+                {
+                    string sub = str[0..^1];
+                    return long.Parse(sub);
+                }
+                
+                // Handle plain integer
+                if (INT_PATTERN.IsMatch(str))
+                {
+                    return long.Parse(str);
+                }
+                
+                throw new FormatException($"'{str}' is not a valid long value");
+            }
+            catch (FormatException)
+            {
+                throw;
+            }
+            catch (OverflowException)
+            {
+                throw;
+            }
+        }
+
+        private int ReadDirectIntValue()
+        {
+            Reader.SkipWhitespace();
+            if (StringReader.IsQuote(Reader.Peek()))
+                throw new FormatException("Array values cannot be quoted strings");
+            
+            string str = Reader.ReadUnquotedString();
+            if (str == "")
+                throw new FormatException("Expected int value to be non-empty");
+
+            try
+            {
+                // Handle plain integer
+                if (INT_PATTERN.IsMatch(str))
+                {
+                    return int.Parse(str);
+                }
+                
+                throw new FormatException($"'{str}' is not a valid int value");
+            }
+            catch (FormatException)
+            {
+                throw;
+            }
+            catch (OverflowException)
+            {
+                throw;
+            }
         }
 
         public static sbyte ParseByte(string value)

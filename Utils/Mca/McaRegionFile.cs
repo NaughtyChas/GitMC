@@ -206,10 +206,10 @@ namespace GitMC.Utils.Mca
         {
             try
             {
-                // 使用CompressionHelper解压缩
+                // Use CompressionHelper to decompress
                 var decompressedData = CompressionHelper.Decompress(compressedData, compressionType);
 
-                // 使用fNbt解析NBT数据
+                // Use fNbt to parse NBT data
                 using var memoryStream = new MemoryStream(decompressedData);
                 var nbtFile = new NbtFile();
                 nbtFile.LoadFromStream(memoryStream, NbtCompression.None);
