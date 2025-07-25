@@ -311,69 +311,35 @@ namespace GitMC.Services
                     // Split it up using equals:
                     // but I wanna change it in the future, what a waste in storage space T_T
                     var chunkSections = snbtContent.Split(new[] { "// ==========================================" }, StringSplitOptions.RemoveEmptyEntries);
+                    // Multiple chunks - use spans and string reading to avoid massive string splitting
+                    ReadOnlySpan<char> content = snbtContent.AsSpan();
+                    const string separator = "// ==========================================";
                     
-                    foreach (var section in chunkSections)
+                    int currentPos = 0;
+                    while (currentPos < content.Length)
                     {
-                        if (section.Trim().StartsWith("// SNBT for chunk"))
+                        // Find next separator
+                        int sepIndex = content.Slice(currentPos).IndexOf(separator.AsSpan());
+                        int sectionEnd = sepIndex >= 0 ? currentPos + sepIndex : content.Length;
+                        
+                        // Extract section without allocating substring
+                        ReadOnlySpan<char> section = content.Slice(currentPos, sectionEnd - currentPos);
+                        
+                        // Process section if it contains chunk header
+                        if (section.IndexOf("// SNBT for chunk".AsSpan()) >= 0)
                         {
-                            var lines = section.Split('\n');
-                            var headerLine = lines.FirstOrDefault(l => l.Trim().StartsWith("// SNBT for chunk"));
-                            
-                            if (headerLine != null)
-                            {
-                                // Extract chunk cord
-                                var coordMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
-                                if (coordMatch.Success)
-                                {
-                                    var x = int.Parse(coordMatch.Groups[1].Value);
-                                    var z = int.Parse(coordMatch.Groups[2].Value);
-                                    var chunkCoord = new Point2i(x, z);
-                                    
-                                    // Extract SNBT content except comment line
-                                    var snbtLines = lines.Where(l => !l.Trim().StartsWith("//")).ToArray();
-                                    var chunkSnbt = string.Join("\n", snbtLines);
-                                    
-                                    if (!string.IsNullOrWhiteSpace(chunkSnbt))
-                                    {
-                                        var chunkNbt = SnbtParser.Parse(chunkSnbt, false) as NbtCompound;
-                                        if (chunkNbt != null)
-                                        {
-                                            chunks[chunkCoord] = chunkNbt;
-                                        }
-                                    }
-                                }
-                            }
+                            ProcessChunkSectionSpan(section, chunks);
                         }
+                        
+                        // Move to next section
+                        currentPos = sepIndex >= 0 ? sectionEnd + separator.Length : content.Length;
                     }
                 }
                 else if (snbtContent.Contains("// SNBT for chunk"))
                 {
-                    // Single chunk:
-                    var lines = snbtContent.Split('\n');
-                    var headerLine = lines.FirstOrDefault(l => l.Trim().StartsWith("// SNBT for chunk"));
-                    
-                    if (headerLine != null)
-                    {
-                        var coordMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
-                        if (coordMatch.Success)
-                        {
-                            var x = int.Parse(coordMatch.Groups[1].Value);
-                            var z = int.Parse(coordMatch.Groups[2].Value);
-                            var chunkCoord = new Point2i(x, z);
-                            
-                            var snbtLines = lines.Where(l => !l.Trim().StartsWith("//")).ToArray();
-                            var chunkSnbt = string.Join("\n", snbtLines);
-                            
-                            if (!string.IsNullOrWhiteSpace(chunkSnbt))
-                            {
-                                var chunkNbt = SnbtParser.Parse(chunkSnbt, false) as NbtCompound;
-                                if (chunkNbt != null)
-                                {
-                                    chunks[chunkCoord] = chunkNbt;
-                                }
-                            }
-                        }
-                    }
+                    // Single chunk - process with span to avoid String.Split
+                    ReadOnlySpan<char> content = snbtContent.AsSpan();
+                    ProcessChunkSectionSpan(content, chunks);
                 }
                 else
                 {
@@ -888,6 +854,84 @@ namespace GitMC.Services
                 if (File.Exists(tempPath))
                 {
                     File.Delete(tempPath);
+                }
+            }
+        }
+        
+        // Optimized: Process chunk section using spans to avoid string allocations
+        private void ProcessChunkSectionSpan(ReadOnlySpan<char> section, Dictionary<Point2i, NbtCompound> chunks)
+        {
+            // Find the header line with chunk coordinates
+            int lineStart = 0;
+            string? headerLine = null;
+            
+            while (lineStart < section.Length)
+            {
+                int lineEnd = section.Slice(lineStart).IndexOf('\n');
+                if (lineEnd < 0) lineEnd = section.Length - lineStart;
+                
+                ReadOnlySpan<char> line = section.Slice(lineStart, lineEnd);
+                
+                // Check if this line contains chunk header
+                if (line.IndexOf("// SNBT for chunk".AsSpan()) >= 0)
+                {
+                    headerLine = line.ToString();
+                    break;
+                }
+                
+                lineStart += lineEnd + 1;
+            }
+            
+            if (headerLine != null)
+            {
+                // Extract chunk coordinates using regex
+                var coordMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
+                if (coordMatch.Success)
+                {
+                    var x = int.Parse(coordMatch.Groups[1].Value);
+                    var z = int.Parse(coordMatch.Groups[2].Value);
+                    var chunkCoord = new Point2i(x, z);
+                    
+                    // Build SNBT content excluding comment lines
+                    var snbtBuilder = new StringBuilder();
+                    lineStart = 0;
+                    
+                    while (lineStart < section.Length)
+                    {
+                        int lineEnd = section.Slice(lineStart).IndexOf('\n');
+                        if (lineEnd < 0) lineEnd = section.Length - lineStart;
+                        
+                        ReadOnlySpan<char> line = section.Slice(lineStart, lineEnd);
+                        
+                        // Skip comment lines
+                        ReadOnlySpan<char> trimmedLine = line.Trim();
+                        if (!trimmedLine.StartsWith("//".AsSpan()))
+                        {
+                            if (snbtBuilder.Length > 0)
+                                snbtBuilder.AppendLine();
+                            snbtBuilder.Append(line);
+                        }
+                        
+                        lineStart += lineEnd + 1;
+                    }
+                    
+                    string chunkSnbt = snbtBuilder.ToString();
+                    if (!string.IsNullOrWhiteSpace(chunkSnbt))
+                    {
+                        try
+                        {
+                            var chunkNbt = SnbtParser.Parse(chunkSnbt, false) as NbtCompound;
+                            if (chunkNbt != null)
+                            {
+                                chunks[chunkCoord] = chunkNbt;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log parsing error but continue with other chunks
+                            Console.WriteLine($"Failed to parse chunk {x},{z}: {ex.Message}");
+                        }
+                    }
                 }
             }
         }

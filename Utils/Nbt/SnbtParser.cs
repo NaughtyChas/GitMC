@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -19,6 +20,10 @@ namespace GitMC.Utils.Nbt
         private static readonly Regex LONG_PATTERN = new("^([-+]?(?:0|[1-9][0-9]*)l)$", RegexOptions.IgnoreCase);
         private static readonly Regex SHORT_PATTERN = new("^([-+]?(?:0|[1-9][0-9]*)s)$", RegexOptions.IgnoreCase);
         private static readonly Regex INT_PATTERN = new("^([-+]?(?:0|[1-9][0-9]*))$");
+
+        // NBT object cache for frequently created values
+        private static readonly ConcurrentDictionary<string, NbtTag> _nbtCache = new();
+        private const int MaxNbtCacheSize = 10000;
 
         private readonly StringReader Reader;
 
@@ -217,32 +222,73 @@ namespace GitMC.Utils.Nbt
 
         private NbtTag TypeTag(string str)
         {
+            // Check cache first for performance - but we need to clone cached objects
+            // because fNbt doesn't allow the same object instance to be in multiple containers
+            if (_nbtCache.TryGetValue(str, out var cached))
+                return CloneNbtTag(cached);
+            
+            NbtTag result;
             try
             {
                 string sub = str[0..^1];
                 if (FLOAT_PATTERN.IsMatch(str))
-                    return new NbtFloat(float.Parse(sub, NumberStyles.Float, CultureInfo.InvariantCulture));
-                if (BYTE_PATTERN.IsMatch(str))
-                    return new NbtByte((byte)sbyte.Parse(sub));
-                if (LONG_PATTERN.IsMatch(str))
-                    return new NbtLong(long.Parse(sub));
-                if (SHORT_PATTERN.IsMatch(str))
-                    return new NbtShort(short.Parse(sub));
-                if (INT_PATTERN.IsMatch(str))
-                    return new NbtInt(int.Parse(str));
-                if (DOUBLE_PATTERN.IsMatch(str))
-                    return new NbtDouble(double.Parse(sub, NumberStyles.Float, CultureInfo.InvariantCulture));
-                if (DOUBLE_PATTERN_NOSUFFIX.IsMatch(str))
-                    return new NbtDouble(double.Parse(str, NumberStyles.Float, CultureInfo.InvariantCulture));
-                var special = SpecialCase(str);
-                if (special != null)
-                    return special;
+                    result = new NbtFloat(float.Parse(sub, NumberStyles.Float, CultureInfo.InvariantCulture));
+                else if (BYTE_PATTERN.IsMatch(str))
+                    result = new NbtByte((byte)sbyte.Parse(sub));
+                else if (LONG_PATTERN.IsMatch(str))
+                    result = new NbtLong(long.Parse(sub));
+                else if (SHORT_PATTERN.IsMatch(str))
+                    result = new NbtShort(short.Parse(sub));
+                else if (INT_PATTERN.IsMatch(str))
+                    result = new NbtInt(int.Parse(str));
+                else if (DOUBLE_PATTERN.IsMatch(str))
+                    result = new NbtDouble(double.Parse(sub, NumberStyles.Float, CultureInfo.InvariantCulture));
+                else if (DOUBLE_PATTERN_NOSUFFIX.IsMatch(str))
+                    result = new NbtDouble(double.Parse(str, NumberStyles.Float, CultureInfo.InvariantCulture));
+                else
+                {
+                    var special = SpecialCase(str);
+                    if (special != null)
+                        result = special;
+                    else
+                        result = new NbtString(str);
+                }
             }
             catch (FormatException)
-            { }
+            {
+                result = new NbtString(str);
+            }
             catch (OverflowException)
-            { }
-            return new NbtString(str);
+            {
+                result = new NbtString(str);
+            }
+            
+            // Cache the result if cache is not too large and string is reasonable length
+            if (_nbtCache.Count < MaxNbtCacheSize && str.Length <= 100)
+            {
+                _nbtCache.TryAdd(str, result);
+            }
+            
+            return result;
+        }
+
+        // Helper method to clone NBT tags to avoid "tag can only be added once" errors
+        private static NbtTag CloneNbtTag(NbtTag original)
+        {
+            // IMPORTANT: When cloning for list usage, we need to clear the name
+            // because fNbt lists can only contain unnamed tags
+            return original switch
+            {
+                NbtByte nbtByte => new NbtByte(nbtByte.Value),
+                NbtShort nbtShort => new NbtShort(nbtShort.Value),
+                NbtInt nbtInt => new NbtInt(nbtInt.Value),
+                NbtLong nbtLong => new NbtLong(nbtLong.Value),
+                NbtFloat nbtFloat => new NbtFloat(nbtFloat.Value),
+                NbtDouble nbtDouble => new NbtDouble(nbtDouble.Value),
+                NbtString nbtString => new NbtString(nbtString.Value),
+                // For other types, just create new instances (shouldn't happen in TypeTag context)
+                _ => original
+            };
         }
 
         private NbtTag? SpecialCase(string text)
@@ -298,11 +344,12 @@ namespace GitMC.Utils.Nbt
                 if (str.Equals("false", StringComparison.OrdinalIgnoreCase))
                     return 0;
 
-                // Handle byte suffix
+                // Handle byte suffix - avoid substring by parsing without the last character
                 if (BYTE_PATTERN.IsMatch(str))
                 {
-                    string sub = str[0..^1];
-                    return (byte)sbyte.Parse(sub);
+                    // Parse without creating substring - just parse up to length-1
+                    ReadOnlySpan<char> span = str.AsSpan(0, str.Length - 1);
+                    return (byte)sbyte.Parse(span);
                 }
                 
                 // Handle plain integer that fits in byte range
@@ -338,11 +385,11 @@ namespace GitMC.Utils.Nbt
 
             try
             {
-                // Handle long suffix
+                // Handle long suffix - avoid substring by parsing without the last character
                 if (LONG_PATTERN.IsMatch(str))
                 {
-                    string sub = str[0..^1];
-                    return long.Parse(sub);
+                    ReadOnlySpan<char> span = str.AsSpan(0, str.Length - 1);
+                    return long.Parse(span);
                 }
                 
                 // Handle plain integer
@@ -526,19 +573,24 @@ namespace GitMC.Utils.Nbt
 
         public string ReadUnquotedString()
         {
-            // Optimized: Use StringBuilder instead of String.Substring to avoid memory allocations
-            _stringBuilder.Clear();
+            int start = Cursor;
             
+            // First pass: find the end position without building strings
             while (CanRead() && UnquotedAllowed(Peek()))
             {
-                _stringBuilder.Append(Read());
+                Read();
             }
             
-            var result = _stringBuilder.ToString();
+            int length = Cursor - start;
+            if (length == 0)
+                return string.Empty;
             
-            // Optimized: Check cache for common strings to reduce allocations
-            if (result.Length <= 3) // Only cache short strings
+            // For very short strings, use cache with span instead of substring
+            if (length <= 3)
             {
+                ReadOnlySpan<char> shortSpan = String.AsSpan(start, length);
+                string result = shortSpan.ToString();
+                
                 lock (_cacheLock)
                 {
                     if (_stringCache.TryGetValue(result, out var cached))
@@ -548,11 +600,23 @@ namespace GitMC.Utils.Nbt
                     if (_stringCache.Count < 1000)
                     {
                         _stringCache[result] = result;
+                        return result;
                     }
                 }
+                return result;
             }
             
-            return result;
+            // For longer strings, use StringBuilder to minimize memory allocations
+            // instead of span.ToString() which still creates new strings
+            _stringBuilder.Clear();
+            _stringBuilder.EnsureCapacity(length);
+            
+            for (int i = start; i < start + length; i++)
+            {
+                _stringBuilder.Append(String[i]);
+            }
+            
+            return _stringBuilder.ToString();
         }
 
         public string ReadQuotedString()
