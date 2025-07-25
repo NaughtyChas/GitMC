@@ -276,8 +276,6 @@ namespace GitMC.Services
                 if (existingChunks.Count == 0)
                 {
                     // If there are no chunks, create empty file info
-                    // p.s. I am still thinking how the converted snbt file will be stored to be compact and easy to read
-                    //      may receive a refactor soon.
                     var emptyRegionInfo = new NbtCompound("EmptyRegion");
                     emptyRegionInfo.Add(new NbtString("OriginalPath", inputPath));
                     emptyRegionInfo.Add(new NbtString("RegionCoordinates", mcaFile.RegionCoordinates.ToString()));
@@ -562,7 +560,7 @@ namespace GitMC.Services
                         currentPos = sepIndex >= 0 ? sectionEnd + separator.Length : content.Length;
                     }
                 }
-                else if (snbtContent.Contains("// SNBT for chunk"))
+                else if (snbtContent.Contains("// SNBT for chunk") || snbtContent.Contains("// Chunk("))
                 {
                     // Single chunk - process with span to avoid String.Split
                     ReadOnlySpan<char> content = snbtContent.AsSpan();
@@ -574,6 +572,11 @@ namespace GitMC.Services
                     var rootNbt = SnbtParser.Parse(snbtContent, false) as NbtCompound;
                     if (rootNbt != null)
                     {
+                        // Make sure the root tag has a name
+                        if (string.IsNullOrEmpty(rootNbt.Name))
+                        {
+                            rootNbt.Name = "";
+                        }
                         // Extract cords from NBT tag
                         var xPos = rootNbt.Get<NbtInt>("xPos")?.Value ?? 0;
                         var zPos = rootNbt.Get<NbtInt>("zPos")?.Value ?? 0;
@@ -610,6 +613,9 @@ namespace GitMC.Services
                 // Add all chunks to the writer
                 foreach (var chunk in chunks)
                 {
+                    // Fix any empty lists with Unknown type before writing
+                    FixEmptyLists(chunk.Value);
+                    
                     mcaWriter.AddChunk(
                         chunk.Key, 
                         chunk.Value, 
@@ -727,7 +733,7 @@ namespace GitMC.Services
                             currentPos = sepIndex >= 0 ? sectionEnd + separator.Length : content.Length;
                         }
                     }
-                    else if (snbtContent.Contains("// SNBT for chunk"))
+                    else if (snbtContent.Contains("// SNBT for chunk") || snbtContent.Contains("// Chunk("))
                     {
                         progress?.Report("This snbt file contain single chunk，processing...");
                         // Single chunk - process with span to avoid String.Split
@@ -741,6 +747,11 @@ namespace GitMC.Services
                         var rootNbt = SnbtParser.Parse(snbtContent, false) as NbtCompound;
                         if (rootNbt != null)
                         {
+                            // Make sure NBT compound has a name
+                            if (string.IsNullOrEmpty(rootNbt.Name))
+                            {
+                                rootNbt.Name = "";
+                            }
                             // Extract cords from NBT tag
                             var xPos = rootNbt.Get<NbtInt>("xPos")?.Value ?? 0;
                             var zPos = rootNbt.Get<NbtInt>("zPos")?.Value ?? 0;
@@ -772,6 +783,9 @@ namespace GitMC.Services
                         {
                             progress?.Report($"Adding chunk：{chunkCount}/{chunks.Count}");
                         }
+                        
+                        // Fix any empty lists with Unknown type before writing
+                        FixEmptyLists(chunk.Value);
                         
                         mcaWriter.AddChunk(
                             chunk.Key, 
@@ -1364,9 +1378,9 @@ namespace GitMC.Services
                     
                     ReadOnlySpan<char> line = section.Slice(lineStart, lineEnd);
                     
-                    // Skip comment lines
+                    // Skip comment lines and empty lines
                     ReadOnlySpan<char> trimmedLine = line.Trim();
-                    if (!trimmedLine.StartsWith("//".AsSpan()))
+                    if (!trimmedLine.IsEmpty && !trimmedLine.StartsWith("//".AsSpan()))
                     {
                         if (snbtBuilder.Length > 0)
                             snbtBuilder.AppendLine();
@@ -1376,15 +1390,33 @@ namespace GitMC.Services
                     lineStart += lineEnd + 1;
                 }
                 
-                string chunkSnbt = snbtBuilder.ToString();
+                string chunkSnbt = snbtBuilder.ToString().Trim();
                 if (!string.IsNullOrWhiteSpace(chunkSnbt))
                 {
                     try
                     {
-                        var chunkNbt = SnbtParser.Parse(chunkSnbt, false) as NbtCompound;
-                        if (chunkNbt != null)
+                        // Ensure the SNBT content is valid JSON format
+                        if (chunkSnbt.StartsWith("{") && chunkSnbt.EndsWith("}"))
                         {
-                            chunks[chunkCoord] = chunkNbt;
+                            // Use failable to parse SNBT, so it won't throw an exception on trailing data
+                            var parseResult = SnbtParser.TryParse(chunkSnbt, false);
+                            if (parseResult.IsSuccess && parseResult.Result is NbtCompound chunkNbt)
+                            {
+                                // Make sure the root tag has a name
+                                if (string.IsNullOrEmpty(chunkNbt.Name))
+                                {
+                                    chunkNbt.Name = "";
+                                }
+                                chunks[chunkCoord] = chunkNbt;
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Warning: Parsed SNBT for chunk {x},{z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Warning: Invalid SNBT format for chunk {x},{z} - must start with '{{' and end with '}}'");
                         }
                     }
                     catch (Exception ex)
@@ -1392,6 +1424,10 @@ namespace GitMC.Services
                         // Log parsing error but continue with other chunks
                         Console.WriteLine($"Failed to parse chunk {x},{z}: {ex.Message}");
                     }
+                }
+                else
+                {
+                    Console.WriteLine($"Warning: Empty SNBT content for chunk {x},{z}");
                 }
             }
         }

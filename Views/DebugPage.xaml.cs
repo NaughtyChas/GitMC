@@ -385,9 +385,6 @@ namespace GitMC.Views
 
                 if (_isAnvilFile)
                 {
-                    // Test MCA file roundtrip conversion
-                    OutputTextBox.Text += "\nStep 1: Converting MCA to SNBT...\n";
-                    
                     // Use Progress<T> to report progress
                     var progress = new Progress<string>(message => 
                     {

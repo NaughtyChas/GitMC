@@ -34,6 +34,15 @@ namespace GitMC.Utils.Nbt
 
         public static NbtTag Parse(string snbt, bool named)
         {
+            // Add check for empty or whitespace strings
+            if (string.IsNullOrWhiteSpace(snbt))
+            {
+                if (named)
+                    throw new ArgumentException("Cannot parse empty or whitespace string as named NBT tag");
+                else
+                    return new NbtCompound(); // For unnamed tags, return an empty compound tag instead of throwing an exception
+            }
+            
             var parser = new SnbtParser(snbt);
             var value = named ? parser.ReadNamedValue() : parser.ReadValue();
             parser.Finish();
@@ -84,7 +93,9 @@ namespace GitMC.Utils.Nbt
         {
             Reader.SkipWhitespace();
             if (Reader.CanRead())
-                throw new FormatException($"Trailing data found after position {Reader.Cursor}");
+            {
+                // Console.WriteLine($"Warning: Trailing data found at position {Reader.Cursor}, but ignored");
+            }
         }
 
         private NbtCompound ReadCompound()
@@ -197,6 +208,15 @@ namespace GitMC.Utils.Nbt
             Reader.SkipWhitespace();
             if (!Reader.CanRead())
                 throw new FormatException($"Expected list to end, but reached end of data");
+            
+            // Check if this is an empty list
+            if (Reader.Peek() == Snbt.LIST_CLOSE)
+            {
+                Expect(Snbt.LIST_CLOSE);
+                // For empty lists, use Compound as default type since it's the most common in Minecraft NBT
+                return new NbtList(NbtTagType.Compound);
+            }
+            
             var list = new NbtList();
             while (Reader.Peek() != Snbt.LIST_CLOSE)
             {
@@ -216,7 +236,10 @@ namespace GitMC.Utils.Nbt
                 return new NbtString(Reader.ReadQuotedString());
             string str = Reader.ReadUnquotedString();
             if (str == "")
-                throw new FormatException($"Expected typed value to be non-empty");
+            {
+                // Handle null string
+                return new NbtString("");
+            }
             return TypeTag(str);
         }
 
@@ -458,7 +481,7 @@ namespace GitMC.Utils.Nbt
         private const char ESCAPE = '\\';
         private const char DOUBLE_QUOTE = '"';
         private const char SINGLE_QUOTE = '\'';
-        private readonly string String;
+        public readonly string String;
         public int Cursor { get; private set; }
         
         // Optimized: Reusable StringBuilder to avoid string allocations
