@@ -53,7 +53,7 @@ namespace GitMC.Services
                 }
                 else if (extension == ".dat" || extension == ".nbt" || extension == ".dat_old")
                 {
-                    // For NBT/DAT/DAT_OLD files, standard conversion
+                    // For nbt/dat/dat_old files, standard conversion
                     ConvertNbtFileToSnbt(inputPath, outputPath);
                 }
                 else
@@ -64,6 +64,49 @@ namespace GitMC.Services
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Error converting {inputPath} to SNBT: {ex.Message}", ex);
+            }
+        }
+        
+        /// <summary>
+        /// To prevent UI blocking issue we use this async method of file conversion:
+        /// </summary>
+        public async Task ConvertToSnbtAsync(string inputPath, string outputPath, IProgress<string>? progress = null)
+        {
+            try
+            {
+                progress?.Report($"Checking file: {Path.GetFileName(inputPath)}...");
+                if (!File.Exists(inputPath))
+                {
+                    throw new FileNotFoundException($"File does not exist: {inputPath}");
+                }
+
+                // Check file type and their actions
+                var extension = Path.GetExtension(inputPath).ToLowerInvariant();
+                
+                if (extension == ".mca" || extension == ".mcc")
+                {
+                    // Special handler for region files
+                    progress?.Report("Translating mca to snbt...");
+                    // Use await instead of .Wait() to prevent blocking
+                    await ConvertRegionFileToSnbtAsync(inputPath, outputPath, progress);
+                }
+                else if (extension == ".dat" || extension == ".nbt" || extension == ".dat_old")
+                {
+                    // Standatd nbt/dat conversion
+                    progress?.Report("Translating nbt/dat file to snbt...");
+                    await Task.Run(() => ConvertNbtFileToSnbt(inputPath, outputPath));
+                }
+                else
+                {
+                    throw new NotSupportedException($"Extension is not supported: {extension}");
+                }
+                
+                progress?.Report($"Conversion complete! Saved to {Path.GetFileName(outputPath)}");
+            }
+            catch (Exception ex)
+            {
+                progress?.Report($"Conversion failed: {ex.Message}");
+                throw new InvalidOperationException($"Converting {inputPath} to snbt failed: {ex.Message}", ex);
             }
         }
 
@@ -97,6 +140,47 @@ namespace GitMC.Services
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Error converting {inputPath} from SNBT: {ex.Message}", ex);
+            }
+        }
+        
+        /// <summary>
+        /// Async snbt conversion method with progress returning
+        /// </summary>
+        public async Task ConvertFromSnbtAsync(string inputPath, string outputPath, IProgress<string>? progress = null)
+        {
+            try
+            {
+                progress?.Report($"Reading snbt files: {Path.GetFileName(inputPath)}...");
+                if (!File.Exists(inputPath))
+                {
+                    throw new FileNotFoundException($"snbt file does not exist: {inputPath}");
+                }
+
+                // Check target file type
+                var extension = Path.GetExtension(outputPath).ToLowerInvariant();
+                
+                if (extension == ".mca" || extension == ".mcc")
+                {
+                    progress?.Report("Converting to mca fron snbt...");
+                    await ConvertSnbtToRegionFileAsync(inputPath, outputPath, progress);
+                }
+                else if (extension == ".dat" || extension == ".nbt" || extension == ".dat_old")
+                {
+                    // Standard nbt/dat conversion
+                    progress?.Report("Converting snbt to nbt...");
+                    await Task.Run(() => ConvertSnbtToNbtFile(inputPath, outputPath));
+                }
+                else
+                {
+                    throw new NotSupportedException($"File extension not supported: {extension}");
+                }
+                
+                progress?.Report($"Conversion complete! Saved to {Path.GetFileName(outputPath)}");
+            }
+            catch (Exception ex)
+            {
+                progress?.Report($"Error in conversion: {ex.Message}");
+                throw new InvalidOperationException($"Error when converting {inputPath} to target file : {ex.Message}", ex);
             }
         }
 
@@ -295,8 +379,151 @@ namespace GitMC.Services
                 }
             }
         }
+        
+        /// <summary>
+        /// Async translate region file to snbt
+        /// </summary>
+        private async Task ConvertRegionFileToSnbtAsync(string inputPath, string outputPath, IProgress<string>? progress = null)
+        {
+            try
+            {
+                progress?.Report($"Loading region file: {Path.GetFileName(inputPath)}...");
+                
+                // Parse mca file using McaRegionFile
+                using var mcaFile = new McaRegionFile(inputPath);
+                await mcaFile.LoadAsync();
 
-        private void ConvertSnbtToRegionFile(string inputPath, string outputPath)
+                // Get current chunk
+                progress?.Report("Scanning chunk...");
+                var existingChunks = mcaFile.GetExistingChunks();
+
+                if (existingChunks.Count == 0)
+                {
+                    progress?.Report("No chunk is found，creating empty region info...");
+                    // ... and do stuff just like the text said ↑
+                    var emptyRegionInfo = new NbtCompound("EmptyRegion");
+                    emptyRegionInfo.Add(new NbtString("OriginalPath", inputPath));
+                    emptyRegionInfo.Add(new NbtString("RegionCoordinates", mcaFile.RegionCoordinates.ToString()));
+                    emptyRegionInfo.Add(new NbtString("Note", "This region file contains no chunks"));
+
+                    var emptySnbtContent = emptyRegionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
+
+                    // Write file using stream
+                    using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    {
+                        await writer.WriteAsync(emptySnbtContent);
+                        await writer.FlushAsync();
+                        await fs.FlushAsync();
+                    }
+
+                    progress?.Report("Created empty region info");
+                    return;
+                }
+
+                var snbtContent = new StringBuilder();
+                progress?.Report($"Found {existingChunks.Count} chunks，converting...");
+
+                // Directly write to nbt if there is only one chunk
+                if (existingChunks.Count == 1)
+                {
+                    var chunkCoord = existingChunks[0];
+                    progress?.Report($"Converting single chunk ({chunkCoord.X}, {chunkCoord.Z})...");
+                    var chunkData = await mcaFile.GetChunkAsync(chunkCoord);
+
+                    if (chunkData?.NbtData != null)
+                    {
+                        snbtContent.AppendLine($"// SNBT for chunk {chunkCoord.X}, {chunkCoord.Z}:");
+                        snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
+                    }
+                }
+                else
+                {
+                    // Create multiple snbt entries when there are multiple chunks
+                    bool isFirst = true;
+                    int processedCount = 0;
+                    
+                    foreach (var chunkCoord in existingChunks)
+                    {
+                        try
+                        {
+                            // Report progress every 10 chunks
+                            if (processedCount % 10 == 0 || processedCount == existingChunks.Count - 1)
+                            {
+                                progress?.Report($"Converting chunk {processedCount + 1}/{existingChunks.Count}...");
+                            }
+                            
+                            var chunkData = await mcaFile.GetChunkAsync(chunkCoord);
+                            if (chunkData?.NbtData != null)
+                            {
+                                if (!isFirst)
+                                {
+                                    snbtContent.AppendLine("// ==========================================");
+                                }
+
+                                snbtContent.AppendLine($"// SNBT for chunk {chunkCoord.X}, {chunkCoord.Z}:");
+                                snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
+                                isFirst = false;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            if (!isFirst)
+                            {
+                                snbtContent.AppendLine();
+                                snbtContent.AppendLine("// ==========================================");
+                                snbtContent.AppendLine();
+                            }
+
+                            snbtContent.AppendLine($"// ERROR in chunk {chunkCoord.X}, {chunkCoord.Z}: {ex.Message}");
+                            isFirst = false;
+                        }
+                        
+                        processedCount++;
+                    }
+                }
+
+                progress?.Report("Saving snbt files...");
+                using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    {
+                        await writer.WriteAsync(snbtContent.ToString());
+                        await writer.FlushAsync();
+                        await fs.FlushAsync();
+                    }
+                }
+                
+                progress?.Report($"snbt conversion complete! Converted {existingChunks.Count} chunks");
+            }
+            catch (Exception ex)
+            {
+                progress?.Report($"Error when translating region file: {ex.Message}");
+                
+                // If mca parsing error occur, use error message 
+                var errorInfo = new NbtCompound("MCAParsingError");
+                errorInfo.Add(new NbtString("OriginalPath", inputPath));
+                errorInfo.Add(new NbtLong("FileSize", new FileInfo(inputPath).Length));
+                errorInfo.Add(new NbtString("ConversionTime", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")));
+                errorInfo.Add(new NbtString("Error", ex.Message));
+                errorInfo.Add(new NbtString("ErrorType", ex.GetType().Name));
+                errorInfo.Add(new NbtString("Note", "MCA parsing failed - this indicates a compression or parsing issue"));
+
+                var errorSnbtContent = errorInfo.ToSnbt(SnbtOptions.DefaultExpanded);
+                using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    {
+                        await writer.WriteAsync(errorSnbtContent);
+                        await writer.FlushAsync();
+                    }
+                }
+                
+                throw;
+            }
+        }
+
+        public void ConvertSnbtToRegionFile(string inputPath, string outputPath)
         {
             try
             {
@@ -359,15 +586,35 @@ namespace GitMC.Services
                     throw new InvalidOperationException("No valid chunk data found in SNBT file");
                 }
                 
-                // Reconstruction of MCA files will be implemented here
+                // Extract region coordinates from output file path
+                var regionCoords = ExtractRegionCoordinatesFromMcaPath(outputPath);
                 
-                // Placeholder for now:
+                // Create MCA writer
+                using var mcaWriter = new McaRegionWriter(outputPath, regionCoords);
+                
+                // Add all chunks to the writer
+                foreach (var chunk in chunks)
+                {
+                    mcaWriter.AddChunk(
+                        chunk.Key, 
+                        chunk.Value, 
+                        CompressionType.Zlib, // Default to Zlib compression
+                        (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                    );
+                }
+                
+                // Write the MCA file
+                mcaWriter.WriteAsync();
+                
+                // Also create reconstruction info for debugging
                 var reconstructionInfo = new NbtCompound("McaReconstruction");
                 reconstructionInfo.Add(new NbtString("OriginalSnbtPath", inputPath));
                 reconstructionInfo.Add(new NbtString("TargetMcaPath", outputPath));
                 reconstructionInfo.Add(new NbtInt("ChunksFound", chunks.Count));
                 reconstructionInfo.Add(new NbtString("ConversionTime", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")));
-                reconstructionInfo.Add(new NbtString("Note", "MCA reconstruction from SNBT - this is a complex operation that requires specialized MCA writing logic"));
+                reconstructionInfo.Add(new NbtString("RegionX", regionCoords.X.ToString()));
+                reconstructionInfo.Add(new NbtString("RegionZ", regionCoords.Z.ToString()));
+                reconstructionInfo.Add(new NbtString("Status", "Successfully converted to MCA"));
                 
                 var chunksList = new NbtList("Chunks", NbtTagType.Compound);
                 foreach (var chunk in chunks)
@@ -375,14 +622,22 @@ namespace GitMC.Services
                     var chunkInfo = new NbtCompound();
                     chunkInfo.Add(new NbtInt("X", chunk.Key.X));
                     chunkInfo.Add(new NbtInt("Z", chunk.Key.Z));
-                    chunkInfo.Add(new NbtString("Status", "Parsed successfully"));
+                    chunkInfo.Add(new NbtString("Status", "Written to MCA"));
+                    
+                    // Add some basic chunk validation info
+                    var xPos = chunk.Value.Get<NbtInt>("xPos")?.Value ?? -999;
+                    var zPos = chunk.Value.Get<NbtInt>("zPos")?.Value ?? -999;
+                    chunkInfo.Add(new NbtString("ValidationStatus", 
+                        (xPos == chunk.Key.X && zPos == chunk.Key.Z) ? "Coordinates match" : "Coordinate mismatch"));
+                    
                     chunksList.Add(chunkInfo);
                 }
                 reconstructionInfo.Add(chunksList);
                 
-                // Save as *.reconstruct.snbt for now
+                // Save reconstruction info
                 var infoSnbt = reconstructionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
-                using (var fs = new FileStream(outputPath + ".reconstruction.snbt", FileMode.Create, FileAccess.Write, FileShare.None))
+                var infoPath = Path.ChangeExtension(outputPath, ".reconstruction.snbt");
+                using (var fs = new FileStream(infoPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
                     using (var writer = new StreamWriter(fs, Encoding.UTF8))
                     {
@@ -390,10 +645,6 @@ namespace GitMC.Services
                         writer.Flush();
                     }
                 }
-
-                // Create a 8KB sized placeholder MCA file
-                var minimalMcaData = new byte[8192];
-                File.WriteAllBytes(outputPath, minimalMcaData);
             }
             catch (Exception ex)
             {
@@ -411,7 +662,179 @@ namespace GitMC.Services
                 // Create an empty MCA file
                 var emptyMcaData = new byte[8192];
                 File.WriteAllBytes(outputPath, emptyMcaData);
+                
+                // Gonna re-throw exception to let the exception be successfully intercepted by the caller
+                throw;
             }
+        }
+        
+        /// <summary>
+        /// Async snbt -> region
+        /// </summary>
+        public async Task ConvertSnbtToRegionFileAsync(string inputPath, string outputPath, IProgress<string>? progress = null)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    progress?.Report($"Reading snbt file {Path.GetFileName(inputPath)}...");
+                    var snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
+                    
+                    progress?.Report("Parsing snbt content...");
+                    // Parse SNBT with multiple chunks
+                    var chunks = new Dictionary<Point2i, NbtCompound>();
+                    
+                    // Check if single or multiple chunks
+                    if (snbtContent.Contains("// SNBT for chunk") && snbtContent.Contains("// =========================================="))
+                    {
+                        progress?.Report("This snbt file contain multiple chunks, processing...");
+                        // Multiple chunks - use spans and string reading to avoid massive string splitting
+                        ReadOnlySpan<char> content = snbtContent.AsSpan();
+                        const string separator = "// ==========================================";
+                        
+                        int currentPos = 0;
+                        while (currentPos < content.Length)
+                        {
+                            // Find next separator
+                            int sepIndex = content.Slice(currentPos).IndexOf(separator.AsSpan());
+                            int sectionEnd = sepIndex >= 0 ? currentPos + sepIndex : content.Length;
+                            
+                            // Extract section without allocating substring
+                            ReadOnlySpan<char> section = content.Slice(currentPos, sectionEnd - currentPos);
+                            
+                            // Process section if it contains chunk header
+                            if (section.IndexOf("// SNBT for chunk".AsSpan()) >= 0)
+                            {
+                                ProcessChunkSectionSpan(section, chunks);
+                            }
+                            
+                            // Move to next section
+                            currentPos = sepIndex >= 0 ? sectionEnd + separator.Length : content.Length;
+                        }
+                    }
+                    else if (snbtContent.Contains("// SNBT for chunk"))
+                    {
+                        progress?.Report("This snbt file contain single chunk，processing...");
+                        // Single chunk - process with span to avoid String.Split
+                        ReadOnlySpan<char> content = snbtContent.AsSpan();
+                        ProcessChunkSectionSpan(content, chunks);
+                    }
+                    else
+                    {
+                        progress?.Report("Expecting a standard format，read as a single chunk file instead...");
+                        // If not in standard format, try to read entire info as single chunk
+                        var rootNbt = SnbtParser.Parse(snbtContent, false) as NbtCompound;
+                        if (rootNbt != null)
+                        {
+                            // Extract cords from NBT tag
+                            var xPos = rootNbt.Get<NbtInt>("xPos")?.Value ?? 0;
+                            var zPos = rootNbt.Get<NbtInt>("zPos")?.Value ?? 0;
+                            chunks[new Point2i(xPos, zPos)] = rootNbt;
+                        }
+                    }
+                    
+                    if (chunks.Count == 0)
+                    {
+                        throw new InvalidOperationException("No valid chunk data found in SNBT file");
+                    }
+                    
+                    progress?.Report($"Parsing success! Found {chunks.Count} chunks");
+                    
+                    // Extract region coordinates from output file path
+                    var regionCoords = ExtractRegionCoordinatesFromMcaPath(outputPath);
+                    
+                    progress?.Report($"Creating region file：r.{regionCoords.X}.{regionCoords.Z}.mca...");
+                    
+                    // Create MCA writer
+                    using var mcaWriter = new McaRegionWriter(outputPath, regionCoords);
+                    
+                    // Add all chunks to the writer
+                    int chunkCount = 0;
+                    foreach (var chunk in chunks)
+                    {
+                        chunkCount++;
+                        if (chunkCount % 10 == 0 || chunkCount == chunks.Count)
+                        {
+                            progress?.Report($"Adding chunk：{chunkCount}/{chunks.Count}");
+                        }
+                        
+                        mcaWriter.AddChunk(
+                            chunk.Key, 
+                            chunk.Value, 
+                            CompressionType.Zlib, // Default to Zlib compression
+                            (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                        );
+                    }
+                    
+                    // Write the MCA file
+                    progress?.Report("Writing into mca file...");
+                    mcaWriter.WriteAsync();
+                    
+                    // Also create reconstruction info for debugging
+                    progress?.Report("Generating reconstruction file info...");
+                    var reconstructionInfo = new NbtCompound("McaReconstruction");
+                    reconstructionInfo.Add(new NbtString("OriginalSnbtPath", inputPath));
+                    reconstructionInfo.Add(new NbtString("TargetMcaPath", outputPath));
+                    reconstructionInfo.Add(new NbtInt("ChunksFound", chunks.Count));
+                    reconstructionInfo.Add(new NbtString("ConversionTime", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")));
+                    reconstructionInfo.Add(new NbtString("RegionX", regionCoords.X.ToString()));
+                    reconstructionInfo.Add(new NbtString("RegionZ", regionCoords.Z.ToString()));
+                    reconstructionInfo.Add(new NbtString("Status", "Successfully converted to MCA"));
+                    
+                    var chunksList = new NbtList("Chunks", NbtTagType.Compound);
+                    foreach (var chunk in chunks)
+                    {
+                        var chunkInfo = new NbtCompound();
+                        chunkInfo.Add(new NbtInt("X", chunk.Key.X));
+                        chunkInfo.Add(new NbtInt("Z", chunk.Key.Z));
+                        chunkInfo.Add(new NbtString("Status", "Written to MCA"));
+                        
+                        // Add some basic chunk validation info
+                        var xPos = chunk.Value.Get<NbtInt>("xPos")?.Value ?? -999;
+                        var zPos = chunk.Value.Get<NbtInt>("zPos")?.Value ?? -999;
+                        chunkInfo.Add(new NbtString("ValidationStatus", 
+                            (xPos == chunk.Key.X && zPos == chunk.Key.Z) ? "Coordinates match" : "Coordinate mismatch"));
+                        
+                        chunksList.Add(chunkInfo);
+                    }
+                    reconstructionInfo.Add(chunksList);
+                    
+                    // Save reconstruction info
+                    var infoSnbt = reconstructionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
+                    var infoPath = Path.ChangeExtension(outputPath, ".reconstruction.snbt");
+                    using (var fs = new FileStream(infoPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                        {
+                            writer.Write(infoSnbt);
+                            writer.Flush();
+                        }
+                    }
+                    
+                    progress?.Report($"Conversion complete! mca file has been successfully created: {Path.GetFileName(outputPath)}");
+                }
+                catch (Exception ex)
+                {
+                    progress?.Report($"Conversion failed: {ex.Message}");
+                    
+                    // Create error log if conversion fails
+                    var errorInfo = $"// Error converting SNBT to MCA: {ex.Message}\n// Original file: {inputPath}\n// Target file: {outputPath}\n// Time: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}";
+                    using (var fs = new FileStream(outputPath + ".error.txt", FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                        {
+                            writer.Write(errorInfo);
+                            writer.Flush();
+                        }
+                    }
+
+                    // Create an empty MCA file
+                    var emptyMcaData = new byte[8192];
+                    File.WriteAllBytes(outputPath, emptyMcaData);
+                    
+                    throw;
+                }
+            });
         }
 
         public async Task ConvertSnbtToNbtAsync(string snbtContent, string outputPath)
@@ -934,6 +1357,29 @@ namespace GitMC.Services
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Extract region coordinates from MCA file path
+        /// Example: "r.2.-1.mca" -> Point2i(2, -1)
+        /// </summary>
+        private static Point2i ExtractRegionCoordinatesFromMcaPath(string filePath)
+        {
+            var fileName = Path.GetFileNameWithoutExtension(filePath);
+            if (fileName.StartsWith("r."))
+            {
+                var parts = fileName.Split('.');
+                if (parts.Length >= 3 && 
+                    int.TryParse(parts[1], out var x) && 
+                    int.TryParse(parts[2], out var z))
+                {
+                    return new Point2i(x, z);
+                }
+            }
+            
+            // If we can't extract from filename, try to infer from chunks
+            // For now, default to region 0,0
+            return new Point2i(0, 0);
         }
     }
 }

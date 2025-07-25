@@ -6,6 +6,7 @@ using System.Linq;
 using Windows.Storage.Pickers;
 using Windows.Storage;
 using GitMC.Services;
+using GitMC.Tests;
 using System.Threading.Tasks;
 
 namespace GitMC.Views
@@ -60,6 +61,8 @@ namespace GitMC.Views
                         ShowRegionInfoButton.IsEnabled = true;
                         ListChunksButton.IsEnabled = true;
                         ExtractChunkButton.IsEnabled = true;
+                        ConvertMcaToSnbtButton.IsEnabled = true;
+                        ConvertSnbtToMcaButton.IsEnabled = true;
                         
                         // Disable NBT buttons for .mca files (but not .mcc)
                         var enableNbtActions = extension == ".mcc";
@@ -362,27 +365,109 @@ namespace GitMC.Views
 
         private async void RunRoundTripTestButton_Click(object sender, RoutedEventArgs e)
         {
+            if (string.IsNullOrEmpty(_selectedFilePath))
+            {
+                OutputTextBox.Text = "Please select a file first to run the round-trip test.";
+                return;
+            }
+
             try
             {
-                OutputTextBox.Text = "🧪 Running NBT Round-Trip Test...\n\n";
-                
-                var test = new GitMC.Tests.NbtRoundTripTest();
-                var success = await test.TestRoundTripConversion();
-                
-                if (success)
+                // Store reference to button to prevent multiple clicks
+                var button = sender as Button;
+                if (button != null)
                 {
-                    OutputTextBox.Text += "\n✅ Round-Trip Test PASSED!\n";
-                    OutputTextBox.Text += "NBT → SNBT → NBT conversion works correctly.";
+                    button.IsEnabled = false;
+                }
+                
+                OutputTextBox.Text = $"🧪 Running Round-Trip Test on selected file...\n\n";
+                OutputTextBox.Text += $"File: {Path.GetFileName(_selectedFilePath)}\n";
+
+                if (_isAnvilFile)
+                {
+                    // Test MCA file roundtrip conversion
+                    OutputTextBox.Text += "\nStep 1: Converting MCA to SNBT...\n";
+                    
+                    // Use Progress<T> to report progress
+                    var progress = new Progress<string>(message => 
+                    {
+                        // Append to existing text without clearing
+                        OutputTextBox.Text += $"{message}\n";
+                    });
+                    
+                    // Create test instance and run with progress reporting
+                    var test = new RoundtripConversionTest(progress);
+                    var success = await Task.Run(async () => 
+                    {
+                        try
+                        {
+                            return await test.TestRoundtripConversion(_selectedFilePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
+                                Windows.UI.Core.CoreDispatcherPriority.Normal, 
+                                () => OutputTextBox.Text += $"\nError during test: {ex.Message}\n");
+                            return false;
+                        }
+                    });
+                    
+                    if (success)
+                    {
+                        OutputTextBox.Text += "\n✅ MCA Round-Trip Test PASSED!\n";
+                        OutputTextBox.Text += "MCA → SNBT → MCA conversion works correctly for the selected file.";
+                    }
+                    else
+                    {
+                        OutputTextBox.Text += "\n❌ MCA Round-Trip Test FAILED!\n";
+                        OutputTextBox.Text += "There was an issue with the MCA conversion process.";
+                    }
                 }
                 else
                 {
-                    OutputTextBox.Text += "\n❌ Round-Trip Test FAILED!\n";
-                    OutputTextBox.Text += "There was an issue with the conversion process.";
+                    // Test NBT file roundtrip conversion
+                    OutputTextBox.Text += "\nRunning NBT round-trip test...\n";
+                    
+                    var test = new GitMC.Tests.NbtRoundTripTest();
+                    var success = await Task.Run(async () => 
+                    {
+                        try
+                        {
+                            return await test.TestRoundTripConversion();
+                        }
+                        catch (Exception ex)
+                        {
+                            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
+                                Windows.UI.Core.CoreDispatcherPriority.Normal, 
+                                () => OutputTextBox.Text += $"\nError during test: {ex.Message}\n");
+                            return false;
+                        }
+                    });
+                    
+                    if (success)
+                    {
+                        OutputTextBox.Text += "\n✅ NBT Round-Trip Test PASSED!\n";
+                        OutputTextBox.Text += "NBT → SNBT → NBT conversion works correctly.";
+                    }
+                    else
+                    {
+                        OutputTextBox.Text += "\n❌ NBT Round-Trip Test FAILED!\n";
+                        OutputTextBox.Text += "There was an issue with the NBT conversion process.";
+                    }
                 }
             }
             catch (Exception ex)
             {
                 OutputTextBox.Text = $"❌ Error running round-trip test: {ex.Message}\n\nStack trace:\n{ex.StackTrace}";
+            }
+            finally
+            {
+                // Re-enable button whether successful or not
+                var button = sender as Button;
+                if (button != null)
+                {
+                    button.IsEnabled = true;
+                }
             }
         }
 
@@ -391,6 +476,130 @@ namespace GitMC.Views
             OutputTextBox.Text = "Ready...Select an NBT, DAT, or Anvil (.mca/.mcc) file to start debugging.";
             _currentSnbtContent = null;
             ConvertToNbtButton.IsEnabled = false;
+        }
+
+        private async void ConvertMcaToSnbtButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_selectedFilePath))
+            {
+                OutputTextBox.Text = "Please select an MCA file first.";
+                return;
+            }
+
+            try
+            {
+                // Disable button to prevent multiple clicks
+                ConvertMcaToSnbtButton.IsEnabled = false;
+                
+                // Show initial status
+                OutputTextBox.Text = "Preparing to convert MCA file to SNBT...";
+
+                var picker = new FileSavePicker();
+                picker.FileTypeChoices.Add("SNBT File", new[] { ".snbt" });
+                picker.SuggestedFileName = Path.GetFileNameWithoutExtension(_selectedFilePath);
+
+                // Get current window handle for the picker
+                var window = App.MainWindow;
+                var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
+
+                var file = await picker.PickSaveFileAsync();
+                if (file != null)
+                {
+                    // Create progress reporter to update UI
+                    var progress = new Progress<string>(message => 
+                    {
+                        OutputTextBox.Text = $"Conversion in progress...\n\n{message}";
+                    });
+                    
+                    // Execute conversion asynchronously
+                    await _nbtService.ConvertToSnbtAsync(_selectedFilePath, file.Path, progress);
+
+                    // Update UI after conversion
+                    var fileInfo = new FileInfo(file.Path);
+                    OutputTextBox.Text = $"✅ Success!\n\n";
+                    OutputTextBox.Text += $"MCA file converted to SNBT format\n";
+                    OutputTextBox.Text += $"Input: {Path.GetFileName(_selectedFilePath)}\n";
+                    OutputTextBox.Text += $"Output: {file.Path}\n";
+                    OutputTextBox.Text += $"SNBT file size: {fileInfo.Length / 1024.0:F1} KB\n\n";
+                    OutputTextBox.Text += $"The SNBT file contains all chunk data from the MCA region file.";
+                }
+            }
+            catch (Exception ex)
+            {
+                OutputTextBox.Text = $"❌ Error converting MCA to SNBT: {ex.Message}\n\n{ex.StackTrace}";
+            }
+            finally
+            {
+                // Re-enable button whether successful or not
+                ConvertMcaToSnbtButton.IsEnabled = true;
+            }
+        }
+
+        private async void ConvertSnbtToMcaButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Disable button to prevent multiple clicks
+                ConvertSnbtToMcaButton.IsEnabled = false;
+                
+                // First, let user select an SNBT file
+                var openPicker = new FileOpenPicker();
+                openPicker.FileTypeFilter.Add(".snbt");
+                openPicker.FileTypeFilter.Add("*");
+
+                // Get current window handle for the picker
+                var window = App.MainWindow;
+                var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                WinRT.Interop.InitializeWithWindow.Initialize(openPicker, hWnd);
+
+                var snbtFile = await openPicker.PickSingleFileAsync();
+                if (snbtFile == null)
+                {
+                    OutputTextBox.Text = "No SNBT file selected.";
+                    return;
+                }
+
+                OutputTextBox.Text = "Converting SNBT file to MCA...";
+
+                // Now let user choose where to save the MCA file
+                var savePicker = new FileSavePicker();
+                savePicker.FileTypeChoices.Add("MCA File", new[] { ".mca" });
+                savePicker.SuggestedFileName = Path.GetFileNameWithoutExtension(snbtFile.Path);
+
+                WinRT.Interop.InitializeWithWindow.Initialize(savePicker, hWnd);
+
+                var mcaFile = await savePicker.PickSaveFileAsync();
+                if (mcaFile != null)
+                {
+                    // Create progress reporter to update UI
+                    var progress = new Progress<string>(message => 
+                    {
+                        OutputTextBox.Text = $"Conversion in progress...\n\n{message}";
+                    });
+                    
+                    // Execute conversion asynchronously
+                    await _nbtService.ConvertFromSnbtAsync(snbtFile.Path, mcaFile.Path, progress);
+
+                    // Update UI after conversion
+                    var fileInfo = new FileInfo(mcaFile.Path);
+                    OutputTextBox.Text = $"✅ Success!\n\n";
+                    OutputTextBox.Text += $"SNBT file converted to MCA format\n";
+                    OutputTextBox.Text += $"Input: {snbtFile.Path}\n";
+                    OutputTextBox.Text += $"Output: {mcaFile.Path}\n";
+                    OutputTextBox.Text += $"MCA file size: {fileInfo.Length / 1024.0:F1} KB\n\n";
+                    OutputTextBox.Text += $"The MCA file has been reconstructed from the SNBT data.";
+                }
+            }
+            catch (Exception ex)
+            {
+                OutputTextBox.Text = $"❌ Error converting SNBT to MCA: {ex.Message}\n\n{ex.StackTrace}";
+            }
+            finally
+            {
+                // Re-enable button whether successful or not
+                ConvertSnbtToMcaButton.IsEnabled = true;
+            }
         }
     }
 }
