@@ -91,7 +91,6 @@ namespace GitMC.Utils.Nbt
 
         private void Finish()
         {
-            Reader.SkipWhitespace();
             if (Reader.CanRead())
             {
                 // Console.WriteLine($"Warning: Trailing data found at position {Reader.Cursor}, but ignored");
