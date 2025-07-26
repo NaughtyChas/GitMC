@@ -531,6 +531,7 @@ namespace GitMC.Services
                 var chunks = new Dictionary<Point2i, NbtCompound>();
                 
                 // Check if single or multiple chunks
+                // First, check for old format with separators
                 if (snbtContent.Contains("// SNBT for chunk") && snbtContent.Contains("// =========================================="))
                 {
                     // Split it up using equals:
@@ -562,9 +563,29 @@ namespace GitMC.Services
                 }
                 else if (snbtContent.Contains("// SNBT for chunk") || snbtContent.Contains("// Chunk("))
                 {
-                    // Single chunk - process with span to avoid String.Split
-                    ReadOnlySpan<char> content = snbtContent.AsSpan();
-                    ProcessChunkSectionSpan(content, chunks);
+                    // Check if this is multiple chunks without separators (new format)
+                    // Count the number of chunk headers to determine if it's multi-chunk
+                    int chunkCount = 0;
+                    var lines = snbtContent.Split('\n');
+                    foreach (var line in lines)
+                    {
+                        if (line.Contains("// SNBT for chunk") || line.Contains("// Chunk("))
+                        {
+                            chunkCount++;
+                        }
+                    }
+                    
+                    if (chunkCount > 1)
+                    {
+                        // Multiple chunks without separators - parse each chunk section
+                        ProcessMultipleChunksWithoutSeparator(snbtContent, chunks);
+                    }
+                    else
+                    {
+                        // Single chunk - process with span to avoid String.Split
+                        ReadOnlySpan<char> content = snbtContent.AsSpan();
+                        ProcessChunkSectionSpan(content, chunks);
+                    }
                 }
                 else
                 {
@@ -735,10 +756,31 @@ namespace GitMC.Services
                     }
                     else if (snbtContent.Contains("// SNBT for chunk") || snbtContent.Contains("// Chunk("))
                     {
-                        progress?.Report("This snbt file contain single chunk，processing...");
-                        // Single chunk - process with span to avoid String.Split
-                        ReadOnlySpan<char> content = snbtContent.AsSpan();
-                        ProcessChunkSectionSpan(content, chunks);
+                        // Check if this is multiple chunks without separators (new format)
+                        // Count the number of chunk headers to determine if it's multi-chunk
+                        int totalChunks = 0;
+                        var lines = snbtContent.Split('\n');
+                        foreach (var line in lines)
+                        {
+                            if (line.Contains("// SNBT for chunk") || line.Contains("// Chunk("))
+                            {
+                                totalChunks++;
+                            }
+                        }
+                        
+                        if (totalChunks > 1)
+                        {
+                            progress?.Report($"This snbt file contains {totalChunks} chunks, processing...");
+                            // Multiple chunks without separators - parse each chunk section
+                            ProcessMultipleChunksWithoutSeparator(snbtContent, chunks);
+                        }
+                        else
+                        {
+                            progress?.Report("This snbt file contain single chunk，processing...");
+                            // Single chunk - process with span to avoid String.Split
+                            ReadOnlySpan<char> content = snbtContent.AsSpan();
+                            ProcessChunkSectionSpan(content, chunks);
+                        }
                     }
                     else
                     {
@@ -1429,6 +1471,139 @@ namespace GitMC.Services
                 {
                     Console.WriteLine($"Warning: Empty SNBT content for chunk {x},{z}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Process multiple chunks without separators - used for new SNBT format
+        /// where chunks are simply placed one after another with "// Chunk(X,Z)" headers
+        /// </summary>
+        private void ProcessMultipleChunksWithoutSeparator(string snbtContent, Dictionary<Point2i, NbtCompound> chunks)
+        {
+            var lines = snbtContent.Split('\n');
+            var currentChunkLines = new List<string>();
+            Point2i? currentChunkCoord = null;
+            
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                
+                // Check if this is a chunk header line
+                if (line.Contains("// SNBT for chunk") || line.Contains("// Chunk("))
+                {
+                    // If we have a previous chunk, process it
+                    if (currentChunkCoord.HasValue && currentChunkLines.Count > 0)
+                    {
+                        ProcessChunkFromLines(currentChunkLines, currentChunkCoord.Value, chunks);
+                    }
+                    
+                    // Start a new chunk
+                    currentChunkCoord = ExtractChunkCoordinatesFromHeader(line);
+                    currentChunkLines.Clear();
+                }
+                else
+                {
+                    // Add this line to current chunk (if we have one)
+                    if (currentChunkCoord.HasValue)
+                    {
+                        currentChunkLines.Add(line);
+                    }
+                }
+            }
+            
+            // Process the last chunk
+            if (currentChunkCoord.HasValue && currentChunkLines.Count > 0)
+            {
+                ProcessChunkFromLines(currentChunkLines, currentChunkCoord.Value, chunks);
+            }
+        }
+        
+        /// <summary>
+        /// Extract chunk coordinates from header line
+        /// Supports both "// SNBT for chunk X, Z:" and "// Chunk(X,Z)" formats
+        /// </summary>
+        private Point2i? ExtractChunkCoordinatesFromHeader(string headerLine)
+        {
+            // Try old format: "// SNBT for chunk X, Z:"
+            var oldFormatMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
+            if (oldFormatMatch.Success)
+            {
+                int x = int.Parse(oldFormatMatch.Groups[1].Value);
+                int z = int.Parse(oldFormatMatch.Groups[2].Value);
+                return new Point2i(x, z);
+            }
+            
+            // Try new format: "// Chunk(X,Z)"
+            var newFormatMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"Chunk\((-?\d+),(-?\d+)\)");
+            if (newFormatMatch.Success)
+            {
+                int x = int.Parse(newFormatMatch.Groups[1].Value);
+                int z = int.Parse(newFormatMatch.Groups[2].Value);
+                return new Point2i(x, z);
+            }
+            
+            return null;
+        }
+        
+        /// <summary>
+        /// Process a chunk from a list of lines
+        /// </summary>
+        private void ProcessChunkFromLines(List<string> lines, Point2i chunkCoord, Dictionary<Point2i, NbtCompound> chunks)
+        {
+            try
+            {
+                // Build SNBT content excluding comment lines and empty lines
+                var snbtBuilder = new StringBuilder();
+                
+                foreach (string line in lines)
+                {
+                    string trimmedLine = line.Trim();
+                    // Skip comment lines and empty lines
+                    if (!string.IsNullOrEmpty(trimmedLine) && !trimmedLine.StartsWith("//"))
+                    {
+                        if (snbtBuilder.Length > 0)
+                            snbtBuilder.AppendLine();
+                        snbtBuilder.Append(line);
+                    }
+                }
+                
+                string chunkSnbt = snbtBuilder.ToString().Trim();
+                if (!string.IsNullOrWhiteSpace(chunkSnbt))
+                {
+                    // Ensure the SNBT content is valid JSON format
+                    if (chunkSnbt.StartsWith("{") && chunkSnbt.EndsWith("}"))
+                    {
+                        // Use failable to parse SNBT, so it won't throw an exception on trailing data
+                        var parseResult = SnbtParser.TryParse(chunkSnbt, false);
+                        if (parseResult.IsSuccess && parseResult.Result is NbtCompound chunkNbt)
+                        {
+                            // Make sure the root tag has a name
+                            if (string.IsNullOrEmpty(chunkNbt.Name))
+                            {
+                                chunkNbt.Name = "";
+                            }
+                            chunks[chunkCoord] = chunkNbt;
+                            Console.WriteLine($"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log parsing error but continue with other chunks
+                Console.WriteLine($"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
             }
         }
 
