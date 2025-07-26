@@ -214,15 +214,6 @@ namespace GitMC.Services
                 {
                     throw new InvalidOperationException($"Failed to convert NBT to SNBT for {inputPath}: {ex.Message}", ex);
                 }
-                finally
-                {
-                    // Force garbage collection periodically to prevent memory buildup
-                    if (Environment.TickCount % 10 == 0)
-                    {
-                        GC.Collect();
-                        GC.WaitForPendingFinalizers();
-                    }
-                }
             }
         }
 
@@ -282,19 +273,20 @@ namespace GitMC.Services
 
                     var emptySnbtContent = emptyRegionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
 
-                    // Use Stream instead
-                    using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    // Use Stream with larger buffer for better performance
+                    await using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 65536))
+                    await using (var writer = new StreamWriter(fs, Encoding.UTF8, bufferSize: 65536))
                     {
                         await writer.WriteAsync(emptySnbtContent);
                         await writer.FlushAsync();
-                        await fs.FlushAsync();
                     }
 
                     return;
                 }
 
-                var snbtContent = new StringBuilder();
+                // Use more efficient memory allocation for large files
+                var initialCapacity = existingChunks.Count > 100 ? existingChunks.Count * 2048 : 8192;
+                var snbtContent = new StringBuilder(initialCapacity);
 
                 // If there is only one chunk, write in NBT directly
                 if (existingChunks.Count == 1)
@@ -323,6 +315,8 @@ namespace GitMC.Services
                     snbtContent.AppendLine($"// Total chunks: {existingChunks.Count}");
                     snbtContent.AppendLine();
                     
+                    int processedCount = 0;
+                    
                     foreach (var chunkCoord in existingChunks)
                     {
                         try
@@ -335,23 +329,29 @@ namespace GitMC.Services
                                 snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
                                 snbtContent.AppendLine(); // Just add a blank line between chunks
                             }
+                            
+                            // Yield control to prevent UI freezing, but less frequently for better performance
+                            if (processedCount % 50 == 0)
+                            {
+                                await Task.Yield();
+                            }
                         }
                         catch (Exception ex)
                         {
                             snbtContent.AppendLine($"// ERROR in chunk {chunkCoord.X}, {chunkCoord.Z}: {ex.Message}");
                             snbtContent.AppendLine();
                         }
+                        
+                        processedCount++;
                     }
                 }
 
-                using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                // Use larger buffer size for better I/O performance  
+                await using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 131072))
+                await using (var writer = new StreamWriter(fs, Encoding.UTF8, bufferSize: 131072))
                 {
-                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
-                    {
-                        await writer.WriteAsync(snbtContent.ToString());
-                        await writer.FlushAsync();
-                        await fs.FlushAsync();
-                    }
+                    await writer.WriteAsync(snbtContent.ToString());
+                    await writer.FlushAsync();
                 }
             }
             catch (Exception ex)
@@ -366,13 +366,11 @@ namespace GitMC.Services
                 errorInfo.Add(new NbtString("Note", "MCA parsing failed - this indicates a compression or parsing issue"));
 
                 var errorSnbtContent = errorInfo.ToSnbt(SnbtOptions.DefaultExpanded);
-                using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await using (var writer = new StreamWriter(fs, Encoding.UTF8))
                 {
-                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
-                    {
-                        await writer.WriteAsync(errorSnbtContent);
-                        await writer.FlushAsync();
-                    }
+                    await writer.WriteAsync(errorSnbtContent);
+                    await writer.FlushAsync();
                 }
             }
         }
@@ -391,7 +389,6 @@ namespace GitMC.Services
                 await mcaFile.LoadAsync();
 
                 // Get current chunk
-                progress?.Report("Scanning chunk...");
                 var existingChunks = mcaFile.GetExistingChunks();
 
                 if (existingChunks.Count == 0)
@@ -406,20 +403,22 @@ namespace GitMC.Services
                     var emptySnbtContent = emptyRegionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
 
                     // Write file using stream
-                    using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                    await using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 65536))
+                    await using (var writer = new StreamWriter(fs, Encoding.UTF8, bufferSize: 65536))
                     {
                         await writer.WriteAsync(emptySnbtContent);
                         await writer.FlushAsync();
-                        await fs.FlushAsync();
                     }
 
                     progress?.Report("Created empty region info");
                     return;
                 }
 
-                var snbtContent = new StringBuilder();
                 progress?.Report($"Found {existingChunks.Count} chunks，converting...");
+
+                // Use more efficient memory allocation for large files
+                var initialCapacity = existingChunks.Count > 100 ? existingChunks.Count * 2048 : 8192;
+                var snbtContent = new StringBuilder(initialCapacity);
 
                 // Directly write to nbt if there is only one chunk
                 if (existingChunks.Count == 1)
@@ -455,8 +454,8 @@ namespace GitMC.Services
                     {
                         try
                         {
-                            // Report progress every 10 chunks
-                            if (processedCount % 10 == 0 || processedCount == existingChunks.Count - 1)
+                            // Report progress much less frequently for better performance
+                            if (processedCount % 50 == 0 || processedCount == existingChunks.Count - 1)
                             {
                                 progress?.Report($"Converting chunk {processedCount + 1}/{existingChunks.Count}...");
                             }
@@ -468,6 +467,12 @@ namespace GitMC.Services
                                 snbtContent.AppendLine($"// Chunk({chunkCoord.X},{chunkCoord.Z})");
                                 snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
                                 snbtContent.AppendLine(); // Just add a blank line between chunks
+                            }
+                            
+                            // Yield control to prevent UI freezing, but less frequently
+                            if (processedCount % 25 == 0)
+                            {
+                                await Task.Yield();
                             }
                         }
                         catch (Exception ex)
@@ -481,14 +486,12 @@ namespace GitMC.Services
                 }
 
                 progress?.Report("Saving snbt files...");
-                using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                // Use larger buffer size for better I/O performance
+                await using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 131072))
+                await using (var writer = new StreamWriter(fs, Encoding.UTF8, bufferSize: 131072))
                 {
-                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
-                    {
-                        await writer.WriteAsync(snbtContent.ToString());
-                        await writer.FlushAsync();
-                        await fs.FlushAsync();
-                    }
+                    await writer.WriteAsync(snbtContent.ToString());
+                    await writer.FlushAsync();
                 }
                 
                 progress?.Report($"snbt conversion complete! Converted {existingChunks.Count} chunks");
@@ -507,13 +510,11 @@ namespace GitMC.Services
                 errorInfo.Add(new NbtString("Note", "MCA parsing failed - this indicates a compression or parsing issue"));
 
                 var errorSnbtContent = errorInfo.ToSnbt(SnbtOptions.DefaultExpanded);
-                using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await using (var writer = new StreamWriter(fs, Encoding.UTF8))
                 {
-                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
-                    {
-                        await writer.WriteAsync(errorSnbtContent);
-                        await writer.FlushAsync();
-                    }
+                    await writer.WriteAsync(errorSnbtContent);
+                    await writer.FlushAsync();
                 }
                 
                 throw;
