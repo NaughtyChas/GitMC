@@ -19,6 +19,14 @@ namespace GitMC.Services
         /// <param name="inputPath">Input NBT file path</param>
         /// <param name="outputPath">Output SNBT file path</param>
         void ConvertToSnbt(string inputPath, string outputPath);
+        
+        /// <summary>
+        /// Async trans NBT to SNBT with returning progress
+        /// </summary>
+        /// <param name="inputPath">Input NBT path</param>
+        /// <param name="outputPath">Export SNBT path</param>
+        /// <param name="progress">Progress updater</param>
+        Task ConvertToSnbtAsync(string inputPath, string outputPath, IProgress<string>? progress = null);
 
         /// <summary>
         /// Convert SNBT file back to NBT file
@@ -26,6 +34,29 @@ namespace GitMC.Services
         /// <param name="inputPath">Input SNBT file path</param>
         /// <param name="outputPath">Output NBT file path</param>
         void ConvertFromSnbt(string inputPath, string outputPath);
+        
+        /// <summary>
+        /// Async trans SNBT to target format with returning progress
+        /// </summary>
+        /// <param name="inputPath">Input SNBT file path</param>
+        /// <param name="outputPath">Export target file path</param>
+        /// <param name="progress">Progress updater</param>
+        Task ConvertFromSnbtAsync(string inputPath, string outputPath, IProgress<string>? progress = null);
+
+        /// <summary>
+        /// Convert SNBT file to MCA region file
+        /// </summary>
+        /// <param name="inputPath">Input SNBT file path</param>
+        /// <param name="outputPath">Output MCA file path</param>
+        void ConvertSnbtToRegionFile(string inputPath, string outputPath);
+        
+        /// <summary>
+        /// Async SNBT to MCA, also with progress report
+        /// </summary>
+        /// <param name="inputPath">Input SNBT path</param>
+        /// <param name="outputPath">Output MCA path</param>
+        /// <param name="progress">Progress updater</param>
+        Task ConvertSnbtToRegionFileAsync(string inputPath, string outputPath, IProgress<string>? progress = null);
 
         /// <summary>
         /// Translate SNBT string to NBT file

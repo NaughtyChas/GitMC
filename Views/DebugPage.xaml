@@ -49,6 +49,10 @@
                         MinWidth="120" IsEnabled="False"/>
                 <Button x:Name="ExtractChunkButton" Content="Extract Chunk" Click="ExtractChunkButton_Click" 
                         MinWidth="120" IsEnabled="False"/>
+                <Button x:Name="ConvertMcaToSnbtButton" Content="Convert to SNBT" Click="ConvertMcaToSnbtButton_Click" 
+                        MinWidth="120" IsEnabled="False"/>
+                <Button x:Name="ConvertSnbtToMcaButton" Content="Convert to MCA" Click="ConvertSnbtToMcaButton_Click" 
+                        MinWidth="120" IsEnabled="False"/>
             </StackPanel>
             
             <!-- Chunk coordinates input -->
