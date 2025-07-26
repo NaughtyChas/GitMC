@@ -672,10 +672,28 @@ namespace GitMC.Views
 
                 // 5. Multiple chunk indicators
                 var chunkCount = 0;
-                var lines = content.Split('\n');
-                foreach (var line in lines)
+                // Optimized: Use span-based line enumeration instead of Split
+                ReadOnlySpan<char> contentSpan = content.AsSpan();
+                ReadOnlySpan<char> remaining = contentSpan;
+                
+                while (!remaining.IsEmpty && chunkCount <= 1)
                 {
-                    if (line.Contains("// Chunk(") || line.Contains("// SNBT for chunk"))
+                    int lineEnd = remaining.IndexOf('\n');
+                    ReadOnlySpan<char> line;
+                    
+                    if (lineEnd >= 0)
+                    {
+                        line = remaining[..lineEnd];
+                        remaining = remaining[(lineEnd + 1)..];
+                    }
+                    else
+                    {
+                        line = remaining;
+                        remaining = ReadOnlySpan<char>.Empty;
+                    }
+                    
+                    if (line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal) || 
+                        line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal))
                     {
                         chunkCount++;
                         if (chunkCount > 1)

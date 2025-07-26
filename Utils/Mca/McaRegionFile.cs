@@ -48,12 +48,28 @@ namespace GitMC.Utils.Mca
             var fileName = Path.GetFileNameWithoutExtension(filePath);
             if (fileName.StartsWith("r."))
             {
-                var parts = fileName.Split('.');
-                if (parts.Length >= 3 && 
-                    int.TryParse(parts[1], out var x) && 
-                    int.TryParse(parts[2], out var z))
+                // Optimized: Parse region coordinates without Split to avoid allocations
+                ReadOnlySpan<char> nameSpan = fileName.AsSpan();
+                if (nameSpan.Length > 2) // "r." + at least one char
                 {
-                    RegionCoordinates = new Point2i(x, z);
+                    var remaining = nameSpan[2..]; // Skip "r."
+                    
+                    // Find first dot
+                    int firstDot = remaining.IndexOf('.');
+                    if (firstDot > 0)
+                    {
+                        var xSpan = remaining[..firstDot];
+                        var afterFirstDot = remaining[(firstDot + 1)..];
+                        
+                        // Find second dot (or end of string)
+                        int secondDot = afterFirstDot.IndexOf('.');
+                        var zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
+                        
+                        if (int.TryParse(xSpan, out var x) && int.TryParse(zSpan, out var z))
+                        {
+                            RegionCoordinates = new Point2i(x, z);
+                        }
+                    }
                 }
             }
         }

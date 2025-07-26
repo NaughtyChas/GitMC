@@ -393,7 +393,7 @@ namespace GitMC.Services
 
                 if (existingChunks.Count == 0)
                 {
-                    progress?.Report("No chunk is found，creating empty region info...");
+                    progress?.Report("No chunk is found, creating empty region info...");
                     // ... and do stuff just like the text said ↑
                     var emptyRegionInfo = new NbtCompound("EmptyRegion");
                     emptyRegionInfo.Add(new NbtString("OriginalPath", inputPath));
@@ -563,10 +563,33 @@ namespace GitMC.Services
                     // Check if this is multiple chunks without separators (new format)
                     // Count the number of chunk headers to determine if it's multi-chunk
                     int chunkCount = 0;
-                    var lines = snbtContent.Split('\n');
-                    foreach (var line in lines)
+                    
+                    // Optimized: Use span-based line enumeration instead of Split
+                    ReadOnlySpan<char> contentSpan = snbtContent.AsSpan();
+                    ReadOnlySpan<char> remaining = contentSpan;
+                    
+                    while (!remaining.IsEmpty)
                     {
-                        if (line.Contains("// SNBT for chunk") || line.Contains("// Chunk("))
+                        int lineEnd = remaining.IndexOf('\n');
+                        ReadOnlySpan<char> line;
+                        
+                        if (lineEnd >= 0)
+                        {
+                            line = remaining[..lineEnd];
+                            remaining = remaining[(lineEnd + 1)..];
+                        }
+                        else
+                        {
+                            line = remaining;
+                            remaining = ReadOnlySpan<char>.Empty;
+                        }
+                        
+                        // Trim carriage return if present
+                        if (!line.IsEmpty && line[^1] == '\r')
+                            line = line[..^1];
+                        
+                        if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) || 
+                            line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal))
                         {
                             chunkCount++;
                         }
@@ -756,10 +779,33 @@ namespace GitMC.Services
                         // Check if this is multiple chunks without separators (new format)
                         // Count the number of chunk headers to determine if it's multi-chunk
                         int totalChunks = 0;
-                        var lines = snbtContent.Split('\n');
-                        foreach (var line in lines)
+                        
+                        // Optimized: Use span-based line enumeration instead of Split
+                        ReadOnlySpan<char> contentSpan = snbtContent.AsSpan();
+                        ReadOnlySpan<char> remaining = contentSpan;
+                        
+                        while (!remaining.IsEmpty)
                         {
-                            if (line.Contains("// SNBT for chunk") || line.Contains("// Chunk("))
+                            int lineEnd = remaining.IndexOf('\n');
+                            ReadOnlySpan<char> line;
+                            
+                            if (lineEnd >= 0)
+                            {
+                                line = remaining[..lineEnd];
+                                remaining = remaining[(lineEnd + 1)..];
+                            }
+                            else
+                            {
+                                line = remaining;
+                                remaining = ReadOnlySpan<char>.Empty;
+                            }
+                            
+                            // Trim carriage return if present
+                            if (!line.IsEmpty && line[^1] == '\r')
+                                line = line[..^1];
+                            
+                            if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) || 
+                                line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal))
                             {
                                 totalChunks++;
                             }
@@ -1493,25 +1539,45 @@ namespace GitMC.Services
         /// </summary>
         private void ProcessMultipleChunksWithoutSeparator(string snbtContent, Dictionary<Point2i, NbtCompound> chunks)
         {
-            var lines = snbtContent.Split('\n');
-            var currentChunkLines = new List<string>();
+            // Optimized: Use span-based line enumeration instead of Split to avoid massive string allocations
+            var currentChunkLines = new StringBuilder();
             Point2i? currentChunkCoord = null;
             
-            for (int i = 0; i < lines.Length; i++)
+            ReadOnlySpan<char> contentSpan = snbtContent.AsSpan();
+            ReadOnlySpan<char> remaining = contentSpan;
+            
+            while (!remaining.IsEmpty)
             {
-                string line = lines[i];
+                int lineEnd = remaining.IndexOf('\n');
+                ReadOnlySpan<char> line;
+                
+                if (lineEnd >= 0)
+                {
+                    line = remaining[..lineEnd];
+                    remaining = remaining[(lineEnd + 1)..];
+                }
+                else
+                {
+                    line = remaining;
+                    remaining = ReadOnlySpan<char>.Empty;
+                }
+                
+                // Trim carriage return if present
+                if (!line.IsEmpty && line[^1] == '\r')
+                    line = line[..^1];
                 
                 // Check if this is a chunk header line
-                if (line.Contains("// SNBT for chunk") || line.Contains("// Chunk("))
+                if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) || 
+                    line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal))
                 {
                     // If we have a previous chunk, process it
-                    if (currentChunkCoord.HasValue && currentChunkLines.Count > 0)
+                    if (currentChunkCoord.HasValue && currentChunkLines.Length > 0)
                     {
-                        ProcessChunkFromLines(currentChunkLines, currentChunkCoord.Value, chunks);
+                        ProcessChunkFromStringBuilder(currentChunkLines, currentChunkCoord.Value, chunks);
                     }
                     
                     // Start a new chunk
-                    currentChunkCoord = ExtractChunkCoordinatesFromHeader(line);
+                    currentChunkCoord = ExtractChunkCoordinatesFromHeaderSpan(line);
                     currentChunkLines.Clear();
                 }
                 else
@@ -1519,26 +1585,69 @@ namespace GitMC.Services
                     // Add this line to current chunk (if we have one)
                     if (currentChunkCoord.HasValue)
                     {
-                        currentChunkLines.Add(line);
+                        if (currentChunkLines.Length > 0)
+                            currentChunkLines.AppendLine();
+                        currentChunkLines.Append(line);
                     }
                 }
             }
             
             // Process the last chunk
-            if (currentChunkCoord.HasValue && currentChunkLines.Count > 0)
+            if (currentChunkCoord.HasValue && currentChunkLines.Length > 0)
             {
-                ProcessChunkFromLines(currentChunkLines, currentChunkCoord.Value, chunks);
+                ProcessChunkFromStringBuilder(currentChunkLines, currentChunkCoord.Value, chunks);
             }
         }
         
         /// <summary>
-        /// Extract chunk coordinates from header line
+        /// Process chunk from StringBuilder content (optimized version)
+        /// </summary>
+        private void ProcessChunkFromStringBuilder(StringBuilder chunkContent, Point2i chunkCoord, Dictionary<Point2i, NbtCompound> chunks)
+        {
+            string snbtContent = chunkContent.ToString().Trim();
+            if (!string.IsNullOrEmpty(snbtContent))
+            {
+                try
+                {
+                    // Parse the SNBT content
+                    if (snbtContent.StartsWith("{") && snbtContent.EndsWith("}"))
+                    {
+                        var parseResult = SnbtParser.TryParse(snbtContent, false);
+                        if (parseResult.IsSuccess && parseResult.Result is NbtCompound compound)
+                        {
+                            chunks[chunkCoord] = compound;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log parsing error but continue with other chunks
+                    Console.WriteLine($"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+            }
+        }
+        
+        /// <summary>
+        /// Extract chunk coordinates from header line using span (optimized version)
         /// Supports both "// SNBT for chunk X, Z:" and "// Chunk(X,Z)" formats
         /// </summary>
-        private Point2i? ExtractChunkCoordinatesFromHeader(string headerLine)
+        private Point2i? ExtractChunkCoordinatesFromHeaderSpan(ReadOnlySpan<char> headerLine)
         {
             // Try old format: "// SNBT for chunk X, Z:"
-            var oldFormatMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
+            string headerString = headerLine.ToString(); // Only convert when needed for regex
+            var oldFormatMatch = System.Text.RegularExpressions.Regex.Match(headerString, @"chunk (-?\d+), (-?\d+):");
             if (oldFormatMatch.Success)
             {
                 int x = int.Parse(oldFormatMatch.Groups[1].Value);
@@ -1547,7 +1656,7 @@ namespace GitMC.Services
             }
             
             // Try new format: "// Chunk(X,Z)"
-            var newFormatMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"Chunk\((-?\d+),(-?\d+)\)");
+            var newFormatMatch = System.Text.RegularExpressions.Regex.Match(headerString, @"Chunk\((-?\d+),(-?\d+)\)");
             if (newFormatMatch.Success)
             {
                 int x = int.Parse(newFormatMatch.Groups[1].Value);
@@ -1629,12 +1738,28 @@ namespace GitMC.Services
             var fileName = Path.GetFileNameWithoutExtension(filePath);
             if (fileName.StartsWith("r."))
             {
-                var parts = fileName.Split('.');
-                if (parts.Length >= 3 && 
-                    int.TryParse(parts[1], out var x) && 
-                    int.TryParse(parts[2], out var z))
+                // Optimized: Parse region coordinates without Split to avoid allocations
+                ReadOnlySpan<char> nameSpan = fileName.AsSpan();
+                if (nameSpan.Length > 2) // "r." + at least one char
                 {
-                    return new Point2i(x, z);
+                    var remaining = nameSpan[2..]; // Skip "r."
+                    
+                    // Find first dot
+                    int firstDot = remaining.IndexOf('.');
+                    if (firstDot > 0)
+                    {
+                        var xSpan = remaining[..firstDot];
+                        var afterFirstDot = remaining[(firstDot + 1)..];
+                        
+                        // Find second dot (or end of string)
+                        int secondDot = afterFirstDot.IndexOf('.');
+                        var zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
+                        
+                        if (int.TryParse(xSpan, out var x) && int.TryParse(zSpan, out var z))
+                        {
+                            return new Point2i(x, z);
+                        }
+                    }
                 }
             }
             

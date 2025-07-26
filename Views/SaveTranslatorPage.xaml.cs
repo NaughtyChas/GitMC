@@ -472,10 +472,14 @@ namespace GitMC.Views
                         if (extension == ".mca" || extension == ".mcc")
                         {
                             var snbtContent = File.ReadAllText(tempSnbtPath);
-                            if (snbtContent.Contains("# Chunk") && snbtContent.Split("# Chunk").Length > 2)
+                            if (snbtContent.Contains("# Chunk"))
                             {
-                                var chunkCount = snbtContent.Split("# Chunk").Length - 1;
-                                LogMessage($"  📦 Multi-chunk file detected: {chunkCount} chunks");
+                                // Optimized: Count occurrences without Split to avoid massive memory allocations
+                                int chunkCount = CountOccurrences(snbtContent.AsSpan(), "# Chunk".AsSpan());
+                                if (chunkCount > 1)
+                                {
+                                    LogMessage($"  📦 Multi-chunk file detected: {chunkCount} chunks");
+                                }
                             }
                         }
                     }
@@ -863,8 +867,33 @@ namespace GitMC.Views
                             if (currentLength + newContentLength > 80000) // ~80KB limit
                             {
                                 // Keep only the last portion of current text
-                                var lines = LogTextBox.Text.Split('\n');
-                                var keepLines = lines.Skip(Math.Max(0, lines.Length - 200)); // Keep last 200 lines
+                                // Optimized: Use span-based approach to avoid Split allocation
+                                var textContent = LogTextBox.Text;
+                                var lines = new List<string>();
+                                
+                                ReadOnlySpan<char> contentSpan = textContent.AsSpan();
+                                ReadOnlySpan<char> remaining = contentSpan;
+                                
+                                while (!remaining.IsEmpty)
+                                {
+                                    int lineEnd = remaining.IndexOf('\n');
+                                    ReadOnlySpan<char> line;
+                                    
+                                    if (lineEnd >= 0)
+                                    {
+                                        line = remaining[..lineEnd];
+                                        remaining = remaining[(lineEnd + 1)..];
+                                    }
+                                    else
+                                    {
+                                        line = remaining;
+                                        remaining = ReadOnlySpan<char>.Empty;
+                                    }
+                                    
+                                    lines.Add(line.ToString());
+                                }
+                                
+                                var keepLines = lines.Skip(Math.Max(0, lines.Count - 200)); // Keep last 200 lines
                                 sb.AppendLine(string.Join('\n', keepLines));
                                 sb.AppendLine("... [Earlier logs truncated for performance] ...");
                             }
@@ -911,6 +940,28 @@ namespace GitMC.Views
             FlushLogQueue();
             
             base.OnNavigatedFrom(e);
+        }
+
+        /// <summary>
+        /// Count occurrences of a pattern in a span without allocating strings
+        /// </summary>
+        private static int CountOccurrences(ReadOnlySpan<char> text, ReadOnlySpan<char> pattern)
+        {
+            if (pattern.IsEmpty) return 0;
+            
+            int count = 0;
+            int index = 0;
+            
+            while (index <= text.Length - pattern.Length)
+            {
+                int found = text[index..].IndexOf(pattern);
+                if (found == -1) break;
+                
+                count++;
+                index += found + pattern.Length;
+            }
+            
+            return count;
         }
     }
 }
