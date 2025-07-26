@@ -1600,42 +1600,132 @@ namespace GitMC.Services
         }
         
         /// <summary>
+        /// Process chunk from StringBuilder with boundary parameters (ultra-optimized version)
+        /// </summary>
+        private void ProcessChunkFromStringBuilder(StringBuilder allContent, int startIdx, int endIdx, Point2i chunkCoord, Dictionary<Point2i, NbtCompound> chunks)
+        {
+            try
+            {
+                if (startIdx >= endIdx || startIdx >= allContent.Length)
+                {
+                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    return;
+                }
+
+                // Ultra-optimized: Find content boundaries without creating intermediate strings
+                int contentStart = startIdx;
+                int contentEnd = Math.Min(endIdx, allContent.Length - 1);
+                
+                // Find first non-whitespace character within bounds
+                while (contentStart <= contentEnd && char.IsWhiteSpace(allContent[contentStart]))
+                    contentStart++;
+                    
+                // Find last non-whitespace character within bounds
+                while (contentEnd >= contentStart && char.IsWhiteSpace(allContent[contentEnd]))
+                    contentEnd--;
+                
+                if (contentStart > contentEnd)
+                {
+                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    return;
+                }
+                
+                // Validate JSON structure without string creation
+                if (allContent[contentStart] != '{' || allContent[contentEnd] != '}')
+                {
+                    Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
+                    return;
+                }
+                
+                // Create minimal string only for parsing (final allocation)
+                var snbtContent = allContent.ToString(contentStart, contentEnd - contentStart + 1);
+                
+                var parseResult = SnbtParser.TryParse(snbtContent, false);
+                if (parseResult.IsSuccess && parseResult.Result is NbtCompound compound)
+                {
+                    // CRITICAL: Ensure the root tag has a name to prevent "Root tag must be named" error
+                    if (string.IsNullOrEmpty(compound.Name))
+                    {
+                        compound.Name = "";
+                    }
+                    chunks[chunkCoord] = compound;
+                    Console.WriteLine($"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
+                }
+                else
+                {
+                    Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
         /// Process chunk from StringBuilder content (optimized version)
         /// </summary>
         private void ProcessChunkFromStringBuilder(StringBuilder chunkContent, Point2i chunkCoord, Dictionary<Point2i, NbtCompound> chunks)
         {
-            string snbtContent = chunkContent.ToString().Trim();
-            if (!string.IsNullOrEmpty(snbtContent))
-            {
-                try
-                {
-                    // Parse the SNBT content
-                    if (snbtContent.StartsWith("{") && snbtContent.EndsWith("}"))
-                    {
-                        var parseResult = SnbtParser.TryParse(snbtContent, false);
-                        if (parseResult.IsSuccess && parseResult.Result is NbtCompound compound)
-                        {
-                            chunks[chunkCoord] = compound;
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log parsing error but continue with other chunks
-                    Console.WriteLine($"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
-                }
-            }
-            else
+            // Optimized: Use span-based operations to avoid massive string allocations
+            if (chunkContent.Length == 0)
             {
                 Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                return;
+            }
+
+            try
+            {
+                // Process content directly from StringBuilder chunks to avoid ToString() allocation
+                // First, find the actual SNBT content boundaries (trim leading/trailing whitespace)
+                int startIndex = 0;
+                int endIndex = chunkContent.Length - 1;
+                
+                // Find first non-whitespace character
+                while (startIndex < chunkContent.Length && char.IsWhiteSpace(chunkContent[startIndex]))
+                    startIndex++;
+                    
+                // Find last non-whitespace character
+                while (endIndex >= startIndex && char.IsWhiteSpace(chunkContent[endIndex]))
+                    endIndex--;
+                
+                if (startIndex > endIndex)
+                {
+                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    return;
+                }
+                
+                // Check if content starts with '{' and ends with '}'
+                if (chunkContent[startIndex] != '{' || chunkContent[endIndex] != '}')
+                {
+                    Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
+                    return;
+                }
+                
+                // Only now create the minimal string needed for parsing
+                // Create substring from trimmed bounds to avoid full ToString()
+                var snbtContent = chunkContent.ToString(startIndex, endIndex - startIndex + 1);
+                
+                var parseResult = SnbtParser.TryParse(snbtContent, false);
+                if (parseResult.IsSuccess && parseResult.Result is NbtCompound compound)
+                {
+                    // CRITICAL: Ensure the root tag has a name to prevent "Root tag must be named" error
+                    if (string.IsNullOrEmpty(compound.Name))
+                    {
+                        compound.Name = "";
+                    }
+                    chunks[chunkCoord] = compound;
+                    Console.WriteLine($"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
+                }
+                else
+                {
+                    Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log parsing error but continue with other chunks
+                Console.WriteLine($"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
             }
         }
         
@@ -1668,58 +1758,98 @@ namespace GitMC.Services
         }
         
         /// <summary>
-        /// Process a chunk from a list of lines
+        /// Process a chunk from a list of lines (fully optimized to eliminate massive string allocations)
         /// </summary>
         private void ProcessChunkFromLines(List<string> lines, Point2i chunkCoord, Dictionary<Point2i, NbtCompound> chunks)
         {
             try
             {
-                // Build SNBT content excluding comment lines and empty lines
-                var snbtBuilder = new StringBuilder();
+                // Ultra-optimized: Avoid all intermediate string allocations by directly processing lines
+                if (lines.Count == 0)
+                {
+                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    return;
+                }
+
+                // Phase 1: Find actual content lines and calculate exact capacity needed
+                var contentLines = new List<string>();
+                int totalCapacity = 0;
                 
                 foreach (string line in lines)
                 {
-                    string trimmedLine = line.Trim();
+                    // Use span to avoid trim allocation
+                    ReadOnlySpan<char> trimmedSpan = line.AsSpan().Trim();
+                    
                     // Skip comment lines and empty lines
-                    if (!string.IsNullOrEmpty(trimmedLine) && !trimmedLine.StartsWith("//"))
+                    if (!trimmedSpan.IsEmpty && !trimmedSpan.StartsWith("//".AsSpan()))
                     {
-                        if (snbtBuilder.Length > 0)
-                            snbtBuilder.AppendLine();
-                        snbtBuilder.Append(line);
+                        contentLines.Add(line);
+                        totalCapacity += line.Length;
+                        if (contentLines.Count > 1)
+                            totalCapacity += Environment.NewLine.Length;
                     }
                 }
                 
-                string chunkSnbt = snbtBuilder.ToString().Trim();
-                if (!string.IsNullOrWhiteSpace(chunkSnbt))
+                if (contentLines.Count == 0)
                 {
-                    // Ensure the SNBT content is valid JSON format
-                    if (chunkSnbt.StartsWith("{") && chunkSnbt.EndsWith("}"))
+                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    return;
+                }
+
+                // Phase 2: Build content with exact pre-allocation (eliminates StringBuilder expansion)
+                var snbtBuilder = new StringBuilder(totalCapacity + 100); // Small buffer for safety
+                
+                for (int i = 0; i < contentLines.Count; i++)
+                {
+                    if (i > 0)
+                        snbtBuilder.AppendLine();
+                    snbtBuilder.Append(contentLines[i]);
+                }
+                
+                // Phase 3: Direct character-level validation without ToString() or Trim()
+                if (snbtBuilder.Length == 0)
+                {
+                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    return;
+                }
+                
+                // Find content bounds using StringBuilder indexer (no string allocations)
+                int startIndex = 0;
+                int endIndex = snbtBuilder.Length - 1;
+                
+                // Find first non-whitespace character
+                while (startIndex < snbtBuilder.Length && char.IsWhiteSpace(snbtBuilder[startIndex]))
+                    startIndex++;
+                    
+                // Find last non-whitespace character
+                while (endIndex >= startIndex && char.IsWhiteSpace(snbtBuilder[endIndex]))
+                    endIndex--;
+                
+                // Validate JSON structure without creating strings
+                if (startIndex > endIndex || snbtBuilder[startIndex] != '{' || snbtBuilder[endIndex] != '}')
+                {
+                    Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
+                    return;
+                }
+                
+                // Phase 4: Create minimal string only when absolutely necessary for parsing
+                var chunkSnbt = snbtBuilder.ToString(startIndex, endIndex - startIndex + 1);
+                
+                // Phase 5: Parse and ensure proper root tag naming
+                var parseResult = SnbtParser.TryParse(chunkSnbt, false);
+                if (parseResult.IsSuccess && parseResult.Result is NbtCompound chunkNbt)
+                {
+                    // CRITICAL: Ensure the root tag has a name to prevent "Root tag must be named" error
+                    if (string.IsNullOrEmpty(chunkNbt.Name))
                     {
-                        // Use failable to parse SNBT, so it won't throw an exception on trailing data
-                        var parseResult = SnbtParser.TryParse(chunkSnbt, false);
-                        if (parseResult.IsSuccess && parseResult.Result is NbtCompound chunkNbt)
-                        {
-                            // Make sure the root tag has a name
-                            if (string.IsNullOrEmpty(chunkNbt.Name))
-                            {
-                                chunkNbt.Name = "";
-                            }
-                            chunks[chunkCoord] = chunkNbt;
-                            Console.WriteLine($"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
-                        }
+                        chunkNbt.Name = "";
                     }
-                    else
-                    {
-                        Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
-                    }
+                    chunks[chunkCoord] = chunkNbt;
+                    Console.WriteLine($"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
                 }
                 else
                 {
-                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
                 }
             }
             catch (Exception ex)
