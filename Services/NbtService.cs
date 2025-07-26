@@ -92,7 +92,7 @@ namespace GitMC.Services
                 }
                 else if (extension == ".dat" || extension == ".nbt" || extension == ".dat_old")
                 {
-                    // Standatd nbt/dat conversion
+                    // Standard nbt/dat conversion
                     progress?.Report("Translating nbt/dat file to snbt...");
                     await Task.Run(() => ConvertNbtFileToSnbt(inputPath, outputPath));
                 }
@@ -161,7 +161,7 @@ namespace GitMC.Services
                 
                 if (extension == ".mca" || extension == ".mcc")
                 {
-                    progress?.Report("Converting to mca fron snbt...");
+                    progress?.Report("Converting to mca from snbt...");
                     await ConvertSnbtToRegionFileAsync(inputPath, outputPath, progress);
                 }
                 else if (extension == ".dat" || extension == ".nbt" || extension == ".dat_old")
@@ -217,7 +217,7 @@ namespace GitMC.Services
                 finally
                 {
                     // Force garbage collection periodically to prevent memory buildup
-                    if (System.Environment.TickCount % 10 == 0)
+                    if (Environment.TickCount % 10 == 0)
                     {
                         GC.Collect();
                         GC.WaitForPendingFinalizers();
@@ -252,8 +252,7 @@ namespace GitMC.Services
                 else
                 {
                     // If it's not a compound, wrap it in one with a name
-                    var wrapper = new NbtCompound("");
-                    wrapper.Add(rootTag);
+                    var wrapper = new NbtCompound("") { rootTag };
                     nbtFile.RootTag = wrapper;
                 }
                 
@@ -288,8 +287,6 @@ namespace GitMC.Services
                     using (var writer = new StreamWriter(fs, Encoding.UTF8))
                     {
                         writer.Write(emptySnbtContent);
-                        writer.Flush();
-                        fs.Flush();
                     }
 
                     return;
@@ -535,9 +532,6 @@ namespace GitMC.Services
                 if (snbtContent.Contains("// SNBT for chunk") && snbtContent.Contains("// =========================================="))
                 {
                     // Split it up using equals:
-                    // but I wanna change it in the future, what a waste in storage space T_T
-                    var chunkSections = snbtContent.Split(new[] { "// ==========================================" }, StringSplitOptions.RemoveEmptyEntries);
-                    // Multiple chunks - use spans and string reading to avoid massive string splitting
                     ReadOnlySpan<char> content = snbtContent.AsSpan();
                     const string separator = "// ==========================================";
                     
