@@ -808,8 +808,23 @@ namespace GitMC.Services
                     
                     progress?.Report($"Parsing success! Found {chunks.Count} chunks");
                     
-                    // Extract region coordinates from output file path
-                    var regionCoords = ExtractRegionCoordinatesFromMcaPath(outputPath);
+                    // Calculate correct region coordinates from chunk coordinates based on first chunk
+                    var firstChunk = chunks.First().Key;
+                    int regionX = (int)Math.Floor(firstChunk.X / 32.0);
+                    int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
+                    var regionCoords = new Point2i(regionX, regionZ);
+                    
+                    // Verify all chunks belong to the same region
+                    foreach (var chunk in chunks)
+                    {
+                        int chunkRegionX = (int)Math.Floor(chunk.Key.X / 32.0);
+                        int chunkRegionZ = (int)Math.Floor(chunk.Key.Z / 32.0);
+                        
+                        if (chunkRegionX != regionX || chunkRegionZ != regionZ)
+                        {
+                            throw new InvalidOperationException($"Chunk ({chunk.Key.X}, {chunk.Key.Z}) belongs to region ({chunkRegionX}, {chunkRegionZ}), not ({regionX}, {regionZ})");
+                        }
+                    }
                     
                     progress?.Report($"Creating region file：r.{regionCoords.X}.{regionCoords.Z}.mca...");
                     
