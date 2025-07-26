@@ -93,7 +93,7 @@ namespace GitMC.Utils.Nbt
         {
             if (Reader.CanRead())
             {
-                // Console.WriteLine($"Warning: Trailing data found at position {Reader.Cursor}, but ignored");
+                System.Diagnostics.Trace.TraceWarning($"Trailing data found at position {Reader.Cursor}, but ignored");
             }
         }
 
