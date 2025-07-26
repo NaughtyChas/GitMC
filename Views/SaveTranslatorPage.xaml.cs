@@ -235,6 +235,14 @@ namespace GitMC.Views
             // Step 2: Scan for files to process
             var filesToProcess = await ScanForFiles(_selectedSavePath, cancellationToken);
             LogMessage($"Found {filesToProcess.Count} files to process");
+            
+            // Log file type breakdown
+            var mcaFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mca").Count();
+            var mccFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mcc").Count();
+            var datFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".dat").Count();
+            var nbtFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".nbt").Count();
+            
+            LogMessage($"  📊 File breakdown: {mcaFiles} MCA, {mccFiles} MCC, {datFiles} DAT, {nbtFiles} NBT");
 
             UpdateProgress(10, "Copying files...");
             
@@ -243,9 +251,11 @@ namespace GitMC.Views
             
             UpdateProgress(30, "Starting NBT translation process...");
             
-            // Step 4: Process selected file types
+            // Step 4: Process selected file types with enhanced tracking
             var processedCount = 0;
             var totalFiles = filesToProcess.Count;
+            var multiChunkFiles = 0;
+            var totalChunksProcessed = 0;
             
             foreach (var fileInfo in filesToProcess)
             {
@@ -262,7 +272,13 @@ namespace GitMC.Views
                         LogMessage($"Processing files: {relativePath}");
                     }
                     
-                    await ProcessFile(targetPath, fileInfo.Extension, cancellationToken);
+                    // Track multi-chunk processing
+                    var isMultiChunk = await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
+                    if (isMultiChunk.IsMultiChunk)
+                    {
+                        multiChunkFiles++;
+                        totalChunksProcessed += isMultiChunk.ChunkCount;
+                    }
                     
                     processedCount++;
                     var progress = 30 + (processedCount * 60 / totalFiles);
@@ -294,7 +310,14 @@ namespace GitMC.Views
             }
             
             UpdateProgress(100, "Translate complete!");
+            
+            // Log final statistics
             LogMessage("=== Save translation process complete ===");
+            LogMessage($"📈 Processing Statistics:");
+            LogMessage($"  ✓ Total files processed: {processedCount}");
+            LogMessage($"  📦 Multi-chunk files: {multiChunkFiles}");
+            LogMessage($"  🧊 Total chunks processed: {totalChunksProcessed}");
+            LogMessage($"  💾 Memory optimizations: LRU cache with automatic eviction");
             LogMessage($"Output folder: {gitMcPath}");
         }
 
@@ -412,12 +435,16 @@ namespace GitMC.Views
                     return;
                 }
                 
+                // Log file details for better tracking
+                LogMessage($"  Processing: {Path.GetFileName(filePath)} ({fileInfo.Length / 1024}KB, {extension.ToUpper()})");
+                
                 // Create backup if requested
                 if (backupPath != null)
                 {
                     try
                     {
                         File.Copy(filePath, backupPath, true);
+                        LogMessage($"  ✓ Backup created: {Path.GetFileName(backupPath)}");
                     }
                     catch (Exception ex)
                     {
@@ -425,17 +452,39 @@ namespace GitMC.Views
                     }
                 }
                 
-                // Convert to SNBT with timeout protection
-                LogMessage($"  Convert to SNBT: {Path.GetFileName(filePath)}");
+                // Convert to SNBT with timeout protection and enhanced logging
+                LogMessage($"  🔄 Converting to SNBT: {Path.GetFileName(filePath)}");
                 
                 using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5))) // 5-minute timeout per file
                 using (var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
                 {
                     await ConvertToSnbt(filePath, tempSnbtPath, extension, combinedCts.Token);
                     
+                    // Log SNBT file info for verification
+                    if (File.Exists(tempSnbtPath))
+                    {
+                        var snbtSize = new FileInfo(tempSnbtPath).Length;
+                        LogMessage($"  ✓ SNBT created: {snbtSize / 1024}KB");
+                        
+                        // For MCA files, check if multi-chunk was detected
+                        if (extension == ".mca" || extension == ".mcc")
+                        {
+                            var snbtContent = File.ReadAllText(tempSnbtPath);
+                            if (snbtContent.Contains("# Chunk") && snbtContent.Split("# Chunk").Length > 2)
+                            {
+                                var chunkCount = snbtContent.Split("# Chunk").Length - 1;
+                                LogMessage($"  📦 Multi-chunk file detected: {chunkCount} chunks");
+                            }
+                        }
+                    }
+                    
                     // Convert back from SNBT
-                    LogMessage($"  Convert back from SNBT: {Path.GetFileName(filePath)}");
+                    LogMessage($"  🔄 Converting back from SNBT: {Path.GetFileName(filePath)}");
                     await ConvertFromSnbt(tempSnbtPath, filePath, extension, combinedCts.Token);
+                    
+                    // Verify final result
+                    var finalSize = new FileInfo(filePath).Length;
+                    LogMessage($"  ✓ Final file: {finalSize / 1024}KB");
                 }
                 
                 // Clean up SNBT file if not preserving
@@ -450,8 +499,12 @@ namespace GitMC.Views
                         LogMessage($"  ⚠ Failed to delete temp SNBT: {ex.Message}");
                     }
                 }
+                else if (File.Exists(tempSnbtPath))
+                {
+                    LogMessage($"  📁 SNBT preserved: {Path.GetFileName(tempSnbtPath)}");
+                }
                 
-                LogMessage($"  ✓ Complete: {Path.GetFileName(filePath)}");
+                LogMessage($"  ✅ Complete: {Path.GetFileName(filePath)}");
             }
             catch (OperationCanceledException)
             {
@@ -460,89 +513,216 @@ namespace GitMC.Views
             }
             catch (Exception ex)
             {
-                LogMessage($"  ✗ Failed: {Path.GetFileName(filePath)} - {ex.Message}");
+                LogMessage($"  ❌ Failed: {Path.GetFileName(filePath)} - {ex.Message}");
                 throw;
+            }
+        }
+
+        private async Task<(bool IsMultiChunk, int ChunkCount)> ProcessFileWithTracking(string filePath, string extension, CancellationToken cancellationToken)
+        {
+            var isMultiChunk = false;
+            var chunkCount = 0;
+            
+            try
+            {
+                var tempSnbtPath = filePath + ".snbt";
+                var backupPath = CreateBackupCheckBox.IsChecked == true ? filePath + ".backup" : null;
+                
+                // Check if file exists and is accessible
+                if (!File.Exists(filePath))
+                {
+                    LogMessage($"  ⚠ File not found: {Path.GetFileName(filePath)}");
+                    return (false, 0);
+                }
+                
+                // Check file size and skip very large files that might cause issues
+                var fileInfo = new FileInfo(filePath);
+                if (fileInfo.Length > 50 * 1024 * 1024) // 50MB limit
+                {
+                    LogMessage($"  ⚠ Skipping large file: {Path.GetFileName(filePath)} ({fileInfo.Length / 1024 / 1024}MB)");
+                    return (false, 0);
+                }
+                
+                // Log file details for better tracking
+                LogMessage($"  Processing: {Path.GetFileName(filePath)} ({fileInfo.Length / 1024}KB, {extension.ToUpper()})");
+                
+                // Create backup if requested
+                if (backupPath != null)
+                {
+                    try
+                    {
+                        File.Copy(filePath, backupPath, true);
+                        LogMessage($"  ✓ Backup created: {Path.GetFileName(backupPath)}");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"  ⚠ Backup failed for {Path.GetFileName(filePath)}: {ex.Message}");
+                    }
+                }
+                
+                // Convert to SNBT with timeout protection and enhanced logging
+                LogMessage($"  🔄 Converting to SNBT: {Path.GetFileName(filePath)}");
+                
+                using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5))) // 5-minute timeout per file
+                using (var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
+                {
+                    await ConvertToSnbt(filePath, tempSnbtPath, extension, combinedCts.Token);
+                    
+                    // Log SNBT file info and check for multi-chunk processing
+                    if (File.Exists(tempSnbtPath))
+                    {
+                        var snbtSize = new FileInfo(tempSnbtPath).Length;
+                        LogMessage($"  ✓ SNBT created: {snbtSize / 1024}KB");
+                        
+                        // For MCA files, check if multi-chunk was detected
+                        if (extension == ".mca" || extension == ".mcc")
+                        {
+                            var snbtContent = File.ReadAllText(tempSnbtPath);
+                            if (snbtContent.Contains("# Chunk") && snbtContent.Split("# Chunk").Length > 2)
+                            {
+                                chunkCount = snbtContent.Split("# Chunk").Length - 1;
+                                isMultiChunk = true;
+                                LogMessage($"  📦 Multi-chunk file detected: {chunkCount} chunks");
+                            }
+                            else if (snbtContent.Contains("chunk") || snbtContent.Contains("Chunk"))
+                            {
+                                chunkCount = 1;
+                                LogMessage($"  📦 Single chunk file");
+                            }
+                        }
+                    }
+                    
+                    // Convert back from SNBT
+                    LogMessage($"  🔄 Converting back from SNBT: {Path.GetFileName(filePath)}");
+                    await ConvertFromSnbt(tempSnbtPath, filePath, extension, combinedCts.Token);
+                    
+                    // Verify final result
+                    var finalSize = new FileInfo(filePath).Length;
+                    LogMessage($"  ✓ Final file: {finalSize / 1024}KB");
+                }
+                
+                // Clean up SNBT file if not preserving
+                if (PreserveSNBTCheckBox.IsChecked != true && File.Exists(tempSnbtPath))
+                {
+                    try
+                    {
+                        File.Delete(tempSnbtPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"  ⚠ Failed to delete temp SNBT: {ex.Message}");
+                    }
+                }
+                else if (File.Exists(tempSnbtPath))
+                {
+                    LogMessage($"  📁 SNBT preserved: {Path.GetFileName(tempSnbtPath)}");
+                }
+                
+                LogMessage($"  ✅ Complete: {Path.GetFileName(filePath)}");
+                return (isMultiChunk, chunkCount);
+            }
+            catch (OperationCanceledException)
+            {
+                LogMessage($"  ⏹ Cancelled: {Path.GetFileName(filePath)}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"  ❌ Failed: {Path.GetFileName(filePath)} - {ex.Message}");
+                return (false, 0);
             }
         }
 
         private async Task ConvertToSnbt(string inputPath, string outputPath, string extension, CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
+            try
             {
-                try
+                // Add file validation before conversion
+                if (!File.Exists(inputPath))
                 {
-                    // Add file validation before conversion
-                    if (!File.Exists(inputPath))
-                    {
-                        throw new FileNotFoundException($"Input file not found: {inputPath}");
-                    }
-                    
-                    var fileInfo = new FileInfo(inputPath);
-                    if (fileInfo.Length == 0)
-                    {
-                        throw new InvalidDataException($"Input file is empty: {inputPath}");
-                    }
-                    
-                    // Use the NbtService to convert to SNBT
-                    _nbtService.ConvertToSnbt(inputPath, outputPath);
-                    
-                    // Verify output was created
-                    if (!File.Exists(outputPath))
-                    {
-                        throw new InvalidOperationException($"SNBT output file was not created: {outputPath}");
-                    }
+                    throw new FileNotFoundException($"Input file not found: {inputPath}");
                 }
-                catch (Exception ex)
+                
+                var fileInfo = new FileInfo(inputPath);
+                if (fileInfo.Length == 0)
                 {
-                    // Enhanced error reporting
-                    var errorMessage = $"ConvertToSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
-                    if (ex.InnerException != null)
-                    {
-                        errorMessage += $" Inner: {ex.InnerException.Message}";
-                    }
-                    throw new InvalidOperationException(errorMessage, ex);
+                    throw new InvalidDataException($"Input file is empty: {inputPath}");
                 }
-            }, cancellationToken);
+                
+                // Create progress reporter for detailed conversion status
+                var progress = new Progress<string>(message =>
+                {
+                    if (message.Contains("chunk") || message.Contains("processing") || message.Contains("detected"))
+                    {
+                        LogMessage($"    {message}");
+                    }
+                });
+                
+                // Use the enhanced async NbtService with progress reporting and multi-chunk support
+                await _nbtService.ConvertToSnbtAsync(inputPath, outputPath, progress);
+                
+                // Verify output was created
+                if (!File.Exists(outputPath))
+                {
+                    throw new InvalidOperationException($"SNBT output file was not created: {outputPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Enhanced error reporting
+                var errorMessage = $"ConvertToSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
+                if (ex.InnerException != null)
+                {
+                    errorMessage += $" Inner: {ex.InnerException.Message}";
+                }
+                throw new InvalidOperationException(errorMessage, ex);
+            }
         }
 
         private async Task ConvertFromSnbt(string inputPath, string outputPath, string extension, CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
+            try
             {
-                try
+                // Add file validation before conversion
+                if (!File.Exists(inputPath))
                 {
-                    // Add file validation before conversion
-                    if (!File.Exists(inputPath))
-                    {
-                        throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
-                    }
-                    
-                    var fileInfo = new FileInfo(inputPath);
-                    if (fileInfo.Length == 0)
-                    {
-                        throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
-                    }
-                    
-                    // Use the NbtService to convert from SNBT back to original format
-                    _nbtService.ConvertFromSnbt(inputPath, outputPath);
-                    
-                    // Verify output was created
-                    if (!File.Exists(outputPath))
-                    {
-                        throw new InvalidOperationException($"NBT output file was not created: {outputPath}");
-                    }
+                    throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
                 }
-                catch (Exception ex)
+                
+                var fileInfo = new FileInfo(inputPath);
+                if (fileInfo.Length == 0)
                 {
-                    // Enhanced error reporting
-                    var errorMessage = $"ConvertFromSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
-                    if (ex.InnerException != null)
-                    {
-                        errorMessage += $" Inner: {ex.InnerException.Message}";
-                    }
-                    throw new InvalidOperationException(errorMessage, ex);
+                    throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
                 }
-            }, cancellationToken);
+                
+                // Create progress reporter for detailed conversion status
+                var progress = new Progress<string>(message =>
+                {
+                    if (message.Contains("chunk") || message.Contains("processing") || message.Contains("writing"))
+                    {
+                        LogMessage($"    {message}");
+                    }
+                });
+                
+                // Use the enhanced async NbtService with progress reporting and multi-chunk support
+                await _nbtService.ConvertFromSnbtAsync(inputPath, outputPath, progress);
+                
+                // Verify output was created
+                if (!File.Exists(outputPath))
+                {
+                    throw new InvalidOperationException($"NBT output file was not created: {outputPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Enhanced error reporting
+                var errorMessage = $"ConvertFromSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
+                if (ex.InnerException != null)
+                {
+                    errorMessage += $" Inner: {ex.InnerException.Message}";
+                }
+                throw new InvalidOperationException(errorMessage, ex);
+            }
         }
 
         private async Task VerifyTranslation(string originalPath, string translatedPath, CancellationToken cancellationToken)

@@ -21,8 +21,8 @@ namespace GitMC.Utils.Nbt
         private static readonly Regex SHORT_PATTERN = new("^([-+]?(?:0|[1-9][0-9]*)s)$", RegexOptions.IgnoreCase);
         private static readonly Regex INT_PATTERN = new("^([-+]?(?:0|[1-9][0-9]*))$");
 
-        // NBT object cache for frequently created values
-        private static readonly ConcurrentDictionary<string, NbtTag> _nbtCache = new();
+        // NBT object cache for frequently created values with LRU eviction
+        private static readonly LruCache<string, NbtTag> _nbtCache = new(MaxNbtCacheSize);
         private const int MaxNbtCacheSize = 10000;
 
         private readonly StringReader Reader;
@@ -93,7 +93,7 @@ namespace GitMC.Utils.Nbt
         {
             if (Reader.CanRead())
             {
-                System.Diagnostics.Trace.TraceWarning($"Trailing data found at position {Reader.Cursor}, but ignored");
+                // Console.WriteLine($"Warning: Trailing data found at position {Reader.Cursor}, but ignored");
             }
         }
 
@@ -286,7 +286,7 @@ namespace GitMC.Utils.Nbt
             }
             
             // Cache the result if cache is not too large and string is reasonable length
-            if (_nbtCache.Count < MaxNbtCacheSize && str.Length <= 100)
+            if (str.Length <= 100) // Only cache reasonably short strings
             {
                 _nbtCache.TryAdd(str, result);
             }
@@ -475,6 +475,103 @@ namespace GitMC.Utils.Nbt
         }
     }
 
+    /// <summary>
+    /// Thread-safe LRU cache implementation with size limit and automatic eviction
+    /// </summary>
+    internal class LruCache<TKey, TValue> where TKey : notnull
+    {
+        private readonly int _maxSize;
+        private readonly Dictionary<TKey, LinkedListNode<CacheItem>> _cache;
+        private readonly LinkedList<CacheItem> _lruList;
+        private readonly object _lock = new object();
+        
+        private struct CacheItem
+        {
+            public TKey Key;
+            public TValue Value;
+            
+            public CacheItem(TKey key, TValue value)
+            {
+                Key = key;
+                Value = value;
+            }
+        }
+        
+        public LruCache(int maxSize)
+        {
+            _maxSize = maxSize;
+            _cache = new Dictionary<TKey, LinkedListNode<CacheItem>>(maxSize);
+            _lruList = new LinkedList<CacheItem>();
+        }
+        
+        public bool TryGetValue(TKey key, out TValue value)
+        {
+            lock (_lock)
+            {
+                if (_cache.TryGetValue(key, out var node))
+                {
+                    // Move to front (most recently used)
+                    _lruList.Remove(node);
+                    _lruList.AddFirst(node);
+                    value = node.Value.Value;
+                    return true;
+                }
+                
+                value = default!;
+                return false;
+            }
+        }
+        
+        public void TryAdd(TKey key, TValue value)
+        {
+            lock (_lock)
+            {
+                // Don't add if already exists
+                if (_cache.ContainsKey(key))
+                    return;
+                
+                // If at capacity, remove least recently used item
+                if (_cache.Count >= _maxSize)
+                {
+                    var lastNode = _lruList.Last;
+                    if (lastNode != null)
+                    {
+                        _cache.Remove(lastNode.Value.Key);
+                        _lruList.RemoveLast();
+                    }
+                }
+                
+                // Add new item to front
+                var newItem = new CacheItem(key, value);
+                var newNode = _lruList.AddFirst(newItem);
+                _cache[key] = newNode;
+            }
+        }
+        
+        public int Count
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _cache.Count;
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Clear all cached items
+        /// </summary>
+        public void Clear()
+        {
+            lock (_lock)
+            {
+                _cache.Clear();
+                _lruList.Clear();
+            }
+        }
+    }
+
     public class StringReader
     {
         private const char ESCAPE = '\\';
@@ -484,7 +581,7 @@ namespace GitMC.Utils.Nbt
         public int Cursor { get; private set; }
         
         // Optimized: Reusable StringBuilder to avoid string allocations
-        // Removed _stringBuilder field to avoid race conditions in multi-threaded contexts.
+        private readonly StringBuilder _stringBuilder = new StringBuilder(32);
         
         // Optimized: Cache for common short strings (numbers 0-255, common tokens)
         private static readonly Dictionary<string, string> _stringCache = new Dictionary<string, string>();
