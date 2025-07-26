@@ -484,7 +484,7 @@ namespace GitMC.Utils.Nbt
         public int Cursor { get; private set; }
         
         // Optimized: Reusable StringBuilder to avoid string allocations
-        private readonly StringBuilder _stringBuilder = new StringBuilder(32);
+        // Removed _stringBuilder field to avoid race conditions in multi-threaded contexts.
         
         // Optimized: Cache for common short strings (numbers 0-255, common tokens)
         private static readonly Dictionary<string, string> _stringCache = new Dictionary<string, string>();
