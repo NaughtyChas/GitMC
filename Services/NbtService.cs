@@ -49,7 +49,7 @@ namespace GitMC.Services
                 if (extension == ".mca" || extension == ".mcc")
                 {
                     // For region files, we need to handle them specially
-                    ConvertRegionFileToSnbt(inputPath, outputPath);
+                    ConvertRegionFileToSnbt(inputPath, outputPath).Wait();
                 }
                 else if (extension == ".dat" || extension == ".nbt" || extension == ".dat_old")
                 {
@@ -261,13 +261,13 @@ namespace GitMC.Services
             }
         }
 
-        private void ConvertRegionFileToSnbt(string inputPath, string outputPath)
+        private async Task ConvertRegionFileToSnbt(string inputPath, string outputPath)
         {
             try
             {
                 // Use McaRegionFile to parse MCA files
                 using var mcaFile = new McaRegionFile(inputPath);
-                mcaFile.LoadAsync().Wait();
+                await mcaFile.LoadAsync();
 
                 // Get existing chunks
                 var existingChunks = mcaFile.GetExistingChunks();
@@ -286,7 +286,9 @@ namespace GitMC.Services
                     using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
                     using (var writer = new StreamWriter(fs, Encoding.UTF8))
                     {
-                        writer.Write(emptySnbtContent);
+                        await writer.WriteAsync(emptySnbtContent);
+                        await writer.FlushAsync();
+                        await fs.FlushAsync();
                     }
 
                     return;
@@ -298,7 +300,7 @@ namespace GitMC.Services
                 if (existingChunks.Count == 1)
                 {
                     var chunkCoord = existingChunks[0];
-                    var chunkData = mcaFile.GetChunkAsync(chunkCoord).Result;
+                    var chunkData = await mcaFile.GetChunkAsync(chunkCoord);
 
                     // Add region information header even for single chunk
                     snbtContent.AppendLine($"// Region file: {Path.GetFileName(inputPath)}");
@@ -325,7 +327,7 @@ namespace GitMC.Services
                     {
                         try
                         {
-                            var chunkData = mcaFile.GetChunkAsync(chunkCoord).Result;
+                            var chunkData = await mcaFile.GetChunkAsync(chunkCoord);
                             if (chunkData?.NbtData != null)
                             {
                                 // Simplified chunk header
@@ -346,9 +348,9 @@ namespace GitMC.Services
                 {
                     using (var writer = new StreamWriter(fs, Encoding.UTF8))
                     {
-                        writer.Write(snbtContent.ToString());
-                        writer.Flush();
-                        fs.Flush();
+                        await writer.WriteAsync(snbtContent.ToString());
+                        await writer.FlushAsync();
+                        await fs.FlushAsync();
                     }
                 }
             }
@@ -368,8 +370,8 @@ namespace GitMC.Services
                 {
                     using (var writer = new StreamWriter(fs, Encoding.UTF8))
                     {
-                        writer.Write(errorSnbtContent);
-                        writer.Flush();
+                        await writer.WriteAsync(errorSnbtContent);
+                        await writer.FlushAsync();
                     }
                 }
             }
@@ -1134,10 +1136,11 @@ namespace GitMC.Services
                             dataSize = chunkData.DataLength;
                         }
                     }
-                    catch
-                    {
-                        isValid = false;
-                    }
+                    catch (Exception ex)  
+                    {  
+                        Console.WriteLine($"Error occurred while reading chunk data: {ex.Message}");
+                        isValid = false;  
+                    } 
 
                     chunkInfos.Add(new AnvilChunkInfo
                     {
