@@ -252,21 +252,24 @@ namespace GitMC.Utils.Nbt
             NbtTag result;
             try
             {
-                string sub = str[0..^1];
+                // Optimized: Use spans to avoid creating substring allocations
+                ReadOnlySpan<char> span = str.AsSpan();
+                ReadOnlySpan<char> valueSpan = span.Length > 1 ? span[..^1] : span; // All except last char for suffixed types
+                
                 if (FLOAT_PATTERN.IsMatch(str))
-                    result = new NbtFloat(float.Parse(sub, NumberStyles.Float, CultureInfo.InvariantCulture));
+                    result = new NbtFloat(float.Parse(valueSpan, NumberStyles.Float, CultureInfo.InvariantCulture));
                 else if (BYTE_PATTERN.IsMatch(str))
-                    result = new NbtByte((byte)sbyte.Parse(sub));
+                    result = new NbtByte((byte)sbyte.Parse(valueSpan));
                 else if (LONG_PATTERN.IsMatch(str))
-                    result = new NbtLong(long.Parse(sub));
+                    result = new NbtLong(long.Parse(valueSpan));
                 else if (SHORT_PATTERN.IsMatch(str))
-                    result = new NbtShort(short.Parse(sub));
+                    result = new NbtShort(short.Parse(valueSpan));
                 else if (INT_PATTERN.IsMatch(str))
-                    result = new NbtInt(int.Parse(str));
+                    result = new NbtInt(int.Parse(span));
                 else if (DOUBLE_PATTERN.IsMatch(str))
-                    result = new NbtDouble(double.Parse(sub, NumberStyles.Float, CultureInfo.InvariantCulture));
+                    result = new NbtDouble(double.Parse(valueSpan, NumberStyles.Float, CultureInfo.InvariantCulture));
                 else if (DOUBLE_PATTERN_NOSUFFIX.IsMatch(str))
-                    result = new NbtDouble(double.Parse(str, NumberStyles.Float, CultureInfo.InvariantCulture));
+                    result = new NbtDouble(double.Parse(span, NumberStyles.Float, CultureInfo.InvariantCulture));
                 else
                 {
                     var special = SpecialCase(str);
@@ -317,21 +320,54 @@ namespace GitMC.Utils.Nbt
         {
             if (String.IsNullOrEmpty(text))
                 return null;
+            
+            // Optimized: Handle common special cases first to avoid DataUtils calls
+            ReadOnlySpan<char> span = text.AsSpan();
+            
+            // Handle suffix cases with span operations
             if (text[^1] == Snbt.FLOAT_SUFFIX)
             {
-                var special_float = DataUtils.TryParseSpecialFloat(text[0..^1]);
+                ReadOnlySpan<char> valueSpan = span[..^1];
+                
+                // Check for common special float values directly without string allocation
+                if (valueSpan.SequenceEqual("Infinity".AsSpan()) || valueSpan.SequenceEqual("∞".AsSpan()))
+                    return new NbtFloat(float.PositiveInfinity);
+                if (valueSpan.SequenceEqual("-Infinity".AsSpan()) || valueSpan.SequenceEqual("-∞".AsSpan()))
+                    return new NbtFloat(float.NegativeInfinity);
+                if (valueSpan.SequenceEqual("NaN".AsSpan()))
+                    return new NbtFloat(float.NaN);
+                
+                // Fallback to DataUtils for other special cases (if any)
+                var special_float = DataUtils.TryParseSpecialFloat(valueSpan.ToString());
                 if (special_float != null)
                     return new NbtFloat(special_float.Value);
             }
             if (text[^1] == Snbt.DOUBLE_SUFFIX)
             {
-                var special_double = DataUtils.TryParseSpecialFloat(text[0..^1]);
+                ReadOnlySpan<char> valueSpan = span[..^1];
+                
+                // Check for common special double values directly without string allocation
+                if (valueSpan.SequenceEqual("Infinity".AsSpan()) || valueSpan.SequenceEqual("∞".AsSpan()))
+                    return new NbtDouble(double.PositiveInfinity);
+                if (valueSpan.SequenceEqual("-Infinity".AsSpan()) || valueSpan.SequenceEqual("-∞".AsSpan()))
+                    return new NbtDouble(double.NegativeInfinity);
+                if (valueSpan.SequenceEqual("NaN".AsSpan()))
+                    return new NbtDouble(double.NaN);
+                    
+                // Fallback to DataUtils for other special cases (if any)
+                var special_double = DataUtils.TryParseSpecialFloat(valueSpan.ToString());
                 if (special_double != null)
                     return new NbtDouble(special_double.Value);
             }
-            var special_double2 = DataUtils.TryParseSpecialDouble(text);
-            if (special_double2 != null)
-                return new NbtDouble(special_double2.Value);
+            
+            // Handle non-suffix special cases
+            if (span.SequenceEqual("Infinity".AsSpan()) || span.SequenceEqual("∞".AsSpan()))
+                return new NbtDouble(double.PositiveInfinity);
+            if (span.SequenceEqual("-Infinity".AsSpan()) || span.SequenceEqual("-∞".AsSpan()))
+                return new NbtDouble(double.NegativeInfinity);
+            if (span.SequenceEqual("NaN".AsSpan()))
+                return new NbtDouble(double.NaN);
+            
             var special_byte = TryParseSpecialByte(text);
             if (special_byte != null)
                 return new NbtByte((byte)special_byte);
@@ -354,40 +390,45 @@ namespace GitMC.Utils.Nbt
             if (StringReader.IsQuote(Reader.Peek()))
                 throw new FormatException("Array values cannot be quoted strings");
             
-            string str = Reader.ReadUnquotedString();
-            if (str == "")
+            // Parse directly from Reader without creating intermediate strings
+            int start = Reader.Cursor;
+            
+            // Find end of unquoted string
+            while (Reader.CanRead() && StringReader.UnquotedAllowed(Reader.Peek()))
+            {
+                Reader.Read();
+            }
+            
+            int length = Reader.Cursor - start;
+            if (length == 0)
                 throw new FormatException("Expected byte value to be non-empty");
 
+            ReadOnlySpan<char> valueSpan = Reader.String.AsSpan(start, length);
+            
             try
             {
                 // Handle special boolean cases
-                if (str.Equals("true", StringComparison.OrdinalIgnoreCase))
+                if (valueSpan.SequenceEqual("true".AsSpan()) || valueSpan.SequenceEqual("TRUE".AsSpan()))
                     return 1;
-                if (str.Equals("false", StringComparison.OrdinalIgnoreCase))
+                if (valueSpan.SequenceEqual("false".AsSpan()) || valueSpan.SequenceEqual("FALSE".AsSpan()))
                     return 0;
 
-                // Handle byte suffix - avoid substring by parsing without the last character
-                if (BYTE_PATTERN.IsMatch(str))
+                // Handle byte suffix - parse without the 'b' suffix
+                if (length > 1 && (valueSpan[^1] == 'b' || valueSpan[^1] == 'B'))
                 {
-                    // Parse without creating substring - just parse up to length-1
-                    ReadOnlySpan<char> span = str.AsSpan(0, str.Length - 1);
-                    return (byte)sbyte.Parse(span);
+                    ReadOnlySpan<char> numberSpan = valueSpan[..^1];
+                    return (byte)sbyte.Parse(numberSpan);
                 }
                 
                 // Handle plain integer that fits in byte range
-                if (INT_PATTERN.IsMatch(str))
-                {
-                    var intVal = int.Parse(str);
-                    if (intVal >= sbyte.MinValue && intVal <= sbyte.MaxValue)
-                        return (byte)(sbyte)intVal;
-                    throw new OverflowException($"Value {intVal} is out of range for byte");
-                }
-                
-                throw new FormatException($"'{str}' is not a valid byte value");
+                var intVal = int.Parse(valueSpan);
+                if (intVal >= sbyte.MinValue && intVal <= sbyte.MaxValue)
+                    return (byte)(sbyte)intVal;
+                throw new OverflowException($"Value {intVal} is out of range for byte");
             }
             catch (FormatException)
             {
-                throw;
+                throw new FormatException($"'{valueSpan.ToString()}' is not a valid byte value");
             }
             catch (OverflowException)
             {
@@ -401,30 +442,36 @@ namespace GitMC.Utils.Nbt
             if (StringReader.IsQuote(Reader.Peek()))
                 throw new FormatException("Array values cannot be quoted strings");
             
-            string str = Reader.ReadUnquotedString();
-            if (str == "")
+            // Parse directly from Reader without creating intermediate strings
+            int start = Reader.Cursor;
+            
+            // Find end of unquoted string
+            while (Reader.CanRead() && StringReader.UnquotedAllowed(Reader.Peek()))
+            {
+                Reader.Read();
+            }
+            
+            int length = Reader.Cursor - start;
+            if (length == 0)
                 throw new FormatException("Expected long value to be non-empty");
+
+            ReadOnlySpan<char> valueSpan = Reader.String.AsSpan(start, length);
 
             try
             {
-                // Handle long suffix - avoid substring by parsing without the last character
-                if (LONG_PATTERN.IsMatch(str))
+                // Handle long suffix - parse without the 'l' suffix
+                if (length > 1 && (valueSpan[^1] == 'l' || valueSpan[^1] == 'L'))
                 {
-                    ReadOnlySpan<char> span = str.AsSpan(0, str.Length - 1);
-                    return long.Parse(span);
+                    ReadOnlySpan<char> numberSpan = valueSpan[..^1];
+                    return long.Parse(numberSpan);
                 }
                 
                 // Handle plain integer
-                if (INT_PATTERN.IsMatch(str))
-                {
-                    return long.Parse(str);
-                }
-                
-                throw new FormatException($"'{str}' is not a valid long value");
+                return long.Parse(valueSpan);
             }
             catch (FormatException)
             {
-                throw;
+                throw new FormatException($"'{valueSpan.ToString()}' is not a valid long value");
             }
             catch (OverflowException)
             {
@@ -438,23 +485,29 @@ namespace GitMC.Utils.Nbt
             if (StringReader.IsQuote(Reader.Peek()))
                 throw new FormatException("Array values cannot be quoted strings");
             
-            string str = Reader.ReadUnquotedString();
-            if (str == "")
+            // Parse directly from Reader without creating intermediate strings
+            int start = Reader.Cursor;
+            
+            // Find end of unquoted string
+            while (Reader.CanRead() && StringReader.UnquotedAllowed(Reader.Peek()))
+            {
+                Reader.Read();
+            }
+            
+            int length = Reader.Cursor - start;
+            if (length == 0)
                 throw new FormatException("Expected int value to be non-empty");
+
+            ReadOnlySpan<char> valueSpan = Reader.String.AsSpan(start, length);
 
             try
             {
                 // Handle plain integer
-                if (INT_PATTERN.IsMatch(str))
-                {
-                    return int.Parse(str);
-                }
-                
-                throw new FormatException($"'{str}' is not a valid int value");
+                return int.Parse(valueSpan);
             }
             catch (FormatException)
             {
-                throw;
+                throw new FormatException($"'{valueSpan.ToString()}' is not a valid int value");
             }
             catch (OverflowException)
             {
@@ -657,7 +710,8 @@ namespace GitMC.Utils.Nbt
 
         public string ReadStringUntil(char end)
         {
-            var result = new StringBuilder();
+            // Optimized: Use the shared StringBuilder instead of creating new instances
+            _stringBuilder.Clear();
             bool escaped = false;
             while (CanRead())
             {
@@ -666,12 +720,12 @@ namespace GitMC.Utils.Nbt
                 {
                     if (c == end || c == ESCAPE)
                     {
-                        result.Append(c);
+                        _stringBuilder.Append(c);
                         escaped = false;
                     }
                     else if (c == 'n')
                     {
-                        result.Append('\n');
+                        _stringBuilder.Append('\n');
                         escaped = false;
                     }
                     else
@@ -683,9 +737,9 @@ namespace GitMC.Utils.Nbt
                 else if (c == ESCAPE)
                     escaped = true;
                 else if (c == end)
-                    return result.ToString();
+                    return _stringBuilder.ToString();
                 else
-                    result.Append(c);
+                    _stringBuilder.Append(c);
             }
             throw new FormatException($"Expected the string to end with '{end}', but reached end of data");
         }
@@ -704,11 +758,54 @@ namespace GitMC.Utils.Nbt
             if (length == 0)
                 return string.Empty;
             
-            // For very short strings, use cache with span instead of substring
+            // Optimized: Use string interning for very common short strings to avoid repeated allocations
+            // For numbers 0-255 and common tokens, check cache first without creating strings
             if (length <= 3)
             {
+                // Try to match common patterns directly without creating intermediate strings
                 ReadOnlySpan<char> shortSpan = String.AsSpan(start, length);
-                string result = shortSpan.ToString();
+                
+                // For single characters, use direct comparison
+                if (length == 1)
+                {
+                    char c = shortSpan[0];
+                    if (c >= '0' && c <= '9')
+                    {
+                        int digit = c - '0';
+                        lock (_cacheLock)
+                        {
+                            return _stringCache[digit.ToString()];
+                        }
+                    }
+                }
+                
+                // For 2-3 digit numbers, try direct lookup
+                if (length <= 3 && IsAllDigits(shortSpan))
+                {
+                    // Parse the number directly from span to avoid string creation
+                    int number = 0;
+                    for (int i = 0; i < shortSpan.Length; i++)
+                    {
+                        number = number * 10 + (shortSpan[i] - '0');
+                    }
+                    
+                    if (number <= 255)
+                    {
+                        lock (_cacheLock)
+                        {
+                            return _stringCache[number.ToString()];
+                        }
+                    }
+                }
+                
+                // For other short strings, use StringBuilder to avoid span.ToString()
+                _stringBuilder.Clear();
+                _stringBuilder.EnsureCapacity(length);
+                for (int i = 0; i < shortSpan.Length; i++)
+                {
+                    _stringBuilder.Append(shortSpan[i]);
+                }
+                string result = _stringBuilder.ToString();
                 
                 lock (_cacheLock)
                 {
@@ -726,7 +823,6 @@ namespace GitMC.Utils.Nbt
             }
             
             // For longer strings, use StringBuilder to minimize memory allocations
-            // instead of span.ToString() which still creates new strings
             _stringBuilder.Clear();
             _stringBuilder.EnsureCapacity(length);
             
@@ -736,6 +832,17 @@ namespace GitMC.Utils.Nbt
             }
             
             return _stringBuilder.ToString();
+        }
+        
+        // Helper method to check if span contains only digits
+        private static bool IsAllDigits(ReadOnlySpan<char> span)
+        {
+            for (int i = 0; i < span.Length; i++)
+            {
+                if (span[i] < '0' || span[i] > '9')
+                    return false;
+            }
+            return true;
         }
 
         public string ReadQuotedString()
