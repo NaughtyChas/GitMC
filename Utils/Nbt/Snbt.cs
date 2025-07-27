@@ -103,17 +103,17 @@ namespace GitMC.Utils.Nbt
 
         public static string ToSnbt(this NbtByteArray tag, SnbtOptions options)
         {
-            return ListToString("" + BYTE_ARRAY_PREFIX + ARRAY_DELIMITER, x => ((sbyte)x).ToString() + (options.NumberSuffixes ? BYTE_SUFFIX.ToString() : String.Empty), tag.Value, options);
+            return ByteArrayToString(tag.Value, options);
         }
 
         public static string ToSnbt(this NbtIntArray tag, SnbtOptions options)
         {
-            return ListToString("" + INT_ARRAY_PREFIX + ARRAY_DELIMITER, x => x.ToString(), tag.Value, options);
+            return IntArrayToString(tag.Value, options);
         }
 
         public static string ToSnbt(this NbtLongArray tag, SnbtOptions options)
         {
-            return ListToString("" + LONG_ARRAY_PREFIX + ARRAY_DELIMITER, x => x.ToString() + (options.NumberSuffixes ? LONG_SUFFIX.ToString() : String.Empty), tag.Value, options);
+            return LongArrayToString(tag.Value, options);
         }
 
         public static string ToSnbt(this NbtList tag, SnbtOptions options)
@@ -134,7 +134,15 @@ namespace GitMC.Utils.Nbt
             if (options.Minified)
             {
                 sb.Append(COMPOUND_OPEN);
-                sb.Append(String.Join(VALUE_SEPARATOR.ToString(), tag.Select(x => x.ToSnbt(options, include_name: true)).ToArray()));
+                // Optimized: Use StringBuilder instead of String.Join to avoid creating intermediate arrays
+                bool first = true;
+                foreach (var childTag in tag)
+                {
+                    if (!first)
+                        sb.Append(VALUE_SEPARATOR);
+                    sb.Append(childTag.ToSnbt(options, include_name: true));
+                    first = false;
+                }
                 sb.Append(COMPOUND_CLOSE);
             }
             else
@@ -152,8 +160,20 @@ namespace GitMC.Utils.Nbt
             // spacing between list prefix and first value
             string prefix_separator = !options.Minified && list_prefix.Length > 0 && values.Any() ? VALUE_SPACING : String.Empty;
             var s = new StringBuilder(LIST_OPEN + list_prefix + prefix_separator);
-            string contents = String.Join(VALUE_SEPARATOR + spacing, values.Select(x => function(x)));
-            s.Append(contents);
+            
+            // Optimized: Use StringBuilder instead of String.Join to avoid creating intermediate arrays
+            bool first = true;
+            foreach (var value in values)
+            {
+                if (!first)
+                {
+                    s.Append(VALUE_SEPARATOR);
+                    s.Append(spacing);
+                }
+                s.Append(function(value));
+                first = false;
+            }
+            
             s.Append(LIST_CLOSE);
             return s.ToString();
         }
@@ -235,9 +255,9 @@ namespace GitMC.Utils.Nbt
 
         private static void AddSnbtCompound(NbtCompound tag, SnbtOptions options, StringBuilder sb, string indent_string, int indent_level, bool include_name)
         {
+            AddIndents(sb, indent_string, indent_level);
             if (include_name)
                 sb.Append(GetNameBeforeValue(tag, options));
-            AddIndents(sb, indent_string, indent_level);
             sb.Append(COMPOUND_OPEN);
             if (tag.Count > 0)
             {
@@ -257,9 +277,9 @@ namespace GitMC.Utils.Nbt
 
         private static void AddSnbtList(NbtList tag, SnbtOptions options, StringBuilder sb, string indent_string, int indent_level, bool include_name)
         {
+            AddIndents(sb, indent_string, indent_level);
             if (include_name)
                 sb.Append(GetNameBeforeValue(tag, options));
-            AddIndents(sb, indent_string, indent_level);
             bool compressed = ShouldCompressListOf(tag.ListType);
             if (compressed)
                 sb.Append(ListToString("", x => x.ToSnbt(options, include_name: false), tag, options));
@@ -288,6 +308,116 @@ namespace GitMC.Utils.Nbt
             return type == NbtTagType.Byte || type == NbtTagType.Short || 
                    type == NbtTagType.Int || type == NbtTagType.Long || 
                    type == NbtTagType.Float || type == NbtTagType.Double;
+        }
+
+        // Optimized array conversion methods to avoid excessive string allocations
+        private static string ByteArrayToString(byte[] array, SnbtOptions options)
+        {
+            var sb = new StringBuilder();
+            
+            // Add array prefix
+            if (options.ArrayPrefixes)
+            {
+                sb.Append(LIST_OPEN);
+                sb.Append(BYTE_ARRAY_PREFIX);
+                sb.Append(ARRAY_DELIMITER);
+                if (!options.Minified && array.Length > 0)
+                    sb.Append(VALUE_SPACING);
+            }
+            else
+            {
+                sb.Append(LIST_OPEN);
+            }
+
+            // Add array elements
+            string spacing = options.Minified ? String.Empty : VALUE_SPACING;
+            string suffix = options.NumberSuffixes ? BYTE_SUFFIX.ToString() : String.Empty;
+            
+            for (int i = 0; i < array.Length; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(VALUE_SEPARATOR);
+                    sb.Append(spacing);
+                }
+                sb.Append(((sbyte)array[i]).ToString());
+                sb.Append(suffix);
+            }
+
+            sb.Append(LIST_CLOSE);
+            return sb.ToString();
+        }
+
+        private static string IntArrayToString(int[] array, SnbtOptions options)
+        {
+            var sb = new StringBuilder();
+            
+            // Add array prefix
+            if (options.ArrayPrefixes)
+            {
+                sb.Append(LIST_OPEN);
+                sb.Append(INT_ARRAY_PREFIX);
+                sb.Append(ARRAY_DELIMITER);
+                if (!options.Minified && array.Length > 0)
+                    sb.Append(VALUE_SPACING);
+            }
+            else
+            {
+                sb.Append(LIST_OPEN);
+            }
+
+            // Add array elements
+            string spacing = options.Minified ? String.Empty : VALUE_SPACING;
+            
+            for (int i = 0; i < array.Length; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(VALUE_SEPARATOR);
+                    sb.Append(spacing);
+                }
+                sb.Append(array[i].ToString());
+            }
+
+            sb.Append(LIST_CLOSE);
+            return sb.ToString();
+        }
+
+        private static string LongArrayToString(long[] array, SnbtOptions options)
+        {
+            var sb = new StringBuilder();
+            
+            // Add array prefix
+            if (options.ArrayPrefixes)
+            {
+                sb.Append(LIST_OPEN);
+                sb.Append(LONG_ARRAY_PREFIX);
+                sb.Append(ARRAY_DELIMITER);
+                if (!options.Minified && array.Length > 0)
+                    sb.Append(VALUE_SPACING);
+            }
+            else
+            {
+                sb.Append(LIST_OPEN);
+            }
+
+            // Add array elements
+            string spacing = options.Minified ? String.Empty : VALUE_SPACING;
+            string suffix = options.NumberSuffixes ? LONG_SUFFIX.ToString() : String.Empty;
+            
+            for (int i = 0; i < array.Length; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(VALUE_SEPARATOR);
+                    sb.Append(spacing);
+                }
+                sb.Append(array[i].ToString());
+                sb.Append(suffix);
+            }
+
+            sb.Append(LIST_CLOSE);
+            return sb.ToString();
         }
     }
 }

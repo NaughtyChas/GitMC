@@ -233,6 +233,14 @@ namespace GitMC.Views
             // Step 2: Scan for files to process
             var filesToProcess = await ScanForFiles(_selectedSavePath, cancellationToken);
             LogMessage($"Found {filesToProcess.Count} files to process");
+            
+            // Log file type breakdown
+            var mcaFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mca").Count();
+            var mccFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mcc").Count();
+            var datFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".dat").Count();
+            var nbtFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".nbt").Count();
+            
+            LogMessage($"  📊 File breakdown: {mcaFiles} MCA, {mccFiles} MCC, {datFiles} DAT, {nbtFiles} NBT");
 
             UpdateProgress(10, "Copying files...");
             
@@ -241,9 +249,12 @@ namespace GitMC.Views
             
             UpdateProgress(30, "Starting NBT translation process...");
             
-            // Step 4: Process selected file types
+            // Step 4: Process selected file types with enhanced tracking
             var processedCount = 0;
             var totalFiles = filesToProcess.Count;
+            var multiChunkFiles = 0;
+            var totalChunksProcessed = 0;
+            var lastUiUpdate = DateTime.Now;
             
             foreach (var fileInfo in filesToProcess)
             {
@@ -254,26 +265,34 @@ namespace GitMC.Views
                     var relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
                     var targetPath = Path.Combine(gitMcPath, relativePath);
                     
-                    // Only log every 10th file to reduce UI overhead
-                    if (processedCount % 10 == 0 || processedCount == 0)
+                    // Significantly reduce logging frequency to improve performance
+                    if (processedCount % 50 == 0 || processedCount == 0)
                     {
-                        LogMessage($"Processing files: {relativePath}");
+                        LogMessage($"Processing batch: {processedCount}-{Math.Min(processedCount + 49, totalFiles)} of {totalFiles}");
                     }
                     
-                    await ProcessFile(targetPath, fileInfo.Extension, cancellationToken);
+                    // Track multi-chunk processing
+                    var isMultiChunk = await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
+                    if (isMultiChunk.IsMultiChunk)
+                    {
+                        multiChunkFiles++;
+                        totalChunksProcessed += isMultiChunk.ChunkCount;
+                    }
                     
                     processedCount++;
                     var progress = 30 + (processedCount * 60 / totalFiles);
                     
-                    // Only update progress every 5 files to reduce UI overhead
-                    if (processedCount % 5 == 0 || processedCount == totalFiles)
+                    // Update UI much less frequently and with time-based throttling
+                    var timeSinceLastUpdate = DateTime.Now - lastUiUpdate;
+                    if (timeSinceLastUpdate.TotalMilliseconds > 3000 || processedCount == totalFiles) // Every 3 seconds or at completion
                     {
-                        UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}: {Path.GetFileName(fileInfo.Name)}");
+                        UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}...");
+                        lastUiUpdate = DateTime.Now;
                         
-                        // Force a UI update every 20 files to prevent freezing
-                        if (processedCount % 20 == 0)
+                        // Minimal yield to UI thread for responsiveness
+                        if (processedCount % 25 == 0)
                         {
-                            await Task.Delay(10, cancellationToken); // Give UI thread a chance
+                            await Task.Yield();
                         }
                     }
                 }
@@ -292,7 +311,13 @@ namespace GitMC.Views
             }
             
             UpdateProgress(100, "Translate complete!");
+            
+            // Log final statistics
             LogMessage("=== Save translation process complete ===");
+            LogMessage($"📈 Processing Statistics:");
+            LogMessage($"  ✓ Total files processed: {processedCount}");
+            LogMessage($"  📦 Multi-chunk files: {multiChunkFiles}");
+            LogMessage($"  🧊 Total chunks processed: {totalChunksProcessed}");
             LogMessage($"Output folder: {gitMcPath}");
         }
 
@@ -410,12 +435,16 @@ namespace GitMC.Views
                     return;
                 }
                 
+                // Log file details for better tracking
+                LogMessage($"  Processing: {Path.GetFileName(filePath)} ({fileInfo.Length / 1024}KB, {extension.ToUpper()})");
+                
                 // Create backup if requested
                 if (backupPath != null)
                 {
                     try
                     {
                         File.Copy(filePath, backupPath, true);
+                        LogMessage($"  ✓ Backup created: {Path.GetFileName(backupPath)}");
                     }
                     catch (Exception ex)
                     {
@@ -423,17 +452,43 @@ namespace GitMC.Views
                     }
                 }
                 
-                // Convert to SNBT with timeout protection
-                LogMessage($"  Convert to SNBT: {Path.GetFileName(filePath)}");
+                // Convert to SNBT with timeout protection and enhanced logging
+                LogMessage($"  🔄 Converting to SNBT: {Path.GetFileName(filePath)}");
                 
                 using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5))) // 5-minute timeout per file
                 using (var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
                 {
                     await ConvertToSnbt(filePath, tempSnbtPath, extension, combinedCts.Token);
                     
+                    // Log SNBT file info for verification
+                    if (File.Exists(tempSnbtPath))
+                    {
+                        var snbtSize = new FileInfo(tempSnbtPath).Length;
+                        LogMessage($"  ✓ SNBT created: {snbtSize / 1024}KB");
+                        
+                        // For MCA files, check if multi-chunk was detected
+                        if (extension == ".mca" || extension == ".mcc")
+                        {
+                            var snbtContent = File.ReadAllText(tempSnbtPath);
+                            if (snbtContent.Contains("# Chunk"))
+                            {
+                                // Optimized: Count occurrences without Split to avoid massive memory allocations
+                                int chunkCount = CountOccurrences(snbtContent.AsSpan(), "# Chunk".AsSpan());
+                                if (chunkCount > 1)
+                                {
+                                    LogMessage($"  📦 Multi-chunk file detected: {chunkCount} chunks");
+                                }
+                            }
+                        }
+                    }
+                    
                     // Convert back from SNBT
-                    LogMessage($"  Convert back from SNBT: {Path.GetFileName(filePath)}");
+                    LogMessage($"  🔄 Converting back from SNBT: {Path.GetFileName(filePath)}");
                     await ConvertFromSnbt(tempSnbtPath, filePath, extension, combinedCts.Token);
+                    
+                    // Verify final result
+                    var finalSize = new FileInfo(filePath).Length;
+                    LogMessage($"  ✓ Final file: {finalSize / 1024}KB");
                 }
                 
                 // Clean up SNBT file if not preserving
@@ -448,8 +503,12 @@ namespace GitMC.Views
                         LogMessage($"  ⚠ Failed to delete temp SNBT: {ex.Message}");
                     }
                 }
+                else if (File.Exists(tempSnbtPath))
+                {
+                    LogMessage($"  📁 SNBT preserved: {Path.GetFileName(tempSnbtPath)}");
+                }
                 
-                LogMessage($"  ✓ Complete: {Path.GetFileName(filePath)}");
+                LogMessage($"  ✅ Complete: {Path.GetFileName(filePath)}");
             }
             catch (OperationCanceledException)
             {
@@ -458,89 +517,203 @@ namespace GitMC.Views
             }
             catch (Exception ex)
             {
-                LogMessage($"  ✗ Failed: {Path.GetFileName(filePath)} - {ex.Message}");
+                LogMessage($"  ❌ Failed: {Path.GetFileName(filePath)} - {ex.Message}");
                 throw;
+            }
+        }
+
+        private async Task<(bool IsMultiChunk, int ChunkCount)> ProcessFileWithTracking(string filePath, string extension, CancellationToken cancellationToken)
+        {
+            var isMultiChunk = false;
+            var chunkCount = 0;
+            
+            try
+            {
+                var tempSnbtPath = filePath + ".snbt";
+                var backupPath = CreateBackupCheckBox.IsChecked == true ? filePath + ".backup" : null;
+                
+                // Check if file exists and is accessible
+                if (!File.Exists(filePath))
+                {
+                    return (false, 0);
+                }
+                
+                // Check file size and skip very large files that might cause issues
+                var fileInfo = new FileInfo(filePath);
+                if (fileInfo.Length > 50 * 1024 * 1024) // 50MB limit
+                {
+                    LogMessage($"  ⚠ Skipping large file: {Path.GetFileName(filePath)} ({fileInfo.Length / 1024 / 1024}MB)");
+                    return (false, 0);
+                }
+                
+                // Create backup if requested
+                if (backupPath != null)
+                {
+                    try
+                    {
+                        File.Copy(filePath, backupPath, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"  ⚠ Backup failed for {Path.GetFileName(filePath)}: {ex.Message}");
+                    }
+                }
+                
+                // Convert to SNBT with timeout protection 
+                using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5))) // 5-minute timeout per file
+                using (var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
+                {
+                    await ConvertToSnbt(filePath, tempSnbtPath, extension, combinedCts.Token);
+                    
+                    // Optimized multi-chunk detection: only read file once and use efficient string operations
+                    if (File.Exists(tempSnbtPath))
+                    {
+                        // For MCA files, efficiently check chunk count without extensive string splitting
+                        if (extension == ".mca" || extension == ".mcc")
+                        {
+                            // Use async file reading with optimized chunk detection
+                            using (var fileStream = new FileStream(tempSnbtPath, FileMode.Open, FileAccess.Read))
+                            using (var reader = new StreamReader(fileStream, Encoding.UTF8, bufferSize: 8192))
+                            {
+                                var firstKiloBytes = new char[1024];
+                                var charsRead = await reader.ReadAsync(firstKiloBytes, 0, 1024);
+                                var headerText = new string(firstKiloBytes, 0, charsRead);
+                                
+                                // Look for total chunks in header (much faster than parsing entire file)
+                                if (headerText.Contains("// Total chunks:"))
+                                {
+                                    var match = System.Text.RegularExpressions.Regex.Match(headerText, @"// Total chunks:\s*(\d+)");
+                                    if (match.Success && int.TryParse(match.Groups[1].Value, out chunkCount))
+                                    {
+                                        isMultiChunk = chunkCount > 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Convert back from SNBT
+                    await ConvertFromSnbt(tempSnbtPath, filePath, extension, combinedCts.Token);
+                }
+                
+                // Clean up SNBT file if not preserving
+                if (PreserveSNBTCheckBox.IsChecked != true && File.Exists(tempSnbtPath))
+                {
+                    try
+                    {
+                        File.Delete(tempSnbtPath);
+                    }
+                    catch (Exception)
+                    {
+                        // Silently ignore cleanup errors
+                    }
+                }
+                
+                return (isMultiChunk, chunkCount);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"  ❌ Failed: {Path.GetFileName(filePath)} - {ex.Message}");
+                return (false, 0);
             }
         }
 
         private async Task ConvertToSnbt(string inputPath, string outputPath, string extension, CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
+            try
             {
-                try
+                // Add file validation before conversion
+                if (!File.Exists(inputPath))
                 {
-                    // Add file validation before conversion
-                    if (!File.Exists(inputPath))
-                    {
-                        throw new FileNotFoundException($"Input file not found: {inputPath}");
-                    }
-                    
-                    var fileInfo = new FileInfo(inputPath);
-                    if (fileInfo.Length == 0)
-                    {
-                        throw new InvalidDataException($"Input file is empty: {inputPath}");
-                    }
-                    
-                    // Use the NbtService to convert to SNBT
-                    _nbtService.ConvertToSnbt(inputPath, outputPath);
-                    
-                    // Verify output was created
-                    if (!File.Exists(outputPath))
-                    {
-                        throw new InvalidOperationException($"SNBT output file was not created: {outputPath}");
-                    }
+                    throw new FileNotFoundException($"Input file not found: {inputPath}");
                 }
-                catch (Exception ex)
+                
+                var fileInfo = new FileInfo(inputPath);
+                if (fileInfo.Length == 0)
                 {
-                    // Enhanced error reporting
-                    var errorMessage = $"ConvertToSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
-                    if (ex.InnerException != null)
-                    {
-                        errorMessage += $" Inner: {ex.InnerException.Message}";
-                    }
-                    throw new InvalidOperationException(errorMessage, ex);
+                    throw new InvalidDataException($"Input file is empty: {inputPath}");
                 }
-            }, cancellationToken);
+                
+                // Create minimal progress reporter to reduce UI overhead
+                var progress = new Progress<string>(message =>
+                {
+                    // Only log critical conversion events, not detailed chunk processing
+                    if (message.Contains("error") || message.Contains("failed") || message.Contains("ERROR"))
+                    {
+                        LogMessage($"    {message}");
+                    }
+                });
+                
+                // Use the enhanced async NbtService with minimal progress reporting
+                await _nbtService.ConvertToSnbtAsync(inputPath, outputPath, progress);
+                
+                // Verify output was created
+                if (!File.Exists(outputPath))
+                {
+                    throw new InvalidOperationException($"SNBT output file was not created: {outputPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Enhanced error reporting
+                var errorMessage = $"ConvertToSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
+                if (ex.InnerException != null)
+                {
+                    errorMessage += $" Inner: {ex.InnerException.Message}";
+                }
+                throw new InvalidOperationException(errorMessage, ex);
+            }
         }
 
         private async Task ConvertFromSnbt(string inputPath, string outputPath, string extension, CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
+            try
             {
-                try
+                // Add file validation before conversion
+                if (!File.Exists(inputPath))
                 {
-                    // Add file validation before conversion
-                    if (!File.Exists(inputPath))
-                    {
-                        throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
-                    }
-                    
-                    var fileInfo = new FileInfo(inputPath);
-                    if (fileInfo.Length == 0)
-                    {
-                        throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
-                    }
-                    
-                    // Use the NbtService to convert from SNBT back to original format
-                    _nbtService.ConvertFromSnbt(inputPath, outputPath);
-                    
-                    // Verify output was created
-                    if (!File.Exists(outputPath))
-                    {
-                        throw new InvalidOperationException($"NBT output file was not created: {outputPath}");
-                    }
+                    throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
                 }
-                catch (Exception ex)
+                
+                var fileInfo = new FileInfo(inputPath);
+                if (fileInfo.Length == 0)
                 {
-                    // Enhanced error reporting
-                    var errorMessage = $"ConvertFromSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
-                    if (ex.InnerException != null)
-                    {
-                        errorMessage += $" Inner: {ex.InnerException.Message}";
-                    }
-                    throw new InvalidOperationException(errorMessage, ex);
+                    throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
                 }
-            }, cancellationToken);
+                
+                // Create minimal progress reporter to reduce UI overhead
+                var progress = new Progress<string>(message =>
+                {
+                    // Only log critical conversion events, not detailed chunk processing
+                    if (message.Contains("error") || message.Contains("failed") || message.Contains("ERROR"))
+                    {
+                        LogMessage($"    {message}");
+                    }
+                });
+                
+                // Use the enhanced async NbtService with minimal progress reporting
+                await _nbtService.ConvertFromSnbtAsync(inputPath, outputPath, progress);
+                
+                // Verify output was created
+                if (!File.Exists(outputPath))
+                {
+                    throw new InvalidOperationException($"NBT output file was not created: {outputPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Enhanced error reporting
+                var errorMessage = $"ConvertFromSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
+                if (ex.InnerException != null)
+                {
+                    errorMessage += $" Inner: {ex.InnerException.Message}";
+                }
+                throw new InvalidOperationException(errorMessage, ex);
+            }
         }
 
         private async Task VerifyTranslation(string originalPath, string translatedPath, CancellationToken cancellationToken)
@@ -607,6 +780,11 @@ namespace GitMC.Views
             }
         }
 
+        private readonly Queue<string> _logQueue = new Queue<string>();
+        private readonly object _logLock = new object();
+        private DateTime _lastLogFlush = DateTime.Now;
+        private bool _isLogFlushScheduled = false;
+
         private void LogMessage(string message)
         {
             var timestamp = DateTime.Now.ToString("HH:mm:ss");
@@ -614,36 +792,130 @@ namespace GitMC.Views
             
             try
             {
-                // Use high priority for critical messages, low priority for normal messages
-                var priority = message.Contains("Error") || message.Contains("Failed") || message.Contains("❌") 
-                    ? Microsoft.UI.Dispatching.DispatcherQueuePriority.High 
-                    : Microsoft.UI.Dispatching.DispatcherQueuePriority.Low;
+                // Add to queue instead of immediate UI update
+                lock (_logLock)
+                {
+                    _logQueue.Enqueue(logEntry);
+                    
+                    // Limit queue size to prevent memory buildup
+                    while (_logQueue.Count > 1000)
+                    {
+                        _logQueue.Dequeue();
+                    }
+                }
                 
-                DispatcherQueue.TryEnqueue(priority, () =>
+                // Schedule batch flush every 500ms or for critical messages
+                var isCritical = message.Contains("Error") || message.Contains("Failed") || message.Contains("❌") || message.Contains("===");
+                var timeSinceLastFlush = DateTime.Now - _lastLogFlush;
+                
+                if (isCritical || timeSinceLastFlush.TotalMilliseconds > 500)
+                {
+                    FlushLogQueue();
+                }
+                else if (!_isLogFlushScheduled)
+                {
+                    ScheduleLogFlush();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Fallback - output to debug console
+                System.Diagnostics.Debug.WriteLine($"Log Error: {ex.Message} - Message: {logEntry}");
+            }
+        }
+
+        private void ScheduleLogFlush()
+        {
+            if (_isLogFlushScheduled) return;
+            
+            _isLogFlushScheduled = true;
+            
+            _ = Task.Delay(500).ContinueWith(_ =>
+            {
+                _isLogFlushScheduled = false;
+                FlushLogQueue();
+            }, TaskScheduler.Default);
+        }
+
+        private void FlushLogQueue()
+        {
+            try
+            {
+                List<string> logsToFlush;
+                lock (_logLock)
+                {
+                    if (_logQueue.Count == 0) return;
+                    
+                    logsToFlush = new List<string>(_logQueue);
+                    _logQueue.Clear();
+                }
+                
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
                 {
                     try
                     {
                         if (LogTextBox != null)
                         {
-                            // Limit log text box size to prevent memory issues
-                            if (LogTextBox.Text.Length > 50000) // ~50KB limit
+                            var sb = new StringBuilder();
+                            
+                            // Check if we need to trim existing content
+                            var currentLength = LogTextBox.Text.Length;
+                            var newContentLength = logsToFlush.Sum(log => log.Length + 1); // +1 for newline
+                            
+                            if (currentLength + newContentLength > 80000) // ~80KB limit
                             {
-                                var lines = LogTextBox.Text.Split('\n');
-                                var keepLines = lines.Skip(lines.Length / 2); // Keep last half
-                                LogTextBox.Text = string.Join('\n', keepLines);
+                                // Keep only the last portion of current text
+                                // Optimized: Use span-based approach to avoid Split allocation
+                                var textContent = LogTextBox.Text;
+                                var lines = new List<string>();
+                                
+                                ReadOnlySpan<char> contentSpan = textContent.AsSpan();
+                                ReadOnlySpan<char> remaining = contentSpan;
+                                
+                                while (!remaining.IsEmpty)
+                                {
+                                    int lineEnd = remaining.IndexOf('\n');
+                                    ReadOnlySpan<char> line;
+                                    
+                                    if (lineEnd >= 0)
+                                    {
+                                        line = remaining[..lineEnd];
+                                        remaining = remaining[(lineEnd + 1)..];
+                                    }
+                                    else
+                                    {
+                                        line = remaining;
+                                        remaining = ReadOnlySpan<char>.Empty;
+                                    }
+                                    
+                                    lines.Add(line.ToString());
+                                }
+                                
+                                var keepLines = lines.Skip(Math.Max(0, lines.Count - 200)); // Keep last 200 lines
+                                sb.AppendLine(string.Join('\n', keepLines));
+                                sb.AppendLine("... [Earlier logs truncated for performance] ...");
+                            }
+                            else
+                            {
+                                sb.Append(LogTextBox.Text);
                             }
                             
-                            LogTextBox.Text += logEntry + "\n";
-                            
-                            // Only auto-scroll for important messages to reduce UI overhead
-                            if (priority == Microsoft.UI.Dispatching.DispatcherQueuePriority.High)
+                            // Add new logs
+                            foreach (var log in logsToFlush)
                             {
-                                if (LogTextBox.Parent is ScrollViewer scrollViewer)
-                                {
-                                    scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null);
-                                }
+                                sb.AppendLine(log);
+                            }
+                            
+                            LogTextBox.Text = sb.ToString();
+                            
+                            // Always auto-scroll to bottom for better UX
+                            if (LogTextBox.Parent is ScrollViewer scrollViewer)
+                            {
+                                scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null, false);
                             }
                         }
+                        
+                        _lastLogFlush = DateTime.Now;
                     }
                     catch (Exception)
                     {
@@ -653,8 +925,7 @@ namespace GitMC.Views
             }
             catch (Exception ex)
             {
-                // Fallback - output to debug console
-                System.Diagnostics.Debug.WriteLine($"Log Error: {ex.Message} - Message: {logEntry}");
+                System.Diagnostics.Debug.WriteLine($"FlushLogQueue Error: {ex.Message}");
             }
         }
 
@@ -662,7 +933,33 @@ namespace GitMC.Views
         {
             _cancellationTokenSource?.Cancel();
             _performanceTimer?.Stop();
+            
+            // Flush any remaining logs
+            FlushLogQueue();
+            
             base.OnNavigatedFrom(e);
+        }
+
+        /// <summary>
+        /// Count occurrences of a pattern in a span without allocating strings
+        /// </summary>
+        private static int CountOccurrences(ReadOnlySpan<char> text, ReadOnlySpan<char> pattern)
+        {
+            if (pattern.IsEmpty) return 0;
+            
+            int count = 0;
+            int index = 0;
+            
+            while (index <= text.Length - pattern.Length)
+            {
+                int found = text[index..].IndexOf(pattern);
+                if (found == -1) break;
+                
+                count++;
+                index += found + pattern.Length;
+            }
+            
+            return count;
         }
     }
 }

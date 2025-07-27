@@ -6,6 +6,7 @@ using System.Linq;
 using Windows.Storage.Pickers;
 using Windows.Storage;
 using GitMC.Services;
+using GitMC.Tests;
 using System.Threading.Tasks;
 
 namespace GitMC.Views
@@ -48,7 +49,7 @@ namespace GitMC.Views
 
                     // Check if it's an Anvil file
                     var extension = Path.GetExtension(_selectedFilePath).ToLowerInvariant();
-                    _isAnvilFile = extension == ".mca" || extension == ".mcc";
+                    _isAnvilFile = await IsAnvilRelatedFile(_selectedFilePath, extension);
 
                     // Show appropriate UI panels
                     if (_isAnvilFile)
@@ -60,6 +61,8 @@ namespace GitMC.Views
                         ShowRegionInfoButton.IsEnabled = true;
                         ListChunksButton.IsEnabled = true;
                         ExtractChunkButton.IsEnabled = true;
+                        ConvertMcaToSnbtButton.IsEnabled = true;
+                        ConvertSnbtToMcaButton.IsEnabled = true;
                         
                         // Disable NBT buttons for .mca files (but not .mcc)
                         var enableNbtActions = extension == ".mcc";
@@ -362,27 +365,106 @@ namespace GitMC.Views
 
         private async void RunRoundTripTestButton_Click(object sender, RoutedEventArgs e)
         {
+            if (string.IsNullOrEmpty(_selectedFilePath))
+            {
+                OutputTextBox.Text = "Please select a file first to run the round-trip test.";
+                return;
+            }
+
             try
             {
-                OutputTextBox.Text = "🧪 Running NBT Round-Trip Test...\n\n";
-                
-                var test = new GitMC.Tests.NbtRoundTripTest();
-                var success = await test.TestRoundTripConversion();
-                
-                if (success)
+                // Store reference to button to prevent multiple clicks
+                var button = sender as Button;
+                if (button != null)
                 {
-                    OutputTextBox.Text += "\n✅ Round-Trip Test PASSED!\n";
-                    OutputTextBox.Text += "NBT → SNBT → NBT conversion works correctly.";
+                    button.IsEnabled = false;
+                }
+                
+                OutputTextBox.Text = $"🧪 Running Round-Trip Test on selected file...\n\n";
+                OutputTextBox.Text += $"File: {Path.GetFileName(_selectedFilePath)}\n";
+
+                if (_isAnvilFile)
+                {
+                    // Use Progress<T> to report progress
+                    var progress = new Progress<string>(message => 
+                    {
+                        // Append to existing text without clearing
+                        OutputTextBox.Text += $"{message}\n";
+                    });
+                    
+                    // Create test instance and run with progress reporting
+                    var test = new RoundtripConversionTest(progress);
+                    var success = await Task.Run(async () => 
+                    {
+                        try
+                        {
+                            return await test.TestRoundtripConversion(_selectedFilePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
+                                Windows.UI.Core.CoreDispatcherPriority.Normal, 
+                                () => OutputTextBox.Text += $"\nError during test: {ex.Message}\n");
+                            return false;
+                        }
+                    });
+                    
+                    if (success)
+                    {
+                        OutputTextBox.Text += "\n✅ MCA Round-Trip Test PASSED!\n";
+                        OutputTextBox.Text += "MCA → SNBT → MCA conversion works correctly for the selected file.";
+                    }
+                    else
+                    {
+                        OutputTextBox.Text += "\n❌ MCA Round-Trip Test FAILED!\n";
+                        OutputTextBox.Text += "There was an issue with the MCA conversion process.";
+                    }
                 }
                 else
                 {
-                    OutputTextBox.Text += "\n❌ Round-Trip Test FAILED!\n";
-                    OutputTextBox.Text += "There was an issue with the conversion process.";
+                    // Test NBT file roundtrip conversion
+                    OutputTextBox.Text += "\nRunning NBT round-trip test...\n";
+                    
+                    var test = new GitMC.Tests.NbtRoundTripTest();
+                    var success = await Task.Run(async () => 
+                    {
+                        try
+                        {
+                            return await test.TestRoundTripConversion();
+                        }
+                        catch (Exception ex)
+                        {
+                            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
+                                Windows.UI.Core.CoreDispatcherPriority.Normal, 
+                                () => OutputTextBox.Text += $"\nError during test: {ex.Message}\n");
+                            return false;
+                        }
+                    });
+                    
+                    if (success)
+                    {
+                        OutputTextBox.Text += "\n✅ NBT Round-Trip Test PASSED!\n";
+                        OutputTextBox.Text += "NBT → SNBT → NBT conversion works correctly.";
+                    }
+                    else
+                    {
+                        OutputTextBox.Text += "\n❌ NBT Round-Trip Test FAILED!\n";
+                        OutputTextBox.Text += "There was an issue with the NBT conversion process.";
+                    }
                 }
             }
             catch (Exception ex)
             {
                 OutputTextBox.Text = $"❌ Error running round-trip test: {ex.Message}\n\nStack trace:\n{ex.StackTrace}";
+            }
+            finally
+            {
+                // Re-enable button whether successful or not
+                var button = sender as Button;
+                if (button != null)
+                {
+                    button.IsEnabled = true;
+                }
             }
         }
 
@@ -391,6 +473,243 @@ namespace GitMC.Views
             OutputTextBox.Text = "Ready...Select an NBT, DAT, or Anvil (.mca/.mcc) file to start debugging.";
             _currentSnbtContent = null;
             ConvertToNbtButton.IsEnabled = false;
+        }
+
+        private async void ConvertMcaToSnbtButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_selectedFilePath))
+            {
+                OutputTextBox.Text = "Please select an MCA file first.";
+                return;
+            }
+
+            try
+            {
+                // Disable button to prevent multiple clicks
+                ConvertMcaToSnbtButton.IsEnabled = false;
+                
+                // Show initial status
+                OutputTextBox.Text = "Preparing to convert MCA file to SNBT...";
+
+                var picker = new FileSavePicker();
+                picker.FileTypeChoices.Add("SNBT File", new[] { ".snbt" });
+                picker.SuggestedFileName = Path.GetFileNameWithoutExtension(_selectedFilePath);
+
+                // Get current window handle for the picker
+                var window = App.MainWindow;
+                var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
+
+                var file = await picker.PickSaveFileAsync();
+                if (file != null)
+                {
+                    // Create progress reporter to update UI
+                    var progress = new Progress<string>(message => 
+                    {
+                        OutputTextBox.Text = $"Conversion in progress...\n\n{message}";
+                    });
+                    
+                    // Execute conversion asynchronously
+                    await _nbtService.ConvertToSnbtAsync(_selectedFilePath, file.Path, progress);
+
+                    // Update UI after conversion
+                    var fileInfo = new FileInfo(file.Path);
+                    OutputTextBox.Text = $"✅ Success!\n\n";
+                    OutputTextBox.Text += $"MCA file converted to SNBT format\n";
+                    OutputTextBox.Text += $"Input: {Path.GetFileName(_selectedFilePath)}\n";
+                    OutputTextBox.Text += $"Output: {file.Path}\n";
+                    OutputTextBox.Text += $"SNBT file size: {fileInfo.Length / 1024.0:F1} KB\n\n";
+                    OutputTextBox.Text += $"The SNBT file contains all chunk data from the MCA region file.";
+                }
+            }
+            catch (Exception ex)
+            {
+                OutputTextBox.Text = $"❌ Error converting MCA to SNBT: {ex.Message}\n\n{ex.StackTrace}";
+            }
+            finally
+            {
+                // Re-enable button whether successful or not
+                ConvertMcaToSnbtButton.IsEnabled = true;
+            }
+        }
+
+        private async void ConvertSnbtToMcaButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Disable button to prevent multiple clicks
+                ConvertSnbtToMcaButton.IsEnabled = false;
+                
+                // First, let user select an SNBT file
+                var openPicker = new FileOpenPicker();
+                openPicker.FileTypeFilter.Add(".snbt");
+                openPicker.FileTypeFilter.Add("*");
+
+                // Get current window handle for the picker
+                var window = App.MainWindow;
+                var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                WinRT.Interop.InitializeWithWindow.Initialize(openPicker, hWnd);
+
+                var snbtFile = await openPicker.PickSingleFileAsync();
+                if (snbtFile == null)
+                {
+                    OutputTextBox.Text = "No SNBT file selected.";
+                    return;
+                }
+
+                OutputTextBox.Text = "Converting SNBT file to MCA...";
+
+                // Now let user choose where to save the MCA file
+                var savePicker = new FileSavePicker();
+                savePicker.FileTypeChoices.Add("MCA File", new[] { ".mca" });
+                savePicker.SuggestedFileName = Path.GetFileNameWithoutExtension(snbtFile.Path);
+
+                WinRT.Interop.InitializeWithWindow.Initialize(savePicker, hWnd);
+
+                var mcaFile = await savePicker.PickSaveFileAsync();
+                if (mcaFile != null)
+                {
+                    // Create progress reporter to update UI
+                    var progress = new Progress<string>(message => 
+                    {
+                        OutputTextBox.Text = $"Conversion in progress...\n\n{message}";
+                    });
+                    
+                    // Execute conversion asynchronously
+                    await _nbtService.ConvertFromSnbtAsync(snbtFile.Path, mcaFile.Path, progress);
+
+                    // Update UI after conversion
+                    var fileInfo = new FileInfo(mcaFile.Path);
+                    OutputTextBox.Text = $"✅ Success!\n\n";
+                    OutputTextBox.Text += $"SNBT file converted to MCA format\n";
+                    OutputTextBox.Text += $"Input: {snbtFile.Path}\n";
+                    OutputTextBox.Text += $"Output: {mcaFile.Path}\n";
+                    OutputTextBox.Text += $"MCA file size: {fileInfo.Length / 1024.0:F1} KB\n\n";
+                    OutputTextBox.Text += $"The MCA file has been reconstructed from the SNBT data.";
+                }
+            }
+            catch (Exception ex)
+            {
+                OutputTextBox.Text = $"❌ Error converting SNBT to MCA: {ex.Message}\n\n{ex.StackTrace}";
+            }
+            finally
+            {
+                // Re-enable button whether successful or not
+                ConvertSnbtToMcaButton.IsEnabled = true;
+            }
+        }
+
+        /// <summary>
+        /// Determines if a file is Anvil-related (MCA or SNBT derived from MCA)
+        /// </summary>
+        private async Task<bool> IsAnvilRelatedFile(string filePath, string extension)
+        {
+            try
+            {
+                // Direct MCA/MCC files
+                if (extension == ".mca" || extension == ".mcc")
+                {
+                    return true;
+                }
+
+                // For SNBT files, check content to see if it's derived from MCA
+                if (extension == ".snbt")
+                {
+                    return await IsSnbtFromMcaFile(filePath);
+                }
+
+                return false;
+            }
+            catch
+            {
+                // If we can't determine, fall back to extension-based detection
+                return extension == ".mca" || extension == ".mcc";
+            }
+        }
+
+        /// <summary>
+        /// Checks if an SNBT file was derived from an MCA file by analyzing its content
+        /// </summary>
+        private async Task<bool> IsSnbtFromMcaFile(string snbtPath)
+        {
+            try
+            {
+                // Read the first part of the file to check for MCA-specific indicators
+                using var reader = new StreamReader(snbtPath);
+                
+                // Read first 10KB or entire file if smaller
+                var buffer = new char[10240];
+                int charsRead = await reader.ReadAsync(buffer, 0, buffer.Length);
+                string content = new string(buffer, 0, charsRead);
+
+                // Check for MCA-specific indicators:
+                // 1. Region file headers
+                if (content.Contains("// Region file:") || 
+                    content.Contains("// Region coordinates:"))
+                {
+                    return true;
+                }
+
+                // 2. Chunk headers in MCA format
+                if (content.Contains("// Chunk(") && content.Contains("// Total chunks:"))
+                {
+                    return true;
+                }
+
+                // 3. Minecraft chunk structure indicators
+                if (content.Contains("xPos:") && content.Contains("zPos:") && 
+                    (content.Contains("sections:") || content.Contains("block_states:")))
+                {
+                    return true;
+                }
+
+                // 4. Level tag with chunk data (typical of MCA-derived SNBT)
+                if (content.Contains("Level:") && 
+                    (content.Contains("Heightmaps:") || content.Contains("Status:")))
+                {
+                    return true;
+                }
+
+                // 5. Multiple chunk indicators
+                var chunkCount = 0;
+                // Optimized: Use span-based line enumeration instead of Split
+                ReadOnlySpan<char> contentSpan = content.AsSpan();
+                ReadOnlySpan<char> remaining = contentSpan;
+                
+                while (!remaining.IsEmpty && chunkCount <= 1)
+                {
+                    int lineEnd = remaining.IndexOf('\n');
+                    ReadOnlySpan<char> line;
+                    
+                    if (lineEnd >= 0)
+                    {
+                        line = remaining[..lineEnd];
+                        remaining = remaining[(lineEnd + 1)..];
+                    }
+                    else
+                    {
+                        line = remaining;
+                        remaining = ReadOnlySpan<char>.Empty;
+                    }
+                    
+                    if (line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal) || 
+                        line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal))
+                    {
+                        chunkCount++;
+                        if (chunkCount > 1)
+                        {
+                            return true; // Multiple chunks indicate MCA origin
+                        }
+                    }
+                }
+
+                return false;
+            }
+            catch
+            {
+                // If we can't read the file, assume it's not MCA-derived
+                return false;
+            }
         }
     }
 }
