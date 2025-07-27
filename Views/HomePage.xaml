@@ -7,13 +7,169 @@
     mc:Ignorable="d"
     Background="{ThemeResource LayerFillColorDefaultBrush}">
 
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
-        <TextBlock HorizontalAlignment="Center" Style="{StaticResource TitleTextBlockStyle}" Text="Welcome to GitMC" />
-        <TextBlock HorizontalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Text="Select a Minecraft save to start versioning." />
-        <Button x:Name="SelectSaveButton"
-                HorizontalAlignment="Center"
-                Click="SelectSaveButton_Click"
-                Content="Select a save directory"
-                Style="{StaticResource AccentButtonStyle}" />
-    </StackPanel>
+    <ScrollViewer>
+        <Grid Margin="24,24,24,48">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Welcome Header -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,32">
+                <TextBlock x:Name="WelcomeTextBlock"
+                           Text="Good day, Crafter! ☀️"
+                           Style="{StaticResource TitleLargeTextBlockStyle}"
+                           Margin="0,0,0,8"/>
+                <TextBlock Text="Manage your Minecraft worlds with Git-like version control"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+
+            <!-- Quick Actions -->
+            <StackPanel Grid.Row="1" Margin="0,0,0,32">
+                <TextBlock Text="Quick Actions"
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           Margin="0,0,0,16"/>
+                
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="AddSaveButton"
+                            Click="AddSaveButton_Click"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            Foreground="White"
+                            Width="160" Height="100"
+                            CornerRadius="8"
+                            Margin="0,0,16,0">
+                        <StackPanel>
+                            <FontIcon Glyph="&#xE710;" FontSize="24" Margin="0,0,0,8"/>
+                            <TextBlock Text="Add Save"
+                                       FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            Width="160" Height="100"
+                            CornerRadius="8"
+                            Margin="0,0,16,0">
+                        <StackPanel>
+                            <FontIcon Glyph="&#xE8B7;" FontSize="24" Margin="0,0,0,8"/>
+                            <TextBlock Text="Import Project"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            Width="160" Height="100"
+                            CornerRadius="8"
+                            Margin="0,0,16,0">
+                        <StackPanel>
+                            <FontIcon Glyph="&#xE8F1;" FontSize="24" Margin="0,0,0,8"/>
+                            <TextBlock Text="Clone Remote"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            Width="160" Height="100"
+                            CornerRadius="8"
+                            Click="SettingsButton_Click">
+                        <StackPanel>
+                            <FontIcon Glyph="&#xE713;" FontSize="24" Margin="0,0,0,8"/>
+                            <TextBlock Text="Settings"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Recent & Managed Saves -->
+            <Grid Grid.Row="2" x:Name="SavesGrid" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="24"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Recent Saves -->
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Recent Saves"
+                               Style="{StaticResource SubtitleTextBlockStyle}"
+                               Margin="0,0,0,16"/>
+                    
+                    <ScrollViewer x:Name="RecentSavesScrollViewer" MaxHeight="400">
+                        <StackPanel x:Name="RecentSavesPanel"/>
+                    </ScrollViewer>
+                </StackPanel>
+
+                <!-- Managed Saves -->
+                <StackPanel Grid.Column="2">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <TextBlock Text="Managed Saves"
+                                   Style="{StaticResource SubtitleTextBlockStyle}"
+                                   VerticalAlignment="Center"/>
+                        <Border Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                CornerRadius="10"
+                                Padding="6,2"
+                                Margin="8,0,0,0">
+                            <TextBlock x:Name="ManagedCountTextBlock"
+                                       Text="0"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+                    
+                    <ScrollViewer x:Name="ManagedSavesScrollViewer" MaxHeight="400">
+                        <StackPanel x:Name="ManagedSavesPanel"/>
+                    </ScrollViewer>
+                </StackPanel>
+            </Grid>
+
+            <!-- Empty State -->
+            <StackPanel Grid.Row="2" 
+                        x:Name="EmptyStatePanel"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="0,64,0,0">
+                
+                <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Width="120" Height="120"
+                        CornerRadius="60"
+                        HorizontalAlignment="Center"
+                        Margin="0,0,0,24">
+                    <FontIcon Glyph="&#xE8F1;" 
+                              FontSize="48" 
+                              Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </Border>
+
+                <StackPanel HorizontalAlignment="Center" Margin="0,0,0,24">
+                    <TextBlock Text="No saves managed yet"
+                               Style="{StaticResource SubtitleTextBlockStyle}"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8"/>
+                    <TextBlock Text="Add your first Minecraft save to start version control"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <Button x:Name="EmptyStateAddButton"
+                        Click="AddSaveButton_Click"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Content="Add Your First Save"
+                        Padding="20,12"/>
+            </StackPanel>
+
+            <!-- Loading State -->
+            <StackPanel Grid.Row="3"
+                        x:Name="LoadingPanel"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Visibility="Collapsed">
+                <ProgressRing x:Name="LoadingProgressRing"
+                              Width="32" Height="32"
+                              Margin="0,0,0,16"/>
+                <TextBlock Text="Analyzing save folder..."
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
 </Page>

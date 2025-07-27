@@ -12,6 +12,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
 using Microsoft.UI.Dispatching;
+using System.Text;
+using System.Text.Json;
+
 namespace GitMC.Views
 {
     public sealed partial class SaveTranslatorPage : Page
