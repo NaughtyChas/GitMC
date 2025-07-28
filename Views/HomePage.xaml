@@ -164,11 +164,11 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Configure GitMC" />
+                                    Text="{local:Localize Key=Setup_Step1_Title}" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
                                     Margin="0,0,0,12"
-                                    Text="Not your language? Decide GitMC display language at settings."
+                                    Text="{local:Localize Key=Setup_Step1_Description}"
                                     TextWrapping="Wrap" />
                                 <StackPanel Orientation="Horizontal">
                                     <Button
@@ -182,7 +182,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE774;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock Text="Language Settings" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step1_Button}" />
                                         </StackPanel>
                                     </Button>
                                     <Button
@@ -195,7 +195,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE72A;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock Text="Skip" />
+                                            <TextBlock Text="{local:Localize Key=UI_Skip}" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -212,10 +212,10 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Configure GitMC" />
+                                    Text="{local:Localize Key=Setup_Step1_Title}" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
-                                    Text="Set your preferred language"
+                                    Text="{local:Localize Key=UI_SetPreferredLanguage}"
                                     TextWrapping="Wrap" />
                             </StackPanel>
 
@@ -269,12 +269,12 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Install Git" />
+                                    Text="{local:Localize Key=Setup_Step2_Title}" />
                                 <!--  Git Found State  -->
                                 <TextBlock
                                     Foreground="#107C10"
                                     Margin="0,0,0,4"
-                                    Text="✓ Git has been installed and ready to use."
+                                    Text="{local:Localize Key=Setup_Step2_Found}"
                                     TextWrapping="Wrap"
                                     Visibility="Collapsed"
                                     x:Name="GitFoundText" />
@@ -283,7 +283,7 @@
                                     <TextBlock
                                         Foreground="#D13438"
                                         Margin="0,0,0,12"
-                                        Text="No Git is found on your PC. Download Git by clicking the button below:"
+                                        Text="{local:Localize Key=Setup_Step2_NotFound}"
                                         TextWrapping="Wrap" />
                                     <Button
                                         Click="DownloadGitButton_Click"
@@ -296,7 +296,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE896;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock Text="Download Git" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step2_Button}" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -312,10 +312,10 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Install Git" />
+                                    Text="{local:Localize Key=Setup_Step2_Title}" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
-                                    Text="Git version control system"
+                                    Text="{local:Localize Key=UI_GitVersionControl}"
                                     TextWrapping="Wrap" />
                             </StackPanel>
 
@@ -369,11 +369,11 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Configure Git" />
+                                    Text="{local:Localize Key=Setup_Step3_Title}" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
                                     Margin="0,0,0,12"
-                                    Text="In order to make your save works with version control, you have to provide your credentials. If you wish to connect to any code hosting platform, fill in your platform email and username here."
+                                    Text="{local:Localize Key=Setup_Step3_Description}"
                                     TextWrapping="Wrap" />
                                 <Button
                                     Click="GitConfigButton_Click"
@@ -385,7 +385,7 @@
                                             FontSize="12"
                                             Glyph="&#xE713;"
                                             Margin="0,0,6,0" />
-                                        <TextBlock Text="Configure Git" />
+                                        <TextBlock Text="{local:Localize Key=Setup_Step3_Button}" />
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -400,17 +400,17 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Configure Git" />
+                                    Text="{local:Localize Key=Setup_Step3_Title}" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
-                                    Text="Mark your changes in the Git system"
+                                    Text="{local:Localize Key=UI_MarkChangesInGit}"
                                     TextWrapping="Wrap" />
                                 <TextBlock
                                     x:Name="GitConfigCompletedText"
                                     Visibility="Collapsed"
                                     Margin="0,4,0,0"
                                     FontWeight="SemiBold"
-                                    Text="✓ Git configured" />
+                                    Text="{local:Localize Key=UI_GitConfigured}" />
                             </StackPanel>
 
                             <!--  Step 4: Connect to Code-Hosting Platform  -->
@@ -463,11 +463,11 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Connect to Code-Hosting Platform" />
+                                    Text="{local:Localize Key=Setup_Step4_Title}" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
                                     Margin="0,0,0,12"
-                                    Text="Save and sync your save on cloud, you can choose which platform to use, or use GitMC locally:"
+                                    Text="{local:Localize Key=Setup_Step4_Description}"
                                     TextWrapping="Wrap" />
 
                                 <!--  Platform Selector  -->
@@ -479,14 +479,14 @@
                                         </Grid.ColumnDefinitions>
 
                                         <RadioButton
-                                            Content="GitHub"
+                                            Content="{local:Localize Key=Setup_GitHub}"
                                             Grid.Column="0"
                                             GroupName="PlatformGroup"
                                             IsChecked="True"
                                             Margin="0,0,8,0"
                                             x:Name="GitHubRadio" />
                                         <RadioButton
-                                            Content="Self-Hosting"
+                                            Content="{local:Localize Key=Setup_SelfHosting}"
                                             Grid.Column="1"
                                             GroupName="PlatformGroup"
                                             x:Name="SelfHostingRadio" />
@@ -507,7 +507,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE8A7;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock Text="Connect" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step4_Connect}" />
                                         </StackPanel>
                                     </Button>
                                     <Button
@@ -520,7 +520,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE8B7;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock Text="Use GitMC Locally" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step4_UseLocally}" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -536,17 +536,17 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Connect to Code-Hosting Platform" />
+                                    Text="{local:Localize Key=Setup_Step4_Title}" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
-                                    Text="Optional cloud sync setup"
+                                    Text="{local:Localize Key=Setup_Step4_DescriptionShort}"
                                     TextWrapping="Wrap" />
                                 <TextBlock
                                     x:Name="RepoSetupCompletedText"
                                     Visibility="Collapsed"
                                     Margin="0,4,0,0"
                                     FontWeight="SemiBold"
-                                    Text="✓ Repository configured" />
+                                    Text="{local:Localize Key=UI_RepoConfigured}" />
                             </StackPanel>
 
                             <!--  Step 5: Add Your Save  -->
@@ -598,11 +598,11 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Add Your Save" />
+                                    Text="{local:Localize Key=Setup_Step5_Title}" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
                                     Margin="0,0,0,12"
-                                    Text="Now you can manage your save with versioning control! Add your first save or add a Minecraft version folder below:"
+                                    Text="{local:Localize Key=Setup_Step5_Description}"
                                     TextWrapping="Wrap" />
 
                                 <!--  Add Save Buttons  -->
@@ -619,7 +619,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE710;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock Text="Add Save" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step5_AddSave}" />
                                         </StackPanel>
                                     </Button>
                                     <Button
@@ -632,7 +632,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE8B7;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock Text="Add Version Folder" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step5_AddVersionFolder}" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -647,17 +647,17 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Add Your Save" />
+                                    Text="{local:Localize Key=Setup_Step5_Title}" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
-                                    Text="Start managing your worlds"
+                                    Text="{local:Localize Key=Setup_Step5_DescriptionShort}"
                                     TextWrapping="Wrap" />
                                 <TextBlock
                                     x:Name="UsageModeCompletedText"
                                     Visibility="Collapsed"
                                     Margin="0,4,0,0"
                                     FontWeight="SemiBold"
-                                    Text="✓ Ready to use" />
+                                    Text="{local:Localize Key=UI_ReadyToUse}" />
                             </StackPanel>
                         </Grid>
                     </StackPanel>
@@ -680,7 +680,7 @@
                             <TextBlock
                                 FontSize="18"
                                 FontWeight="SemiBold"
-                                Text="System Status"
+                                Text="{local:Localize Key=UI_SystemStatus}"
                                 VerticalAlignment="Center" />
                         </StackPanel>
 
@@ -697,7 +697,7 @@
                                     FontSize="14"
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,8"
-                                    Text="Setup Progress" />
+                                    Text="{local:Localize Key=UI_SetupProgress}" />
                                 <ProgressBar
                                     Height="6"
                                     Margin="0,0,0,8"
@@ -706,7 +706,7 @@
                                 <TextBlock
                                     FontSize="12"
                                     Foreground="#6B6B6B"
-                                    Text="1 of 5 steps completed"
+                                    Text="{local:Localize Key=Setup_Progress}"
                                     TextAlignment="Center"
                                     x:Name="ProgressText" />
                             </StackPanel>
@@ -739,13 +739,13 @@
                                     <TextBlock
                                         FontSize="14"
                                         FontWeight="SemiBold"
-                                        Text="Git Installation"
+                                        Text="{local:Localize Key=Status_GitInstallation}"
                                         VerticalAlignment="Center" />
                                 </StackPanel>
                                 <TextBlock
                                     FontSize="12"
                                     Foreground="#6B6B6B"
-                                    Text="Checking Git installation..."
+                                    Text="{local:Localize Key=UI_CheckingGitInstallation}"
                                     TextWrapping="Wrap"
                                     x:Name="GitStatusText" />
                             </StackPanel>
@@ -778,13 +778,13 @@
                                     <TextBlock
                                         FontSize="14"
                                         FontWeight="SemiBold"
-                                        Text="Git Identity"
+                                        Text="{local:Localize Key=Status_GitIdentity}"
                                         VerticalAlignment="Center" />
                                 </StackPanel>
                                 <TextBlock
                                     FontSize="12"
                                     Foreground="#6B6B6B"
-                                    Text="Not configured"
+                                    Text="{local:Localize Key=Status_NotConfigured}"
                                     TextWrapping="Wrap"
                                     x:Name="GitIdentityStatusText" />
                             </StackPanel>
@@ -817,13 +817,13 @@
                                     <TextBlock
                                         FontSize="14"
                                         FontWeight="SemiBold"
-                                        Text="Platform Connection"
+                                        Text="{local:Localize Key=UI_PlatformConnection}"
                                         VerticalAlignment="Center" />
                                 </StackPanel>
                                 <TextBlock
                                     FontSize="12"
                                     Foreground="#6B6B6B"
-                                    Text="Not connected"
+                                    Text="{local:Localize Key=Status_NotConnected}"
                                     TextWrapping="Wrap"
                                     x:Name="PlatformStatusText" />
                             </StackPanel>
@@ -852,7 +852,7 @@
                             Margin="0,0,0,16"
                             Width="200"
                             x:Name="LoadingProgressRing" />
-                        <TextBlock HorizontalAlignment="Center" Text="Analyzing save folder..." />
+                        <TextBlock HorizontalAlignment="Center" Text="{local:Localize Key=Error_AnalyzingSave}" />
                     </StackPanel>
                 </Border>
             </Grid>

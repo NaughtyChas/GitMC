@@ -38,6 +38,11 @@
         <Content Include="Assets\Wide310x150Logo.scale-200.png" />
     </ItemGroup>
 
+    <!-- Custom Fonts for Chinese characters -->
+    <ItemGroup>
+        <Content Include="Fonts\**" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="CommunityToolkit.WinUI.Animations" Version="8.2.250402" />
         <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.250402" />

@@ -4,6 +4,7 @@
     x:Class="GitMC.Views.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:ext="using:GitMC.Extensions"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Window.SystemBackdrop>
@@ -17,13 +18,15 @@
 
         <TitleBar
             BackRequested="TitleBar_BackButtonClick"
+            FontFamily="{StaticResource AppFontFamily}"
             Grid.Row="0"
             IsBackButtonEnabled="{Binding ElementName=ContentFrame, Path=CanGoBack}"
             IsBackButtonVisible="True"
-            Title="GitMC"
+            Title="{ext:Localize Key=Main_Title}"
             x:Name="TitleBar" />
 
         <NavigationView
+            FontFamily="{StaticResource AppFontFamily}"
             Grid.Row="1"
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="True"
@@ -33,15 +36,19 @@
             x:Name="NavView">
             <NavigationView.MenuItems>
                 <NavigationViewItem
-                    Content="Home"
+                    Content="{ext:Localize Key=Nav_Home}"
+                    FontFamily="{StaticResource AppFontFamily}"
                     Icon="Home"
                     Tag="Home" />
                 <NavigationViewItemSeparator />
-                <NavigationViewItemHeader Content="Managed Saves" />
+                <NavigationViewItemHeader 
+                    Content="{ext:Localize Key=Nav_ManagedSaves}"
+                    FontFamily="{StaticResource AppFontFamily}" />
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem
-                    Content="Console"
+                    Content="{ext:Localize Key=Nav_Console}"
+                    FontFamily="{StaticResource AppFontFamily}"
                     Icon="Admin"
                     Tag="Console" />
             </NavigationView.FooterMenuItems>

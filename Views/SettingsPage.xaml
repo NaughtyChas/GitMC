@@ -41,7 +41,7 @@
             Margin="36,24,36,0"
             MaxWidth="1064"
             Style="{StaticResource TitleTextBlockStyle}"
-            Text="Settings"
+            Text="{ext:Localize Key=Nav_Settings}"
             x:Name="PageHeader" />
         <ScrollView
             Grid.Row="1"
@@ -64,12 +64,12 @@
                             MinWidth="150"
                             SelectionChanged="LanguageComboBox_SelectionChanged"
                             x:Name="LanguageComboBox">
-                            <ComboBoxItem Content="English" Tag="en-US" />
-                            <ComboBoxItem Content="简体中文" Tag="zh-CN" />
+                            <ComboBoxItem Content="{ext:Localize Key=Language_English}" Tag="en-US" />
+                            <ComboBoxItem Content="{ext:Localize Key=Language_Chinese}" Tag="zh-CN" />
                         </ComboBox>
                     </toolkit:SettingsCard>
 
-                    <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="Dev &amp; Debug" />
+                    <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{ext:Localize Key=Settings_DevDebug}" />
                     <toolkit:SettingsExpander Description="Tools for debugging" Header="Debug Tools">
                         <toolkit:SettingsExpander.HeaderIcon>
                             <FontIcon Glyph="&#xEBE8;" />
@@ -81,7 +81,7 @@
                                 Header="NBT Converter"
                                 IsClickEnabled="False"
                                 x:Name="ConverterCard">
-                                <Button Click="DebugToolsButton_Click" Content="Launch" />
+                                <Button Click="DebugToolsButton_Click" Content="{ext:Localize Key=UI_Launch}" />
                             </toolkit:SettingsCard>
                             <toolkit:SettingsCard
                                 Click="SaveTranslatorButton_Click"
@@ -89,7 +89,7 @@
                                 Header="Save Translator"
                                 IsClickEnabled="False"
                                 x:Name="SaveTranslatorCard">
-                                <Button Click="SaveTranslatorButton_Click" Content="Launch" />
+                                <Button Click="SaveTranslatorButton_Click" Content="{ext:Localize Key=UI_Launch}" />
                             </toolkit:SettingsCard>
                         </toolkit:SettingsExpander.Items>
                     </toolkit:SettingsExpander>

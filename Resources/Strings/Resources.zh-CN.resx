@@ -204,32 +204,21 @@
     <value>切换目录时出错：{0}</value>
   </data>
   
-  <!-- Navigation -->
-  <data name="Nav_Home" xml:space="preserve">
-    <value>主页</value>
-  </data>
-  <data name="Nav_Console" xml:space="preserve">
-    <value>控制台</value>
-  </data>
-  <data name="Nav_Settings" xml:space="preserve">
-    <value>设置</value>
-  </data>
-  
   <!-- Settings -->
   <data name="Settings_App" xml:space="preserve">
-    <value>应用</value>
+    <value>应用设置</value>
   </data>
   <data name="Settings_Language" xml:space="preserve">
     <value>语言</value>
   </data>
   <data name="Settings_Language_Description" xml:space="preserve">
-    <value>选择您在 GitMC 中的首选语言</value>
+    <value>选择 GitMC 的显示语言</value>
   </data>
   <data name="Settings_Language_Select" xml:space="preserve">
     <value>显示语言</value>
   </data>
   <data name="Settings_Language_SelectDescription" xml:space="preserve">
-    <value>更改将在重启应用后生效</value>
+    <value>更改立即生效</value>
   </data>
   
   <!-- Common -->
@@ -258,5 +247,132 @@
   </data>
   <data name="Error_AnalyzingSave" xml:space="preserve">
     <value>正在分析存档文件夹...</value>
+  </data>
+  
+  <!-- Navigation -->
+  <data name="Nav_Home" xml:space="preserve">
+    <value>主页</value>
+  </data>
+  <data name="Nav_Console" xml:space="preserve">
+    <value>控制台</value>
+  </data>
+  <data name="Nav_ManagedSaves" xml:space="preserve">
+    <value>管理的存档</value>
+  </data>
+  <data name="Main_Title" xml:space="preserve">
+    <value>GitMC</value>
+  </data>
+  
+  <!-- Setup -->
+  <data name="Setup_GitHub" xml:space="preserve">
+    <value>GitHub</value>
+  </data>
+  <data name="Setup_SelfHosting" xml:space="preserve">
+    <value>自托管</value>
+  </data>
+  <data name="Setup_Progress" xml:space="preserve">
+    <value>已完成 5 个步骤中的 1 个</value>
+  </data>
+  
+  <!-- Languages -->
+  <data name="Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Language_Chinese" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  
+  <!-- Common UI -->
+  <data name="UI_Launch" xml:space="preserve">
+    <value>启动</value>
+  </data>
+  <data name="Console_Prompt" xml:space="preserve">
+    <value>$</value>
+  </data>
+  
+  <!-- Save Translator -->
+  <data name="SaveTranslator_Title" xml:space="preserve">
+    <value>存档翻译工具</value>
+  </data>
+  <data name="SaveTranslator_SelectSave" xml:space="preserve">
+    <value>选择存档</value>
+  </data>
+  <data name="SaveTranslator_PlaceholderText" xml:space="preserve">
+    <value>选择 Minecraft 存档文件夹...</value>
+  </data>
+  <data name="UI_Browse" xml:space="preserve">
+    <value>浏览...</value>
+  </data>
+  <data name="UI_NotSelected" xml:space="preserve">
+    <value>未选择</value>
+  </data>
+  <data name="SaveTranslator_TranslationOptions" xml:space="preserve">
+    <value>翻译选项</value>
+  </data>
+  <data name="SaveTranslator_RegionFiles" xml:space="preserve">
+    <value>区域文件 (.mca)</value>
+  </data>
+  <data name="SaveTranslator_DataFiles" xml:space="preserve">
+    <value>数据文件 (.dat)</value>
+  </data>
+  <data name="SaveTranslator_NbtFiles" xml:space="preserve">
+    <value>NBT 结构文件 (.nbt)</value>
+  </data>
+  <data name="SaveTranslator_PlayerData" xml:space="preserve">
+    <value>玩家数据 (playerdata/*.dat)</value>
+  </data>
+  <data name="SaveTranslator_WorldData" xml:space="preserve">
+    <value>世界数据 (level.dat)</value>
+  </data>
+  <data name="SaveTranslator_OutputSettings" xml:space="preserve">
+    <value>输出设置</value>
+  </data>
+  <data name="SaveTranslator_PreserveSnbt" xml:space="preserve">
+    <value>保留转译 SNBT 文件</value>
+  </data>
+  <data name="SaveTranslator_CreateBackup" xml:space="preserve">
+    <value>创建备份文件</value>
+  </data>
+  <data name="SaveTranslator_VerifyIntegrity" xml:space="preserve">
+    <value>验证文件完整性</value>
+  </data>
+  <data name="SaveTranslator_Progress" xml:space="preserve">
+    <value>翻译进度</value>
+  </data>
+  <data name="UI_Ready" xml:space="preserve">
+    <value>就绪</value>
+  </data>
+  <data name="UI_CpuUsage" xml:space="preserve">
+    <value>CPU 使用率</value>
+  </data>
+  <data name="UI_MemoryUsage" xml:space="preserve">
+    <value>内存使用率</value>
+  </data>
+  <data name="SaveTranslator_DetailedLogs" xml:space="preserve">
+    <value>详细日志</value>
+  </data>
+  <data name="SaveTranslator_StartTranslation" xml:space="preserve">
+    <value>开始翻译</value>
+  </data>
+  <data name="SaveTranslator_PreparingTranslation" xml:space="preserve">
+    <value>准备翻译中...</value>
+  </data>
+  <data name="UI_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Nav_Settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="UI_CheckingGitInstallation" xml:space="preserve">
+    <value>检查 Git 安装情况...</value>
+  </data>
+  <data name="UI_MarkChangesInGit" xml:space="preserve">
+    <value>在 Git 中著名你的更改</value>
+  </data>
+  <data name="UI_OverallProgress" xml:space="preserve">
+    <value>总体进度</value>
+  </data>
+  <data name="UI_PlatformConnection" xml:space="preserve">
+    <value>代码托管平台配置</value>
   </data>
 </root>

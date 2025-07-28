@@ -24,10 +24,13 @@ namespace GitMC.Services
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        // Indexer property for binding support
+        public string this[string key] => GetLocalizedString(key);
+
         public LocalizationService()
         {
             _resourceManager = new ResourceManager("GitMC.Resources.Strings.Resources", typeof(LocalizationService).Assembly);
-            _currentCulture = CultureInfo.CurrentUICulture;
+            _currentCulture = new CultureInfo("en-US"); // Default to English
         }
 
         public string GetLocalizedString(string key)
@@ -67,7 +70,8 @@ namespace GitMC.Services
                 Thread.CurrentThread.CurrentUICulture = culture;
                 Thread.CurrentThread.CurrentCulture = culture;
                 
-                // Notify UI of language change
+                // Notify UI of language change - use Item[] to update all localized strings
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentLanguage)));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Language"));
             }

@@ -15,33 +15,56 @@
             <!-- Other app resources here -->
             <Color x:Key="Primary">#512BD4</Color>
 
+            <!-- Font Families for better Chinese character support -->
+            <FontFamily x:Key="AppFontFamily">Torus, Segoe UI, Microsoft YaHei, 微软雅黑, SimSun, 宋体</FontFamily>
+            <FontFamily x:Key="ChineseFontFamily">ms-appx:///Fonts/HarmonyOS_Sans_Regular.ttf#HarmonyOS Sans, Microsoft YaHei, 微软雅黑, SimSun, 宋体, Segoe UI</FontFamily>
+
             <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}" />
             <SolidColorBrush x:Key="WhiteBrush" Color="White" />
             <SolidColorBrush x:Key="BlackBrush" Color="Black" />
 
             <x:Double x:Key="AppFontSize">14</x:Double>
 
+            <!-- Global Text Style with better Chinese font support -->
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+            </Style>
+
+            <!-- Chinese-specific TextBlock style -->
+            <Style x:Key="ChineseTextStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource ChineseFontFamily}" />
+                <Setter Property="FontWeight" Value="Normal" />
+            </Style>
+
+            <!-- Button font support -->
+            <Style TargetType="Button">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+            </Style>
+
+            <!-- ComboBox font support -->
+            <Style TargetType="ComboBox">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+            </Style>
+
+            <!-- TextBox font support -->
+            <Style TargetType="TextBox">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+            </Style>
+
             <Style x:Key="MyLabel" TargetType="TextBlock">
-                <Setter Property="Foreground"
-                        Value="{StaticResource PrimaryBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
             </Style>
 
             <Style x:Key="Action" TargetType="Button">
-                <Setter Property="FontSize"
-                        Value="{StaticResource AppFontSize}" />
-                <Setter Property="Padding"
-                        Value="14,10" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Padding" Value="14,10" />
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
             </Style>
 
-            <Style x:Key="PrimaryAction"
-                   TargetType="Button"
-                   BasedOn="{StaticResource Action}">
-                <Setter Property="Background"
-                        Value="{StaticResource PrimaryBrush}" />
-                <Setter Property="CornerRadius"
-                        Value="8" />
-                <Setter Property="Foreground"
-                        Value="{StaticResource WhiteBrush}" />
+            <Style x:Key="PrimaryAction" TargetType="Button" BasedOn="{StaticResource Action}">
+                <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
             </Style>
         </ResourceDictionary>
     </Application.Resources>

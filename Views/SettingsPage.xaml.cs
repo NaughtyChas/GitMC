@@ -37,23 +37,7 @@ namespace GitMC.Views
                 _localizationService != null)
             {
                 _localizationService.SetLanguage(languageCode);
-                
-                // Show restart notification
-                _ = ShowRestartNotification();
             }
-        }
-
-        private async System.Threading.Tasks.Task ShowRestartNotification()
-        {
-            var dialog = new ContentDialog
-            {
-                Title = _localizationService?.GetLocalizedString("Settings_Language") ?? "Language",
-                Content = _localizationService?.GetLocalizedString("Settings_Language_SelectDescription") ?? "Changes will take effect after restarting the app",
-                CloseButtonText = _localizationService?.GetLocalizedString("Common_OK") ?? "OK",
-                XamlRoot = this.XamlRoot
-            };
-            
-            await dialog.ShowAsync();
         }
 
         private void DebugToolsButton_Click(object sender, RoutedEventArgs e)

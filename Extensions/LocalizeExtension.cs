@@ -1,9 +1,10 @@
 using Microsoft.UI.Xaml.Markup;
+using Microsoft.UI.Xaml.Data;
 using GitMC.Services;
 
 namespace GitMC.Extensions
 {
-    [MarkupExtensionReturnType(ReturnType = typeof(string))]
+    [MarkupExtensionReturnType(ReturnType = typeof(BindingBase))]
     public sealed class LocalizeExtension : MarkupExtension
     {
         public string Key { get; set; } = string.Empty;
@@ -11,15 +12,15 @@ namespace GitMC.Extensions
         protected override object ProvideValue()
         {
             if (string.IsNullOrEmpty(Key))
-                return string.Empty;
+                return new Binding();
 
-            // Get localization service from app
-            if (App.Current is App app && app.LocalizationService != null)
+            // Create a binding to the localization service
+            return new Binding
             {
-                return app.LocalizationService.GetLocalizedString(Key);
-            }
-
-            return Key; // Fallback to key if service not available
+                Source = (App.Current as App)?.LocalizationService,
+                Path = new Microsoft.UI.Xaml.PropertyPath($"[{Key}]"),
+                Mode = BindingMode.OneWay
+            };
         }
     }
 }

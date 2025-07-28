@@ -32,16 +32,8 @@ namespace GitMC
             // Initialize services
             LocalizationService = new LocalizationService();
             
-            // Set default language based on system locale
-            var systemLanguage = System.Globalization.CultureInfo.CurrentUICulture.Name;
-            if (systemLanguage.StartsWith("zh"))
-            {
-                LocalizationService.SetLanguage("zh-CN");
-            }
-            else
-            {
-                LocalizationService.SetLanguage("en-US");
-            }
+            // Set default language to English for development
+            LocalizationService.SetLanguage("en-US");
         }
 
         /// <summary>
