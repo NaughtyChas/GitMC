@@ -23,6 +23,9 @@
         <PublishProfile>win-$(Platform).pubxml</PublishProfile>
         <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
         <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">win10-x86;win10-x64;win10-arm64</RuntimeIdentifiers>
+        
+        <!-- Localization -->
+        <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
     </PropertyGroup>
 
     <ItemGroup>
@@ -45,6 +48,15 @@
         <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
 
         <Manifest Include="$(ApplicationManifest)" />
+    </ItemGroup>
+
+    <!-- Resources for Localization -->
+    <ItemGroup>
+        <Compile Update="Resources\Strings\Resources.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>Resources.resx</DependentUpon>
+        </Compile>
     </ItemGroup>
 
     <!-- 

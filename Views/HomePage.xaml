@@ -6,7 +6,13 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:media="using:Microsoft.UI.Xaml.Media"
+    xmlns:local="using:GitMC.Extensions"
+    xmlns:converters="using:GitMC.Converters"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Page.Resources>
+        <converters:LocalizationConverter x:Key="LocalizationConverter" />
+    </Page.Resources>
 
     <ScrollViewer>
         <Grid Margin="24,0,24,24">
@@ -47,11 +53,11 @@
                             FontSize="26"
                             FontWeight="SemiBold"
                             Margin="0,0,0,4"
-                            Text="Welcome to GitMC!" />
+                            Text="{local:Localize Key=Welcome_Title}" />
                         <TextBlock
                             FontSize="18"
                             Foreground="#6B6B6B"
-                            Text="The powerful tool that brings Git version control to your Minecraft worlds." />
+                            Text="{local:Localize Key=App_Description}" />
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -81,7 +87,7 @@
                             <TextBlock
                                 FontSize="18"
                                 FontWeight="SemiBold"
-                                Text="Getting Started" />
+                                Text="{local:Localize Key=Welcome_GettingStarted}" />
                         </StackPanel>
 
                         <!--  Timeline Container  -->
