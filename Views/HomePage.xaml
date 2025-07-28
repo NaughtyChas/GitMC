@@ -132,21 +132,35 @@
                                     Height="32"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    Width="32">
-                                    <TextBlock
-                                        FontWeight="SemiBold"
-                                        Foreground="White"
-                                        HorizontalAlignment="Center"
-                                        Text="1"
-                                        VerticalAlignment="Center" />
+                                    Width="32"
+                                    x:Name="Step1Circle">
+                                    <Grid>
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Foreground="White"
+                                            HorizontalAlignment="Center"
+                                            Text="1"
+                                            VerticalAlignment="Center"
+                                            x:Name="Step1NumberText" />
+                                        <FontIcon
+                                            FontSize="14"
+                                            Foreground="White"
+                                            Glyph="&#xE73E;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed"
+                                            x:Name="Step1CheckIcon" />
+                                    </Grid>
                                 </Border>
                             </Grid>
 
+                            <!--  Step 1 Full Content  -->
                             <StackPanel
                                 Grid.Column="2"
                                 Grid.Row="0"
                                 Margin="0,0,0,32"
-                                VerticalAlignment="Center">
+                                VerticalAlignment="Center"
+                                x:Name="Step1Content">
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
@@ -156,19 +170,53 @@
                                     Margin="0,0,0,12"
                                     Text="Not your language? Decide GitMC display language at settings."
                                     TextWrapping="Wrap" />
-                                <Button
-                                    Click="LanguageSettingsButton_Click"
-                                    HorizontalAlignment="Left"
-                                    Padding="12,8"
-                                    x:Name="LanguageSettingsButton">
-                                    <StackPanel Orientation="Horizontal">
-                                        <FontIcon
-                                            FontSize="12"
-                                            Glyph="&#xE774;"
-                                            Margin="0,0,6,0" />
-                                        <TextBlock Text="Language Settings" />
-                                    </StackPanel>
-                                </Button>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button
+                                        Click="LanguageSettingsButton_Click"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,0,8,0"
+                                        Padding="12,8"
+                                        x:Name="LanguageSettingsButton">
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon
+                                                FontSize="12"
+                                                Glyph="&#xE774;"
+                                                Margin="0,0,6,0" />
+                                            <TextBlock Text="Language Settings" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button
+                                        Click="SkipLanguageButton_Click"
+                                        HorizontalAlignment="Left"
+                                        Padding="12,8"
+                                        x:Name="SkipLanguageButton">
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon
+                                                FontSize="12"
+                                                Glyph="&#xE72A;"
+                                                Margin="0,0,6,0" />
+                                            <TextBlock Text="Skip" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!--  Step 1 Collapsed Content  -->
+                            <StackPanel
+                                Grid.Column="2"
+                                Grid.Row="0"
+                                Margin="0,0,0,32"
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed"
+                                x:Name="Step1CollapsedContent">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Margin="0,0,0,4"
+                                    Text="Configure GitMC" />
+                                <TextBlock
+                                    Foreground="#6B6B6B"
+                                    Text="Set your preferred language"
+                                    TextWrapping="Wrap" />
                             </StackPanel>
 
                             <!--  Step 2: Install Git  -->
@@ -183,39 +231,55 @@
                                     Height="48"
                                     Width="48" />
                                 <Border
-                                    Background="#107C10"
+                                    Background="#D1D1D1"
                                     CornerRadius="16"
                                     Height="32"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    Width="32">
-                                    <FontIcon
-                                        FontSize="14"
-                                        Foreground="White"
-                                        Glyph="&#xE73E;"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center" />
+                                    Width="32"
+                                    x:Name="Step2Circle">
+                                    <Grid>
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Foreground="White"
+                                            HorizontalAlignment="Center"
+                                            Text="2"
+                                            VerticalAlignment="Center"
+                                            x:Name="Step2NumberText" />
+                                        <FontIcon
+                                            FontSize="14"
+                                            Foreground="White"
+                                            Glyph="&#xE73E;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed"
+                                            x:Name="Step2CheckIcon" />
+                                    </Grid>
                                 </Border>
                             </Grid>
 
+                            <!--  Step 2 Full Content  -->
                             <StackPanel
                                 Grid.Column="2"
                                 Grid.Row="1"
                                 Margin="0,0,0,32"
-                                VerticalAlignment="Center">
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed"
+                                x:Name="Step2Content">
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
                                     Text="Install Git" />
-                                <!-- Git Found State -->
+                                <!--  Git Found State  -->
                                 <TextBlock
                                     Foreground="#107C10"
                                     Margin="0,0,0,4"
-                                    Text="✓ Git 2.41.0 has been installed and ready to use."
+                                    Text="✓ Git has been installed and ready to use."
                                     TextWrapping="Wrap"
+                                    Visibility="Collapsed"
                                     x:Name="GitFoundText" />
-                                <!-- Git Not Found State (Hidden by default) -->
-                                <StackPanel x:Name="GitNotFoundPanel" Visibility="Collapsed">
+                                <!--  Git Not Found State  -->
+                                <StackPanel x:Name="GitNotFoundPanel">
                                     <TextBlock
                                         Foreground="#D13438"
                                         Margin="0,0,0,12"
@@ -238,6 +302,23 @@
                                 </StackPanel>
                             </StackPanel>
 
+                            <!--  Step 2 Collapsed Content  -->
+                            <StackPanel
+                                Grid.Column="2"
+                                Grid.Row="1"
+                                Margin="0,0,0,32"
+                                VerticalAlignment="Center"
+                                x:Name="Step2CollapsedContent">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Margin="0,0,0,4"
+                                    Text="Install Git" />
+                                <TextBlock
+                                    Foreground="#6B6B6B"
+                                    Text="Git version control system"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+
                             <!--  Step 3: Configure Git Identity  -->
                             <Grid
                                 Grid.Column="0"
@@ -250,26 +331,41 @@
                                     Height="48"
                                     Width="48" />
                                 <Border
-                                    Background="#FF8C00"
+                                    Background="#D1D1D1"
                                     CornerRadius="16"
                                     Height="32"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    Width="32">
-                                    <TextBlock
-                                        FontWeight="SemiBold"
-                                        Foreground="White"
-                                        HorizontalAlignment="Center"
-                                        Text="3"
-                                        VerticalAlignment="Center" />
+                                    Width="32"
+                                    x:Name="Step3Circle">
+                                    <Grid>
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Foreground="White"
+                                            HorizontalAlignment="Center"
+                                            Text="3"
+                                            VerticalAlignment="Center"
+                                            x:Name="Step3NumberText" />
+                                        <FontIcon
+                                            FontSize="14"
+                                            Foreground="White"
+                                            Glyph="&#xE73E;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed"
+                                            x:Name="Step3CheckIcon" />
+                                    </Grid>
                                 </Border>
                             </Grid>
 
+                            <!--  Step 3 Full Content  -->
                             <StackPanel
                                 Grid.Column="2"
                                 Grid.Row="2"
                                 Margin="0,0,0,32"
-                                VerticalAlignment="Center">
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed"
+                                x:Name="Step3Content">
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
@@ -294,6 +390,29 @@
                                 </Button>
                             </StackPanel>
 
+                            <!--  Step 3 Collapsed Content  -->
+                            <StackPanel
+                                Grid.Column="2"
+                                Grid.Row="2"
+                                Margin="0,0,0,32"
+                                VerticalAlignment="Center"
+                                x:Name="Step3CollapsedContent">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Margin="0,0,0,4"
+                                    Text="Configure Git" />
+                                <TextBlock
+                                    Foreground="#6B6B6B"
+                                    Text="Mark your changes in the Git system"
+                                    TextWrapping="Wrap" />
+                                <TextBlock
+                                    x:Name="GitConfigCompletedText"
+                                    Visibility="Collapsed"
+                                    Margin="0,4,0,0"
+                                    FontWeight="SemiBold"
+                                    Text="✓ Git configured" />
+                            </StackPanel>
+
                             <!--  Step 4: Connect to Code-Hosting Platform  -->
                             <Grid
                                 Grid.Column="0"
@@ -311,20 +430,36 @@
                                     Height="32"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    Width="32">
-                                    <TextBlock
-                                        FontWeight="SemiBold"
-                                        HorizontalAlignment="Center"
-                                        Text="4"
-                                        VerticalAlignment="Center" />
+                                    Width="32"
+                                    x:Name="Step4Circle">
+                                    <Grid>
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Foreground="White"
+                                            HorizontalAlignment="Center"
+                                            Text="4"
+                                            VerticalAlignment="Center"
+                                            x:Name="Step4NumberText" />
+                                        <FontIcon
+                                            FontSize="14"
+                                            Foreground="White"
+                                            Glyph="&#xE73E;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed"
+                                            x:Name="Step4CheckIcon" />
+                                    </Grid>
                                 </Border>
                             </Grid>
 
+                            <!--  Step 4 Full Content  -->
                             <StackPanel
                                 Grid.Column="2"
                                 Grid.Row="3"
                                 Margin="0,0,0,32"
-                                VerticalAlignment="Center">
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed"
+                                x:Name="Step4Content">
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
@@ -334,31 +469,31 @@
                                     Margin="0,0,0,12"
                                     Text="Save and sync your save on cloud, you can choose which platform to use, or use GitMC locally:"
                                     TextWrapping="Wrap" />
-                                
-                                <!-- Platform Selector -->
+
+                                <!--  Platform Selector  -->
                                 <StackPanel Margin="0,0,0,12">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        
+
                                         <RadioButton
-                                            Grid.Column="0"
                                             Content="GitHub"
+                                            Grid.Column="0"
                                             GroupName="PlatformGroup"
                                             IsChecked="True"
                                             Margin="0,0,8,0"
                                             x:Name="GitHubRadio" />
                                         <RadioButton
-                                            Grid.Column="1"
                                             Content="Self-Hosting"
+                                            Grid.Column="1"
                                             GroupName="PlatformGroup"
                                             x:Name="SelfHostingRadio" />
                                     </Grid>
                                 </StackPanel>
 
-                                <!-- Action Buttons -->
+                                <!--  Action Buttons  -->
                                 <StackPanel Orientation="Horizontal">
                                     <Button
                                         Click="ConnectPlatformButton_Click"
@@ -391,6 +526,29 @@
                                 </StackPanel>
                             </StackPanel>
 
+                            <!--  Step 4 Collapsed Content  -->
+                            <StackPanel
+                                Grid.Column="2"
+                                Grid.Row="3"
+                                Margin="0,0,0,32"
+                                VerticalAlignment="Center"
+                                x:Name="Step4CollapsedContent">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Margin="0,0,0,4"
+                                    Text="Connect to Code-Hosting Platform" />
+                                <TextBlock
+                                    Foreground="#6B6B6B"
+                                    Text="Optional cloud sync setup"
+                                    TextWrapping="Wrap" />
+                                <TextBlock
+                                    x:Name="RepoSetupCompletedText"
+                                    Visibility="Collapsed"
+                                    Margin="0,4,0,0"
+                                    FontWeight="SemiBold"
+                                    Text="✓ Repository configured" />
+                            </StackPanel>
+
                             <!--  Step 5: Add Your Save  -->
                             <Grid
                                 Grid.Column="0"
@@ -408,19 +566,35 @@
                                     Height="32"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    Width="32">
-                                    <TextBlock
-                                        FontWeight="SemiBold"
-                                        HorizontalAlignment="Center"
-                                        Text="5"
-                                        VerticalAlignment="Center" />
+                                    Width="32"
+                                    x:Name="Step5Circle">
+                                    <Grid>
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Foreground="White"
+                                            HorizontalAlignment="Center"
+                                            Text="5"
+                                            VerticalAlignment="Center"
+                                            x:Name="Step5NumberText" />
+                                        <FontIcon
+                                            FontSize="14"
+                                            Foreground="White"
+                                            Glyph="&#xE73E;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed"
+                                            x:Name="Step5CheckIcon" />
+                                    </Grid>
                                 </Border>
                             </Grid>
 
+                            <!--  Step 5 Full Content  -->
                             <StackPanel
                                 Grid.Column="2"
                                 Grid.Row="4"
-                                VerticalAlignment="Center">
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed"
+                                x:Name="Step5Content">
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
@@ -430,8 +604,8 @@
                                     Margin="0,0,0,12"
                                     Text="Now you can manage your save with versioning control! Add your first save or add a Minecraft version folder below:"
                                     TextWrapping="Wrap" />
-                                
-                                <!-- Add Save Buttons -->
+
+                                <!--  Add Save Buttons  -->
                                 <StackPanel Orientation="Horizontal">
                                     <Button
                                         Click="AddSaveButton_Click"
@@ -463,105 +637,198 @@
                                     </Button>
                                 </StackPanel>
                             </StackPanel>
+
+                            <!--  Step 5 Collapsed Content  -->
+                            <StackPanel
+                                Grid.Column="2"
+                                Grid.Row="4"
+                                VerticalAlignment="Center"
+                                x:Name="Step5CollapsedContent">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Margin="0,0,0,4"
+                                    Text="Add Your Save" />
+                                <TextBlock
+                                    Foreground="#6B6B6B"
+                                    Text="Start managing your worlds"
+                                    TextWrapping="Wrap" />
+                                <TextBlock
+                                    x:Name="UsageModeCompletedText"
+                                    Visibility="Collapsed"
+                                    Margin="0,4,0,0"
+                                    FontWeight="SemiBold"
+                                    Text="✓ Ready to use" />
+                            </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Border>
 
-                <!--  Right Panel - System Status  -->
+                <!--  Right Panel - Enhanced System Status  -->
                 <Border
                     Background="#FAFAFA"
                     BorderBrush="#E1E1E1"
                     BorderThickness="1"
                     CornerRadius="12"
                     Grid.Column="2"
-                    Padding="20">
+                    Padding="24">
                     <StackPanel>
-                        <TextBlock
-                            FontSize="16"
-                            FontWeight="SemiBold"
+                        <StackPanel Margin="0,0,0,20" Orientation="Horizontal">
+                            <FontIcon
+                                FontSize="18"
+                                Glyph="&#xE770;"
+                                Margin="0,0,12,0" />
+                            <TextBlock
+                                FontSize="18"
+                                FontWeight="SemiBold"
+                                Text="System Status"
+                                VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <!--  Overall Progress  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Margin="0,0,0,20"
+                            Padding="16">
+                            <StackPanel>
+                                <TextBlock
+                                    FontSize="14"
+                                    FontWeight="SemiBold"
+                                    Margin="0,0,0,8"
+                                    Text="Setup Progress" />
+                                <ProgressBar
+                                    Height="6"
+                                    Margin="0,0,0,8"
+                                    Value="20"
+                                    x:Name="OverallProgressBar" />
+                                <TextBlock
+                                    FontSize="12"
+                                    Foreground="#6B6B6B"
+                                    Text="1 of 5 steps completed"
+                                    TextAlignment="Center"
+                                    x:Name="ProgressText" />
+                            </StackPanel>
+                        </Border>
+
+                        <!--  Git Installation Status  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1"
+                            CornerRadius="8"
                             Margin="0,0,0,16"
-                            Text="Onboard checklist" />
-
-                        <!--  Git Installation  -->
-                        <StackPanel Margin="0,0,0,12" Orientation="Horizontal">
-                            <Border
-                                Background="#107C10"
-                                CornerRadius="8"
-                                Height="16"
-                                Margin="0,0,8,0"
-                                Width="16">
-                                <FontIcon
-                                    FontSize="8"
-                                    Foreground="White"
-                                    Glyph="&#xE73E;"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center" />
-                            </Border>
+                            Padding="16">
                             <StackPanel>
+                                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+                                    <Border
+                                        Background="#107C10"
+                                        CornerRadius="10"
+                                        Height="20"
+                                        Margin="0,0,12,0"
+                                        Width="20"
+                                        x:Name="GitStatusIcon">
+                                        <FontIcon
+                                            FontSize="10"
+                                            Foreground="White"
+                                            Glyph="&#xE73E;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock
+                                        FontSize="14"
+                                        FontWeight="SemiBold"
+                                        Text="Git Installation"
+                                        VerticalAlignment="Center" />
+                                </StackPanel>
                                 <TextBlock
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Text="Git Installation" />
-                                <TextBlock
-                                    FontSize="11"
+                                    FontSize="12"
                                     Foreground="#6B6B6B"
-                                    Text="v2.41.0 ready" />
+                                    Text="Checking Git installation..."
+                                    TextWrapping="Wrap"
+                                    x:Name="GitStatusText" />
                             </StackPanel>
-                        </StackPanel>
+                        </Border>
 
-                        <!--  Git Identity  -->
-                        <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
-                            <Border
-                                Background="#FF8C00"
-                                CornerRadius="8"
-                                Height="16"
-                                Margin="0,0,8,0"
-                                Width="16">
-                                <FontIcon
-                                    FontSize="8"
-                                    Foreground="White"
-                                    Glyph="&#xE7BA;"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center" />
-                            </Border>
+                        <!--  Git Identity Status  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Margin="0,0,0,16"
+                            Padding="16">
                             <StackPanel>
+                                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+                                    <Border
+                                        Background="#FF8C00"
+                                        CornerRadius="10"
+                                        Height="20"
+                                        Margin="0,0,12,0"
+                                        Width="20"
+                                        x:Name="GitIdentityStatusIcon">
+                                        <FontIcon
+                                            FontSize="10"
+                                            Foreground="White"
+                                            Glyph="&#xE7BA;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock
+                                        FontSize="14"
+                                        FontWeight="SemiBold"
+                                        Text="Git Identity"
+                                        VerticalAlignment="Center" />
+                                </StackPanel>
                                 <TextBlock
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Text="Git Identity" />
-                                <TextBlock
-                                    FontSize="11"
+                                    FontSize="12"
                                     Foreground="#6B6B6B"
-                                    Text="Not configured" />
+                                    Text="Not configured"
+                                    TextWrapping="Wrap"
+                                    x:Name="GitIdentityStatusText" />
                             </StackPanel>
-                        </StackPanel>
+                        </Border>
 
-                        <!--  Workspace  -->
-                        <StackPanel Margin="0,0,0,0" Orientation="Horizontal">
-                            <Border
-                                Background="#FF8C00"
-                                CornerRadius="8"
-                                Height="16"
-                                Margin="0,0,8,0"
-                                Width="16">
-                                <FontIcon
-                                    FontSize="8"
-                                    Foreground="White"
-                                    Glyph="&#xE8B7;"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center" />
-                            </Border>
+                        <!--  Platform Connection Status  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Margin="0,0,0,16"
+                            Padding="16">
                             <StackPanel>
+                                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+                                    <Border
+                                        Background="#FF8C00"
+                                        CornerRadius="10"
+                                        Height="20"
+                                        Margin="0,0,12,0"
+                                        Width="20"
+                                        x:Name="PlatformStatusIcon">
+                                        <FontIcon
+                                            FontSize="10"
+                                            Foreground="White"
+                                            Glyph="&#xE8A7;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock
+                                        FontSize="14"
+                                        FontWeight="SemiBold"
+                                        Text="Platform Connection"
+                                        VerticalAlignment="Center" />
+                                </StackPanel>
                                 <TextBlock
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Text="Connect to code hosting platform" />
-                                <TextBlock
-                                    FontSize="11"
+                                    FontSize="12"
                                     Foreground="#6B6B6B"
-                                    Text="Not connected" />
+                                    Text="Not connected"
+                                    TextWrapping="Wrap"
+                                    x:Name="PlatformStatusText" />
                             </StackPanel>
-                        </StackPanel>
+                        </Border>
+
                     </StackPanel>
                 </Border>
             </Grid>
