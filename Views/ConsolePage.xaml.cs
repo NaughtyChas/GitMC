@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,21 +8,21 @@ using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
+using GitMC.Services;
 
 namespace GitMC.Views
 {
     public sealed partial class ConsolePage : Page
     {
         private readonly List<string> _commandHistory = new();
+        private readonly IGitService _gitService;
         private int _historyIndex = -1;
-        private Process? _currentProcess;
-        private string _currentDirectory;
         private string _gitVersion = "Unknown";
 
         public ConsolePage()
         {
             this.InitializeComponent();
-            _currentDirectory = Directory.GetCurrentDirectory();
+            _gitService = new GitService();
             CommandInput.Focus(FocusState.Programmatic);
             _ = InitializeGitVersion();
         }
@@ -32,30 +31,7 @@ namespace GitMC.Views
         {
             try
             {
-                var processInfo = new ProcessStartInfo
-                {
-                    FileName = "git",
-                    Arguments = "--version",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using var process = new Process { StartInfo = processInfo };
-                process.Start();
-                var output = await process.StandardOutput.ReadToEndAsync();
-                await process.WaitForExitAsync();
-
-                if (!string.IsNullOrEmpty(output))
-                {
-                    // Extract version
-                    var parts = output.Trim().Split(' ');
-                    if (parts.Length >= 3)
-                    {
-                        _gitVersion = parts[2];
-                    }
-                }
+                _gitVersion = await _gitService.GetVersionAsync();
             }
             catch
             {
@@ -110,17 +86,9 @@ namespace GitMC.Views
                      (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0)
             {
                 e.Handled = true;
-                // Cancel current command
-                if (_currentProcess != null && !_currentProcess.HasExited)
-                {
-                    try
-                    {
-                        _currentProcess.Kill();
-                        AddOutputLine("^C", "#FF6B6B");
-                        AddOutputLine("Command cancelled.", "#FFAA00");
-                    }
-                    catch { }
-                }
+                // Git command cancellation is handled by GitService
+                AddOutputLine("^C", "#FF6B6B");
+                AddOutputLine("Command cancellation requested.", "#FFAA00");
             }
         }
 
@@ -160,9 +128,10 @@ namespace GitMC.Views
             _historyIndex = _commandHistory.Count;
 
             // Display the command with current directory
-            var directoryName = Path.GetFileName(_currentDirectory);
+            var currentDirectory = _gitService.GetCurrentDirectory();
+            var directoryName = System.IO.Path.GetFileName(currentDirectory);
             if (string.IsNullOrEmpty(directoryName))
-                directoryName = _currentDirectory;
+                directoryName = currentDirectory;
             
             AddOutputLine($"{directoryName}$ {command}", "#00FF00");
             CommandInput.Text = string.Empty;
@@ -178,17 +147,17 @@ namespace GitMC.Views
 
                 if (command.ToLower().StartsWith("cd "))
                 {
-                    await HandleChangeDirectory(command);
+                    HandleChangeDirectory(command);
                     return;
                 }
 
                 if (command.ToLower() == "pwd")
                 {
-                    AddOutputLine(_currentDirectory, "#CCCCCC");
+                    AddOutputLine(_gitService.GetCurrentDirectory(), "#CCCCCC");
                     return;
                 }
 
-                // Execute Git command
+                // Execute Git command using GitService
                 await ExecuteGitCommand(command);
             }
             catch (Exception ex)
@@ -202,7 +171,7 @@ namespace GitMC.Views
             }
         }
 
-        private async Task HandleChangeDirectory(string command)
+        private void HandleChangeDirectory(string command)
         {
             try
             {
@@ -210,46 +179,17 @@ namespace GitMC.Views
                 if (string.IsNullOrEmpty(path))
                 {
                     // Show current directory
-                    AddOutputLine(_currentDirectory, "#CCCCCC");
+                    AddOutputLine(_gitService.GetCurrentDirectory(), "#CCCCCC");
                 }
                 else
                 {
-                    if (path == "..")
+                    if (_gitService.ChangeDirectory(path))
                     {
-                        var parent = Directory.GetParent(_currentDirectory);
-                        if (parent != null)
-                        {
-                            _currentDirectory = parent.FullName;
-                            Directory.SetCurrentDirectory(_currentDirectory);
-                            AddOutputLine($"Changed to: {_currentDirectory}", "#CCCCCC");
-                        }
-                    }
-                    else if (Path.IsPathRooted(path))
-                    {
-                        if (Directory.Exists(path))
-                        {
-                            _currentDirectory = path;
-                            Directory.SetCurrentDirectory(_currentDirectory);
-                            AddOutputLine($"Changed to: {_currentDirectory}", "#CCCCCC");
-                        }
-                        else
-                        {
-                            AddOutputLine($"Directory not found: {path}", "#FF6B6B");
-                        }
+                        AddOutputLine($"Changed to: {_gitService.GetCurrentDirectory()}", "#CCCCCC");
                     }
                     else
                     {
-                        var fullPath = Path.Combine(_currentDirectory, path);
-                        if (Directory.Exists(fullPath))
-                        {
-                            _currentDirectory = Path.GetFullPath(fullPath);
-                            Directory.SetCurrentDirectory(_currentDirectory);
-                            AddOutputLine($"Changed to: {_currentDirectory}", "#CCCCCC");
-                        }
-                        else
-                        {
-                            AddOutputLine($"Directory not found: {fullPath}", "#FF6B6B");
-                        }
+                        AddOutputLine($"Directory not found: {path}", "#FF6B6B");
                     }
                 }
             }
@@ -263,67 +203,36 @@ namespace GitMC.Views
         {
             try
             {
-                var processInfo = new ProcessStartInfo
-                {
-                    FileName = "git",
-                    Arguments = command.StartsWith("git ") ? command.Substring(4) : command,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                    WorkingDirectory = _currentDirectory
-                };
-
-                _currentProcess = new Process { StartInfo = processInfo };
-                
-                var outputLines = new List<string>();
-                var errorLines = new List<string>();
-
-                _currentProcess.OutputDataReceived += (s, e) =>
-                {
-                    if (!string.IsNullOrEmpty(e.Data))
-                        outputLines.Add(e.Data);
-                };
-
-                _currentProcess.ErrorDataReceived += (s, e) =>
-                {
-                    if (!string.IsNullOrEmpty(e.Data))
-                        errorLines.Add(e.Data);
-                };
-
-                _currentProcess.Start();
-                _currentProcess.BeginOutputReadLine();
-                _currentProcess.BeginErrorReadLine();
-
-                await _currentProcess.WaitForExitAsync();
+                var result = await _gitService.ExecuteCommandAsync(command);
 
                 // Display output
-                foreach (var line in outputLines)
+                foreach (var line in result.OutputLines)
                 {
                     AddOutputLine(line, "#CCCCCC");
                 }
 
-                foreach (var line in errorLines)
+                foreach (var line in result.ErrorLines)
                 {
                     AddOutputLine(line, "#FF6B6B");
                 }
 
-                if (outputLines.Count == 0 && errorLines.Count == 0 && _currentProcess.ExitCode == 0)
+                if (result.OutputLines.Length == 0 && result.ErrorLines.Length == 0 && result.Success)
                 {
                     AddOutputLine("Command executed successfully.", "#90EE90");
+                }
+
+                if (!result.Success && !string.IsNullOrEmpty(result.ErrorMessage))
+                {
+                    AddOutputLine(result.ErrorMessage, "#FF6B6B");
+                    if (result.ErrorMessage.Contains("not installed") || result.ErrorMessage.Contains("not found"))
+                    {
+                        AddOutputLine("Please install Git or ensure it's properly configured.", "#FFAA00");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                if (ex.Message.Contains("cannot find") || ex.Message.Contains("not found"))
-                {
-                    AddOutputLine("Git is not installed or not found in PATH.", "#FF6B6B");
-                    AddOutputLine("Please install Git or ensure it's properly configured.", "#FFAA00");
-                }
-                else
-                {
-                    AddOutputLine($"Error executing command: {ex.Message}", "#FF6B6B");
-                }
+                AddOutputLine($"Error executing command: {ex.Message}", "#FF6B6B");
             }
         }
 
