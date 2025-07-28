@@ -58,6 +58,12 @@
     <ItemGroup>
       <Resource Remove="Controls\SaveCard.xaml" />
     </ItemGroup>
+    <ItemGroup>
+      <Page Remove="Views\HomePageNew.xaml" />
+    </ItemGroup>
+    <ItemGroup>
+      <Compile Remove="Views\HomePageNew.xaml.cs" />
+    </ItemGroup>
 
     <!-- 
         Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution 
