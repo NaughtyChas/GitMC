@@ -37,7 +37,17 @@ namespace GitMC.Views
 
         private async void HomePage_Loaded(object sender, RoutedEventArgs e)
         {
-            // Refresh onboarding status on page load
+            // First try to refresh the application data cache safely
+            try
+            {
+                _onboardingService.RefreshApplicationDataCache();
+            }
+            catch
+            {
+                // If cache refresh fails, continue anyway
+            }
+            
+            // Then refresh onboarding status on page load
             await _onboardingService.RefreshAllSteps();
             UpdateStepVisibility();
             UpdateSystemStatus();
@@ -87,7 +97,9 @@ namespace GitMC.Views
         {
             if (stepIndex >= statuses.Length || fullContent == null || collapsedContent == null) return;
 
-            bool isCurrentStep = stepIndex == currentStep && statuses[stepIndex] == OnboardingStepStatus.Current;
+            // Check if all previous steps are completed
+            bool canBeActive = stepIndex == 0 || statuses.Take(stepIndex).All(s => s == OnboardingStepStatus.Completed);
+            bool isCurrentStep = stepIndex == currentStep && statuses[stepIndex] == OnboardingStepStatus.Current && canBeActive;
             
             fullContent.Visibility = isCurrentStep ? Visibility.Visible : Visibility.Collapsed;
             collapsedContent.Visibility = isCurrentStep ? Visibility.Collapsed : Visibility.Visible;
@@ -98,6 +110,11 @@ namespace GitMC.Views
             if (stepIndex >= statuses.Length || circleBorder == null) return;
 
             var status = statuses[stepIndex];
+            var currentStep = _onboardingService.CurrentStepIndex;
+            
+            // Check if all previous steps are completed
+            bool canBeActive = stepIndex == 0 || (stepIndex <= currentStep && 
+                statuses.Take(stepIndex).All(s => s == OnboardingStepStatus.Completed));
             
             switch (status)
             {
@@ -108,9 +125,19 @@ namespace GitMC.Views
                     break;
                     
                 case OnboardingStepStatus.Current:
-                    circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 0, 120, 212)); // Blue
-                    if (checkIcon != null) checkIcon.Visibility = Visibility.Collapsed;
-                    if (numberText != null) numberText.Visibility = Visibility.Visible;
+                    if (canBeActive)
+                    {
+                        circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 0, 120, 212)); // Blue
+                        if (checkIcon != null) checkIcon.Visibility = Visibility.Collapsed;
+                        if (numberText != null) numberText.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        // Show as not started if previous steps aren't completed
+                        circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 209, 209, 209)); // Grey
+                        if (checkIcon != null) checkIcon.Visibility = Visibility.Collapsed;
+                        if (numberText != null) numberText.Visibility = Visibility.Visible;
+                    }
                     break;
                     
                 case OnboardingStepStatus.NotStarted:
@@ -135,7 +162,7 @@ namespace GitMC.Views
                     if (gitInstalled && (statuses[1] == OnboardingStepStatus.Completed || statuses[1] == OnboardingStepStatus.Current))
                     {
                         var gitVersion = await _gitService.GetVersionAsync();
-                        GitFoundText.Text = $"✓ Git v{gitVersion} has been installed and ready to use.";
+                        GitFoundText.Text = $"√ Git version {gitVersion} detected";
                         GitFoundText.Visibility = Visibility.Visible;
                         GitNotFoundPanel.Visibility = Visibility.Collapsed;
                     }
@@ -199,48 +226,33 @@ namespace GitMC.Views
                 mainWindow.NavigateToPage(typeof(SettingsPage));
             }
             
-            // Mark language as configured
-            try
-            {
-                var localSettings = ApplicationData.Current.LocalSettings;
-                localSettings.Values["LanguageConfigured"] = true;
-                await _onboardingService.CompleteStep(0);
-            }
-            catch { }
+            // Mark language as configured using safe method
+            _onboardingService.SetConfigurationValue("LanguageConfigured", true);
+            await _onboardingService.CompleteStep(0);
         }
 
         private async void SkipLanguageButton_Click(object sender, RoutedEventArgs e)
         {
             // Skip language configuration and move to next step
-            try
-            {
-                var localSettings = ApplicationData.Current.LocalSettings;
-                localSettings.Values["LanguageConfigured"] = true;
-                await _onboardingService.CompleteStep(0);
-            }
-            catch { }
+            _onboardingService.SetConfigurationValue("LanguageConfigured", true);
+            await _onboardingService.CompleteStep(0);
         }
 
         private async void UseLocallyButton_Click(object sender, RoutedEventArgs e)
         {
             // Configure for local use only
-            try
+            _onboardingService.SetConfigurationValue("PlatformConfigured", true);
+            await _onboardingService.CompleteStep(3);
+            
+            // Show confirmation
+            var dialog = new ContentDialog
             {
-                var localSettings = ApplicationData.Current.LocalSettings;
-                localSettings.Values["PlatformConfigured"] = true;
-                await _onboardingService.CompleteStep(3);
-                
-                // Show confirmation
-                var dialog = new ContentDialog
-                {
-                    Title = "Local Mode Activated",
-                    Content = "GitMC will now operate in local mode. Your saves will be managed locally with Git version control.",
-                    CloseButtonText = "OK",
-                    XamlRoot = XamlRoot
-                };
-                await dialog.ShowAsync();
-            }
-            catch { }
+                Title = "Local Mode Activated",
+                Content = "GitMC will now operate in local mode. Your saves will be managed locally with Git version control.",
+                CloseButtonText = "OK",
+                XamlRoot = XamlRoot
+            };
+            await dialog.ShowAsync();
         }
 
         private async void GitConfigButton_Click(object sender, RoutedEventArgs e)
@@ -286,13 +298,8 @@ namespace GitMC.Views
                         }
                         
                         // Mark save as added
-                        try
-                        {
-                            var localSettings = ApplicationData.Current.LocalSettings;
-                            localSettings.Values["SaveAdded"] = true;
-                            await _onboardingService.CompleteStep(4);
-                        }
-                        catch { }
+                        _onboardingService.SetConfigurationValue("SaveAdded", true);
+                        await _onboardingService.CompleteStep(4);
                     }
                     else
                     {
@@ -322,16 +329,35 @@ namespace GitMC.Views
             {
                 // Check Git installation
                 var gitInstalled = await _gitService.IsInstalledAsync();
+                var statuses = _onboardingService.StepStatuses;
+                
                 if (gitInstalled)
                 {
                     var gitVersion = await _gitService.GetVersionAsync();
                     GitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
                     GitStatusText.Text = $"Git v{gitVersion} installed and ready";
+                    
+                    // Change icon to checkmark when completed
+                    if (statuses.Length > 1 && statuses[1] == OnboardingStepStatus.Completed)
+                    {
+                        var gitIconControl = GitStatusIcon.Child as FontIcon;
+                        if (gitIconControl != null)
+                        {
+                            gitIconControl.Glyph = "\uE73E"; // Checkmark
+                        }
+                    }
                 }
                 else
                 {
                     GitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
                     GitStatusText.Text = "Git is not installed. Please install Git to continue.";
+                    
+                    // Keep original icon when not completed
+                    var gitIconControl = GitStatusIcon.Child as FontIcon;
+                    if (gitIconControl != null)
+                    {
+                        gitIconControl.Glyph = "\uE896"; // Download/Install icon
+                    }
                 }
 
                 // Check Git identity
@@ -340,11 +366,52 @@ namespace GitMC.Views
                 {
                     GitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
                     GitIdentityStatusText.Text = $"Configured as {userName} ({userEmail})";
+                    
+                    // Change icon to checkmark when completed
+                    if (statuses.Length > 2 && statuses[2] == OnboardingStepStatus.Completed)
+                    {
+                        var identityIconControl = GitIdentityStatusIcon.Child as FontIcon;
+                        if (identityIconControl != null)
+                        {
+                            identityIconControl.Glyph = "\uE73E"; // Checkmark
+                        }
+                    }
                 }
                 else
                 {
                     GitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
                     GitIdentityStatusText.Text = "Git identity not configured. Set your name and email.";
+                    
+                    // Keep original icon when not completed
+                    var identityIconControl = GitIdentityStatusIcon.Child as FontIcon;
+                    if (identityIconControl != null)
+                    {
+                        identityIconControl.Glyph = "\uE7BA"; // Person icon
+                    }
+                }
+
+                // Check Platform Connection
+                if (statuses.Length > 3 && statuses[3] == OnboardingStepStatus.Completed)
+                {
+                    PlatformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
+                    PlatformStatusText.Text = "Platform connected";
+                    
+                    var platformIconControl = PlatformStatusIcon.Child as FontIcon;
+                    if (platformIconControl != null)
+                    {
+                        platformIconControl.Glyph = "\uE73E"; // Checkmark
+                    }
+                }
+                else
+                {
+                    PlatformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
+                    PlatformStatusText.Text = "Not connected";
+                    
+                    var platformIconControl = PlatformStatusIcon.Child as FontIcon;
+                    if (platformIconControl != null)
+                    {
+                        platformIconControl.Glyph = "\uE8A7"; // Cloud icon
+                    }
                 }
 
                 // Update overall progress

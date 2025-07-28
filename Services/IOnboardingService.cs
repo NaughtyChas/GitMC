@@ -14,6 +14,8 @@ namespace GitMC.Services
         Task CompleteStep(int stepIndex);
         Task MoveToNextStep();
         Task RefreshAllSteps();
+        void RefreshApplicationDataCache();
+        void SetConfigurationValue(string key, bool value);
         
         // First launch detection
         bool IsFirstLaunch { get; }
