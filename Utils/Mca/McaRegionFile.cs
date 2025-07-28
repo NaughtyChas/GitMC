@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
+using System.Buffers.Binary;
 using fNbt;
-using GitMC.Utils;
 
 namespace GitMC.Utils.Mca
 {
@@ -27,7 +23,7 @@ namespace GitMC.Utils.Mca
         /// <summary>
         /// Region coordinates
         /// </summary>
-        public Point2i RegionCoordinates { get; private set; }
+        public Point2I RegionCoordinates { get; private set; }
 
         /// <summary>
         /// Whether loaded
@@ -67,14 +63,14 @@ namespace GitMC.Utils.Mca
                         
                         if (int.TryParse(xSpan, out var x) && int.TryParse(zSpan, out var z))
                         {
-                            RegionCoordinates = new Point2i(x, z);
+                            RegionCoordinates = new Point2I(x, z);
                         }
                     }
                 }
             }
         }
 
-        public McaRegionFile(Stream stream, Point2i regionCoordinates)
+        public McaRegionFile(Stream stream, Point2I regionCoordinates)
         {
             _stream = stream ?? throw new ArgumentNullException(nameof(stream));
             _filePath = $"r.{regionCoordinates.X}.{regionCoordinates.Z}.mca";
@@ -96,7 +92,7 @@ namespace GitMC.Utils.Mca
         /// <summary>
         /// Get data of the specified chunk
         /// </summary>
-        public async Task<ChunkData?> GetChunkAsync(Point2i chunkCoordinates)
+        public async Task<ChunkData?> GetChunkAsync(Point2I chunkCoordinates)
         {
             if (!_isLoaded) await LoadAsync();
 
@@ -114,19 +110,19 @@ namespace GitMC.Utils.Mca
         /// <summary>
         /// Get all existing chunk coordinates
         /// </summary>
-        public List<Point2i> GetExistingChunks()
+        public List<Point2I> GetExistingChunks()
         {
             if (!_isLoaded) throw new InvalidOperationException("Region file not loaded");
 
-            var chunks = new List<Point2i>();
+            var chunks = new List<Point2I>();
             if (_header == null) return chunks;
 
             for (int i = 0; i < 1024; i++)
             {
                 if (_header.ChunkInfos[i].SectorOffset != 0)
                 {
-                    var localCoords = Point2i.FromChunkIndex(i);
-                    var globalCoords = new Point2i(
+                    var localCoords = Point2I.FromChunkIndex(i);
+                    var globalCoords = new Point2I(
                         RegionCoordinates.X * 32 + localCoords.X,
                         RegionCoordinates.Z * 32 + localCoords.Z
                     );
@@ -154,7 +150,7 @@ namespace GitMC.Utils.Mca
             var dataLength = BitConverter.ToInt32(headerBytes, 0);
             if (BitConverter.IsLittleEndian)
             {
-                dataLength = System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(dataLength);
+                dataLength = BinaryPrimitives.ReverseEndianness(dataLength);
             }
 
             var compressionTypeByte = headerBytes[4];
@@ -199,7 +195,7 @@ namespace GitMC.Utils.Mca
             var dataLength = BitConverter.ToInt32(lengthBytes, 0);
             if (BitConverter.IsLittleEndian)
             {
-                dataLength = System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(dataLength);
+                dataLength = BinaryPrimitives.ReverseEndianness(dataLength);
             }
 
             var compressedData = await ReadExactAsync(mccStream, dataLength);
@@ -313,7 +309,7 @@ namespace GitMC.Utils.Mca
         /// <summary>
         /// Extract the specified chunk to a standalone NBT file
         /// </summary>
-        public async Task<bool> ExtractChunkAsync(Point2i chunkCoordinates, string outputPath)
+        public async Task<bool> ExtractChunkAsync(Point2I chunkCoordinates, string outputPath)
         {
             try
             {
@@ -362,7 +358,7 @@ namespace GitMC.Utils.Mca
                 var value = BitConverter.ToUInt32(infoBuffer, offset);
                 if (BitConverter.IsLittleEndian)
                 {
-                    value = System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(value);
+                    value = BinaryPrimitives.ReverseEndianness(value);
                 }
 
                 header.ChunkInfos[i] = new ChunkInfo
@@ -381,7 +377,7 @@ namespace GitMC.Utils.Mca
                 var timestamp = BitConverter.ToUInt32(timestampBuffer, offset);
                 if (BitConverter.IsLittleEndian)
                 {
-                    timestamp = System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(timestamp);
+                    timestamp = BinaryPrimitives.ReverseEndianness(timestamp);
                 }
                 header.Timestamps[i] = timestamp;
                 header.ChunkInfos[i].Timestamp = timestamp;

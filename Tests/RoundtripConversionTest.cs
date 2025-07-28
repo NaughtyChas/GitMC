@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using GitMC.Services;
 using GitMC.Utils.Mca;
 
@@ -46,7 +43,7 @@ namespace GitMC.Tests
 
                 // Step 1: Convert MCA to SNBT
                 var snbtPath = Path.Combine(_testDataPath, $"step1_{Path.GetFileNameWithoutExtension(originalMcaPath)}.snbt");
-                ReportProgress($"Step 1: Converting MCA to SNBT...");
+                ReportProgress("Step 1: Converting MCA to SNBT...");
                 
                 // Use our new asynchronous conversion method with progress reporting
                 var conversionProgress = new Progress<string>(message => ReportProgress($"  {message}"));
@@ -63,7 +60,7 @@ namespace GitMC.Tests
 
                 // Step 2: Convert SNBT back to MCA
                 var reconstructedMcaPath = Path.Combine(_testDataPath, $"step2_{Path.GetFileName(originalMcaPath)}");
-                ReportProgress($"Step 2: Converting SNBT back to MCA...");
+                ReportProgress("Step 2: Converting SNBT back to MCA...");
                 _nbtService.ConvertSnbtToRegionFile(snbtPath, reconstructedMcaPath);
                 
                 if (!File.Exists(reconstructedMcaPath))
@@ -76,7 +73,7 @@ namespace GitMC.Tests
                 ReportProgress($"✓ Reconstructed MCA file created: {reconstructedMcaPath} ({reconstructedSize:N0} bytes)");
 
                 // Step 3: Verify the reconstructed MCA file structure
-                ReportProgress($"Step 3: Verifying reconstructed MCA file...");
+                ReportProgress("Step 3: Verifying reconstructed MCA file...");
                 var verificationResult = await VerifyMcaFile(reconstructedMcaPath);
                 
                 if (!verificationResult.IsValid)
@@ -85,12 +82,12 @@ namespace GitMC.Tests
                     return false;
                 }
                 
-                ReportProgress($"✓ MCA file verification passed");
+                ReportProgress("\u2713 MCA file verification passed");
                 ReportProgress($"  - Chunks found: {verificationResult.ChunkCount}");
                 ReportProgress($"  - File size: {verificationResult.FileSize:N0} bytes");
 
                 // Step 4: Compare chunk data (optional detailed verification)
-                ReportProgress($"Step 4: Comparing chunk data integrity...");
+                ReportProgress("Step 4: Comparing chunk data integrity...");
                 var comparisonResult = await CompareChunkData(originalMcaPath, reconstructedMcaPath);
                 
                 if (!comparisonResult.Success)
@@ -100,13 +97,13 @@ namespace GitMC.Tests
                 }
                 else
                 {
-                    ReportProgress($"✓ Chunk data integrity verified");
+                    ReportProgress("\u2713 Chunk data integrity verified");
                 }
 
                 // Step 5: Generate test report
                 await GenerateTestReport(originalMcaPath, snbtPath, reconstructedMcaPath, verificationResult, comparisonResult);
                 
-                ReportProgress($"✓ Roundtrip conversion test completed successfully!");
+                ReportProgress("\u2713 Roundtrip conversion test completed successfully!");
                 return true;
             }
             catch (Exception ex)
@@ -246,7 +243,7 @@ namespace GitMC.Tests
             var overallResult = verification.IsValid && comparison.Success ? "SUCCESS" : "PARTIAL SUCCESS";
             await writer.WriteLineAsync($"Overall Result: {overallResult}");
             
-            Console.WriteLine($"Test report generated: {reportPath}");
+            Console.WriteLine($@"Test report generated: {reportPath}");
         }
 
         /// <summary>
@@ -259,20 +256,20 @@ namespace GitMC.Tests
             
             if (!Directory.Exists(regionPath))
             {
-                Console.WriteLine($"Sample region directory not found: {regionPath}");
+                Console.WriteLine($@"Sample region directory not found: {regionPath}");
                 return false;
             }
             
             var mcaFiles = Directory.GetFiles(regionPath, "*.mca");
             if (mcaFiles.Length == 0)
             {
-                Console.WriteLine($"No MCA files found in: {regionPath}");
+                Console.WriteLine($@"No MCA files found in: {regionPath}");
                 return false;
             }
             
             // Test with the first MCA file found
             var sampleFile = mcaFiles[0];
-            Console.WriteLine($"Using sample file: {sampleFile}");
+            Console.WriteLine($@"Using sample file: {sampleFile}");
             
             return await TestRoundtripConversion(sampleFile);
         }

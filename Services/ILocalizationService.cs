@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Resources;
 
@@ -75,7 +76,7 @@ namespace GitMC.Services
             catch (Exception ex)
             {
                 // Log error and fallback to English
-                System.Diagnostics.Debug.WriteLine($"Failed to set language to {languageCode}: {ex.Message}");
+                Debug.WriteLine($"Failed to set language to {languageCode}: {ex.Message}");
                 if (languageCode != "en-US")
                 {
                     SetLanguage("en-US");

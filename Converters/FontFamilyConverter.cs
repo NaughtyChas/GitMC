@@ -1,7 +1,6 @@
+using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
-using System;
-using System.Text.RegularExpressions;
 
 namespace GitMC.Converters
 {

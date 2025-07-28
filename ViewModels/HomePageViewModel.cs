@@ -1,15 +1,10 @@
-using GitMC.Models;
-using GitMC.Services;
-using Microsoft.UI.Xaml.Controls;
-using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using Windows.Storage.AccessCache;
 using Windows.Storage.Pickers;
+using GitMC.Models;
+using GitMC.Services;
 using WinRT.Interop;
 
 namespace GitMC.ViewModels
@@ -112,8 +107,8 @@ namespace GitMC.ViewModels
             try
             {
                 // Validate it's a Minecraft save
-                var levelDatPath = System.IO.Path.Combine(savePath, "level.dat");
-                var levelDatOldPath = System.IO.Path.Combine(savePath, "level.dat_old");
+                var levelDatPath = Path.Combine(savePath, "level.dat");
+                var levelDatOldPath = Path.Combine(savePath, "level.dat_old");
 
                 if (!File.Exists(levelDatPath) && !File.Exists(levelDatOldPath))
                 {
@@ -127,7 +122,7 @@ namespace GitMC.ViewModels
                     Path = savePath,
                     LastPlayed = directoryInfo.LastWriteTime,
                     WorldSize = CalculateFolderSize(directoryInfo),
-                    IsGitInitialized = Directory.Exists(System.IO.Path.Combine(savePath, "GitMC")),
+                    IsGitInitialized = Directory.Exists(Path.Combine(savePath, "GitMC")),
                     WorldType = "Survival" // Default, could be enhanced to read from level.dat
                 };
 

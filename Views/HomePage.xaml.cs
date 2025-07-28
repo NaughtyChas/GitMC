@@ -1,15 +1,13 @@
-using GitMC.Services;
-using GitMC.Models;
-using Windows.Storage.Pickers;
-using WinRT.Interop;
 using System.ComponentModel;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
+using System.Diagnostics;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.System;
+using GitMC.Models;
+using GitMC.Services;
+using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+using WinRT.Interop;
 
 namespace GitMC.Views
 {
@@ -23,7 +21,7 @@ namespace GitMC.Views
 
         public HomePage()
         {
-            this.InitializeComponent();
+            InitializeComponent();
             _nbtService = new NbtService();
             _gitService = new GitService();
             _onboardingService = new OnboardingService(_gitService);
@@ -31,8 +29,8 @@ namespace GitMC.Views
             // Subscribe to onboarding changes
             _onboardingService.PropertyChanged += OnboardingService_PropertyChanged;
             
-            this.DataContext = this;
-            this.Loaded += HomePage_Loaded;
+            DataContext = this;
+            Loaded += HomePage_Loaded;
         }
 
         public IOnboardingService OnboardingService => _onboardingService;
@@ -104,20 +102,20 @@ namespace GitMC.Views
             switch (status)
             {
                 case OnboardingStepStatus.Completed:
-                    circleBorder.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                    circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
                     if (checkIcon != null) checkIcon.Visibility = Visibility.Visible;
                     if (numberText != null) numberText.Visibility = Visibility.Collapsed;
                     break;
                     
                 case OnboardingStepStatus.Current:
-                    circleBorder.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 0, 120, 212)); // Blue
+                    circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 0, 120, 212)); // Blue
                     if (checkIcon != null) checkIcon.Visibility = Visibility.Collapsed;
                     if (numberText != null) numberText.Visibility = Visibility.Visible;
                     break;
                     
                 case OnboardingStepStatus.NotStarted:
                 default:
-                    circleBorder.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 209, 209, 209)); // Grey
+                    circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 209, 209, 209)); // Grey
                     if (checkIcon != null) checkIcon.Visibility = Visibility.Collapsed;
                     if (numberText != null) numberText.Visibility = Visibility.Visible;
                     break;
@@ -160,7 +158,7 @@ namespace GitMC.Views
                         if (gitConfigText != null)
                         {
                             gitConfigText.Text = $"✓ Configured as {userName} ({userEmail})";
-                            gitConfigText.Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                            gitConfigText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
                             gitConfigText.Visibility = Visibility.Visible;
                         }
                     }
@@ -173,7 +171,7 @@ namespace GitMC.Views
                     if (repoStatusText != null)
                     {
                         repoStatusText.Text = "✓ Repository configured successfully";
-                        repoStatusText.Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                        repoStatusText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
                         repoStatusText.Visibility = Visibility.Visible;
                     }
                 }
@@ -185,7 +183,7 @@ namespace GitMC.Views
                     if (usageModeText != null)
                     {
                         usageModeText.Text = "✓ Usage mode configured";
-                        usageModeText.Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                        usageModeText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
                         usageModeText.Visibility = Visibility.Visible;
                     }
                 }
@@ -204,7 +202,7 @@ namespace GitMC.Views
             // Mark language as configured
             try
             {
-                var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                var localSettings = ApplicationData.Current.LocalSettings;
                 localSettings.Values["LanguageConfigured"] = true;
                 await _onboardingService.CompleteStep(0);
             }
@@ -216,7 +214,7 @@ namespace GitMC.Views
             // Skip language configuration and move to next step
             try
             {
-                var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                var localSettings = ApplicationData.Current.LocalSettings;
                 localSettings.Values["LanguageConfigured"] = true;
                 await _onboardingService.CompleteStep(0);
             }
@@ -228,7 +226,7 @@ namespace GitMC.Views
             // Configure for local use only
             try
             {
-                var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                var localSettings = ApplicationData.Current.LocalSettings;
                 localSettings.Values["PlatformConfigured"] = true;
                 await _onboardingService.CompleteStep(3);
                 
@@ -238,7 +236,7 @@ namespace GitMC.Views
                     Title = "Local Mode Activated",
                     Content = "GitMC will now operate in local mode. Your saves will be managed locally with Git version control.",
                     CloseButtonText = "OK",
-                    XamlRoot = this.XamlRoot
+                    XamlRoot = XamlRoot
                 };
                 await dialog.ShowAsync();
             }
@@ -290,7 +288,7 @@ namespace GitMC.Views
                         // Mark save as added
                         try
                         {
-                            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                            var localSettings = ApplicationData.Current.LocalSettings;
                             localSettings.Values["SaveAdded"] = true;
                             await _onboardingService.CompleteStep(4);
                         }
@@ -304,7 +302,7 @@ namespace GitMC.Views
                             Title = "Invalid Minecraft Save",
                             Content = "The selected folder doesn't appear to be a valid Minecraft save. A valid save should contain level.dat or level.dat_old.",
                             CloseButtonText = "OK",
-                            XamlRoot = this.XamlRoot
+                            XamlRoot = XamlRoot
                         };
                         await dialog.ShowAsync();
                     }
@@ -327,12 +325,12 @@ namespace GitMC.Views
                 if (gitInstalled)
                 {
                     var gitVersion = await _gitService.GetVersionAsync();
-                    GitStatusIcon.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 16, 124, 16));
+                    GitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
                     GitStatusText.Text = $"Git v{gitVersion} installed and ready";
                 }
                 else
                 {
-                    GitStatusIcon.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 255, 140, 0));
+                    GitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
                     GitStatusText.Text = "Git is not installed. Please install Git to continue.";
                 }
 
@@ -340,12 +338,12 @@ namespace GitMC.Views
                 var (userName, userEmail) = await _gitService.GetIdentityAsync();
                 if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
                 {
-                    GitIdentityStatusIcon.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 16, 124, 16));
+                    GitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
                     GitIdentityStatusText.Text = $"Configured as {userName} ({userEmail})";
                 }
                 else
                 {
-                    GitIdentityStatusIcon.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 255, 140, 0));
+                    GitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
                     GitIdentityStatusText.Text = "Git identity not configured. Set your name and email.";
                 }
 
@@ -372,7 +370,7 @@ namespace GitMC.Views
         {
             // Open Git download page
             var uri = new Uri("https://git-scm.com/download/windows");
-            await Windows.System.Launcher.LaunchUriAsync(uri);
+            await Launcher.LaunchUriAsync(uri);
         }
 
         private async void ConnectPlatformButton_Click(object sender, RoutedEventArgs e)
@@ -383,7 +381,7 @@ namespace GitMC.Views
                 Title = "Connect to Platform", 
                 Content = "Platform connection functionality will be implemented in future updates.",
                 CloseButtonText = "OK",
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
         }
@@ -427,7 +425,7 @@ namespace GitMC.Views
                             Title = "Invalid Folder",
                             Content = "The selected folder doesn't appear to contain valid Minecraft data.",
                             CloseButtonText = "OK",
-                            XamlRoot = this.XamlRoot
+                            XamlRoot = XamlRoot
                         };
                         await dialog.ShowAsync();
                     }
@@ -479,7 +477,7 @@ namespace GitMC.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to analyze save folder: {ex.Message}");
+                Debug.WriteLine($"Failed to analyze save folder: {ex.Message}");
                 return Task.FromResult<MinecraftSave?>(null);
             }
         }

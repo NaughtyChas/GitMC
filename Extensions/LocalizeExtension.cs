@@ -1,6 +1,5 @@
-using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Data;
-using GitMC.Services;
+using Microsoft.UI.Xaml.Markup;
 
 namespace GitMC.Extensions
 {
@@ -18,7 +17,7 @@ namespace GitMC.Extensions
             return new Binding
             {
                 Source = (App.Current as App)?.LocalizationService,
-                Path = new Microsoft.UI.Xaml.PropertyPath($"[{Key}]"),
+                Path = new PropertyPath($"[{Key}]"),
                 Mode = BindingMode.OneWay
             };
         }

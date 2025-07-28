@@ -7,7 +7,6 @@
     xmlns:converters="using:GitMC.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:ext="using:GitMC.Extensions"
-    xmlns:local="using:GitMC.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:winUi="using:CommunityToolkit.WinUI"
@@ -55,7 +54,7 @@
                         <RepositionThemeTransition />
                     </StackPanel.ChildrenTransitions>
 
-                    <!-- App Settings Section -->
+                    <!--  App Settings Section  -->
                     <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{ext:Localize Key=Settings_App}" />
                     <toolkit:SettingsCard
                         Description="{ext:Localize Key=Settings_Language_SelectDescription}"

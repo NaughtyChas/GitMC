@@ -1,8 +1,12 @@
+using Windows.ApplicationModel.DataTransfer;
+using Windows.System;
+using Windows.UI.Core;
+using GitMC.Services;
+using Microsoft.UI;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Windows.ApplicationModel.DataTransfer;
-using GitMC.Services;
 
 namespace GitMC.Views
 {
@@ -15,7 +19,7 @@ namespace GitMC.Views
 
         public ConsolePage()
         {
-            this.InitializeComponent();
+            InitializeComponent();
             _gitService = new GitService();
             CommandInput.Focus(FocusState.Programmatic);
             _ = InitializeGitVersion();
@@ -61,23 +65,23 @@ namespace GitMC.Views
 
         private void CommandInput_KeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key == Windows.System.VirtualKey.Enter)
+            if (e.Key == VirtualKey.Enter)
             {
                 e.Handled = true;
                 _ = ExecuteCommand();
             }
-            else if (e.Key == Windows.System.VirtualKey.Up)
+            else if (e.Key == VirtualKey.Up)
             {
                 e.Handled = true;
                 NavigateHistory(-1);
             }
-            else if (e.Key == Windows.System.VirtualKey.Down)
+            else if (e.Key == VirtualKey.Down)
             {
                 e.Handled = true;
                 NavigateHistory(1);
             }
-            else if (e.Key == Windows.System.VirtualKey.C && 
-                     (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control) & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0)
+            else if (e.Key == VirtualKey.C && 
+                     (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & CoreVirtualKeyStates.Down) != 0)
             {
                 e.Handled = true;
                 // Git command cancellation is handled by GitService
@@ -242,7 +246,7 @@ namespace GitMC.Views
                 if (color.StartsWith("#"))
                 {
                     var colorValue = Convert.ToUInt32(color.Substring(1), 16);
-                    brush.Color = Microsoft.UI.ColorHelper.FromArgb(
+                    brush.Color = ColorHelper.FromArgb(
                         0xFF,
                         (byte)((colorValue >> 16) & 0xFF),
                         (byte)((colorValue >> 8) & 0xFF),
@@ -253,7 +257,7 @@ namespace GitMC.Views
             catch
             {
                 // Use default color if parsing fails
-                run.Foreground = new SolidColorBrush(Microsoft.UI.Colors.White);
+                run.Foreground = new SolidColorBrush(Colors.White);
             }
 
             paragraph.Inlines.Add(run);

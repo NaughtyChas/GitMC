@@ -1,6 +1,3 @@
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml;
 using GitMC.Services;
 
 namespace GitMC.Views
@@ -11,7 +8,7 @@ namespace GitMC.Views
 
         public SettingsPage()
         {
-            this.InitializeComponent();
+            InitializeComponent();
             _localizationService = (App.Current as App)?.LocalizationService;
             
             // Set initial language selection

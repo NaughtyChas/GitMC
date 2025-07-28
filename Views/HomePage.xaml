@@ -4,11 +4,10 @@
     mc:Ignorable="d"
     x:Class="GitMC.Views.HomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:media="using:Microsoft.UI.Xaml.Media"
-    xmlns:local="using:GitMC.Extensions"
     xmlns:converters="using:GitMC.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:GitMC.Extensions"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Page.Resources>
@@ -407,11 +406,11 @@
                                     Text="{local:Localize Key=UI_MarkChangesInGit}"
                                     TextWrapping="Wrap" />
                                 <TextBlock
-                                    x:Name="GitConfigCompletedText"
-                                    Visibility="Collapsed"
-                                    Margin="0,4,0,0"
                                     FontWeight="SemiBold"
-                                    Text="{local:Localize Key=UI_GitConfigured}" />
+                                    Margin="0,4,0,0"
+                                    Text="{local:Localize Key=UI_GitConfigured}"
+                                    Visibility="Collapsed"
+                                    x:Name="GitConfigCompletedText" />
                             </StackPanel>
 
                             <!--  Step 4: Connect to Code-Hosting Platform  -->
@@ -543,11 +542,11 @@
                                     Text="{local:Localize Key=Setup_Step4_DescriptionShort}"
                                     TextWrapping="Wrap" />
                                 <TextBlock
-                                    x:Name="RepoSetupCompletedText"
-                                    Visibility="Collapsed"
-                                    Margin="0,4,0,0"
                                     FontWeight="SemiBold"
-                                    Text="{local:Localize Key=UI_RepoConfigured}" />
+                                    Margin="0,4,0,0"
+                                    Text="{local:Localize Key=UI_RepoConfigured}"
+                                    Visibility="Collapsed"
+                                    x:Name="RepoSetupCompletedText" />
                             </StackPanel>
 
                             <!--  Step 5: Add Your Save  -->
@@ -654,11 +653,11 @@
                                     Text="{local:Localize Key=Setup_Step5_DescriptionShort}"
                                     TextWrapping="Wrap" />
                                 <TextBlock
-                                    x:Name="UsageModeCompletedText"
-                                    Visibility="Collapsed"
-                                    Margin="0,4,0,0"
                                     FontWeight="SemiBold"
-                                    Text="{local:Localize Key=UI_ReadyToUse}" />
+                                    Margin="0,4,0,0"
+                                    Text="{local:Localize Key=UI_ReadyToUse}"
+                                    Visibility="Collapsed"
+                                    x:Name="UsageModeCompletedText" />
                             </StackPanel>
                         </Grid>
                     </StackPanel>

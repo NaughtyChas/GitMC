@@ -7,7 +7,7 @@ namespace GitMC.Views
     {
         public MainWindow()
         {
-            this.InitializeComponent();
+            InitializeComponent();
             SetWindowProperties();
             ContentFrame.Navigate(typeof(HomePage));
             ContentFrame.Navigated += ContentFrame_Navigated;
@@ -15,11 +15,11 @@ namespace GitMC.Views
 
         private void SetWindowProperties()
         {
-            this.Title = "GitMC";
-            this.ExtendsContentIntoTitleBar = true;
-            this.SetTitleBar(this.TitleBar);
-            this.AppWindow.SetIcon("Assets/Icons/mcIcon.png");
-            this.AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
+            Title = "GitMC";
+            ExtendsContentIntoTitleBar = true;
+            SetTitleBar(TitleBar);
+            AppWindow.SetIcon("Assets/Icons/mcIcon.png");
+            AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
         }
         
         public void NavigateToPage(Type pageType)

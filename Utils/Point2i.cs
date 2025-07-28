@@ -4,12 +4,12 @@ namespace GitMC.Utils
     /// 2D coordinate point, used to represent chunk and region coordinates
     /// Based on https://zh.minecraft.wiki/w/%E5%8C%BA%E5%9F%9F%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F coordinate system
     /// </summary>
-    public struct Point2i : IEquatable<Point2i>
+    public struct Point2I : IEquatable<Point2I>
     {
         public int X { get; set; }
         public int Z { get; set; }
 
-        public Point2i(int x, int z)
+        public Point2I(int x, int z)
         {
             X = x;
             Z = z;
@@ -19,32 +19,32 @@ namespace GitMC.Utils
         /// Convert chunk coordinates to region coordinates
         /// Uses bit shift: regionX = chunkX >> 5, regionZ = chunkZ >> 5
         /// </summary>
-        public Point2i ChunkToRegion()
+        public Point2I ChunkToRegion()
         {
-            return new Point2i(X >> 5, Z >> 5);
+            return new Point2I(X >> 5, Z >> 5);
         }
 
         /// <summary>
         /// Convert region coordinates to the chunk coordinates of the top-left corner of the region
         /// </summary>
-        public Point2i RegionToChunk()
+        public Point2I RegionToChunk()
         {
-            return new Point2i(X << 5, Z << 5);
+            return new Point2I(X << 5, Z << 5);
         }
 
         /// <summary>
         /// Get the local coordinates of a chunk within a region (0-31)
         /// Uses bitwise operation: localX = chunkX & 0x1F, localZ = chunkZ & 0x1F
         /// </summary>
-        public Point2i GetLocalInRegion()
+        public Point2I GetLocalInRegion()
         {
-            return new Point2i(X & 0x1F, Z & 0x1F);
+            return new Point2I(X & 0x1F, Z & 0x1F);
         }
 
         /// <summary>
         /// Get the local coordinates of a chunk within a region (0-31) - alias method
         /// </summary>
-        public Point2i GetLocalCoordinates()
+        public Point2I GetLocalCoordinates()
         {
             return GetLocalInRegion();
         }
@@ -70,15 +70,15 @@ namespace GitMC.Utils
         /// <summary>
         /// Convert region index to local coordinates
         /// </summary>
-        public static Point2i FromRegionIndex(int index)
+        public static Point2I FromRegionIndex(int index)
         {
-            return new Point2i(index % 32, index / 32);
+            return new Point2I(index % 32, index / 32);
         }
 
         /// <summary>
         /// Create Point2i from chunk index - alias method
         /// </summary>
-        public static Point2i FromChunkIndex(int index)
+        public static Point2I FromChunkIndex(int index)
         {
             return FromRegionIndex(index);
         }
@@ -86,29 +86,29 @@ namespace GitMC.Utils
         /// <summary>
         /// Coordinate modulo operation, handles negatives
         /// </summary>
-        public Point2i Mod(int modulus)
+        public Point2I Mod(int modulus)
         {
             int modX = X % modulus;
             int modZ = Z % modulus;
             if (modX < 0) modX += modulus;
             if (modZ < 0) modZ += modulus;
-            return new Point2i(modX, modZ);
+            return new Point2I(modX, modZ);
         }
 
         /// <summary>
         /// Coordinate addition
         /// </summary>
-        public Point2i Add(Point2i other)
+        public Point2I Add(Point2I other)
         {
-            return new Point2i(X + other.X, Z + other.Z);
+            return new Point2I(X + other.X, Z + other.Z);
         }
 
         /// <summary>
         /// Coordinate subtraction
         /// </summary>
-        public Point2i Sub(Point2i other)
+        public Point2I Sub(Point2I other)
         {
-            return new Point2i(X - other.X, Z - other.Z);
+            return new Point2I(X - other.X, Z - other.Z);
         }
 
         /// <summary>
@@ -122,17 +122,17 @@ namespace GitMC.Utils
         /// <summary>
         /// Restore coordinates from long
         /// </summary>
-        public static Point2i FromLong(long value)
+        public static Point2I FromLong(long value)
         {
-            return new Point2i((int)(value >> 32), (int)(value & 0xFFFFFFFF));
+            return new Point2I((int)(value >> 32), (int)(value & 0xFFFFFFFF));
         }
 
         public override bool Equals(object? obj)
         {
-            return obj is Point2i other && Equals(other);
+            return obj is Point2I other && Equals(other);
         }
 
-        public bool Equals(Point2i other)
+        public bool Equals(Point2I other)
         {
             return X == other.X && Z == other.Z;
         }
@@ -147,22 +147,22 @@ namespace GitMC.Utils
             return $"({X}, {Z})";
         }
 
-        public static bool operator ==(Point2i left, Point2i right)
+        public static bool operator ==(Point2I left, Point2I right)
         {
             return left.Equals(right);
         }
 
-        public static bool operator !=(Point2i left, Point2i right)
+        public static bool operator !=(Point2I left, Point2I right)
         {
             return !left.Equals(right);
         }
 
-        public static Point2i operator +(Point2i left, Point2i right)
+        public static Point2I operator +(Point2I left, Point2I right)
         {
             return left.Add(right);
         }
 
-        public static Point2i operator -(Point2i left, Point2i right)
+        public static Point2I operator -(Point2I left, Point2I right)
         {
             return left.Sub(right);
         }

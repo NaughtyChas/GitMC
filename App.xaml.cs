@@ -1,7 +1,3 @@
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Navigation;
-using System;
 using GitMC.Services;
 
 namespace GitMC
@@ -27,7 +23,7 @@ namespace GitMC
         /// </summary>
         public App()
         {
-            this.InitializeComponent();
+            InitializeComponent();
             
             // Initialize services
             LocalizationService = new LocalizationService();

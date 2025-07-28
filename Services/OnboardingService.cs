@@ -1,7 +1,4 @@
-using System;
 using System.ComponentModel;
-using System.IO;
-using System.Threading.Tasks;
 using Windows.Storage;
 
 namespace GitMC.Services
@@ -9,7 +6,7 @@ namespace GitMC.Services
     public class OnboardingService : IOnboardingService
     {
         private readonly IGitService _gitService;
-        private int _currentStepIndex = 0;
+        private int _currentStepIndex;
         private OnboardingStepStatus[] _stepStatuses = Array.Empty<OnboardingStepStatus>();
         private OnboardingStep[] _steps = Array.Empty<OnboardingStep>();
 
@@ -23,7 +20,7 @@ namespace GitMC.Services
 
         private void InitializeSteps()
         {
-            _steps = new OnboardingStep[]
+            _steps = new[]
             {
                 new OnboardingStep
                 {
