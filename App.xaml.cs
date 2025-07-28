@@ -1,7 +1,4 @@
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Navigation;
-using System;
+using GitMC.Services;
 
 namespace GitMC
 {
@@ -16,12 +13,23 @@ namespace GitMC
         public static Window? MainWindow { get; private set; }
 
         /// <summary>
+        /// Gets the localization service for the application.
+        /// </summary>
+        public ILocalizationService LocalizationService { get; private set; }
+
+        /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
         /// executed, and as such is the logical equivalent of main() or WinMain().
         /// </summary>
         public App()
         {
-            this.InitializeComponent();
+            InitializeComponent();
+            
+            // Initialize services
+            LocalizationService = new LocalizationService();
+            
+            // Set default language to English for development
+            LocalizationService.SetLanguage("en-US");
         }
 
         /// <summary>

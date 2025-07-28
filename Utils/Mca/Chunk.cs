@@ -1,4 +1,3 @@
-using GitMC.Utils.Mca;
 using fNbt;
 
 namespace GitMC.Utils.Mca
@@ -12,7 +11,7 @@ namespace GitMC.Utils.Mca
         /// <summary>
         /// Absolute coordinates of the chunk
         /// </summary>
-        public Point2i AbsoluteLocation { get; set; }
+        public Point2I AbsoluteLocation { get; set; }
 
         /// <summary>
         /// NBT data of the chunk
@@ -39,7 +38,7 @@ namespace GitMC.Utils.Mca
         /// </summary>
         public bool IsOversized { get; set; }
 
-        protected Chunk(Point2i absoluteLocation)
+        protected Chunk(Point2I absoluteLocation)
         {
             AbsoluteLocation = absoluteLocation;
             Timestamp = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -148,7 +147,7 @@ namespace GitMC.Utils.Mca
         /// <summary>
         /// Get the local coordinate of the chunk within the region
         /// </summary>
-        public Point2i GetLocalCoordinate()
+        public Point2I GetLocalCoordinate()
         {
             return AbsoluteLocation.GetLocalInRegion();
         }
@@ -177,7 +176,7 @@ namespace GitMC.Utils.Mca
     /// </summary>
     public class RegionChunk : Chunk
     {
-        public RegionChunk(Point2i absoluteLocation) : base(absoluteLocation)
+        public RegionChunk(Point2I absoluteLocation) : base(absoluteLocation)
         {
         }
 
@@ -199,7 +198,7 @@ namespace GitMC.Utils.Mca
     /// </summary>
     public class EntitiesChunk : Chunk
     {
-        public EntitiesChunk(Point2i absoluteLocation) : base(absoluteLocation)
+        public EntitiesChunk(Point2I absoluteLocation) : base(absoluteLocation)
         {
         }
 
@@ -221,7 +220,7 @@ namespace GitMC.Utils.Mca
     /// </summary>
     public class PoiChunk : Chunk
     {
-        public PoiChunk(Point2i absoluteLocation) : base(absoluteLocation)
+        public PoiChunk(Point2I absoluteLocation) : base(absoluteLocation)
         {
         }
 

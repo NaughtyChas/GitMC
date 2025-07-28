@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  
+  <!-- Application -->
+  <data name="App_Title" xml:space="preserve">
+    <value>GitMC</value>
+  </data>
+  <data name="App_Description" xml:space="preserve">
+    <value>The powerful tool that brings Git version control to your Minecraft worlds.</value>
+  </data>
+  
+  <!-- Welcome Page -->
+  <data name="Welcome_Title" xml:space="preserve">
+    <value>Welcome to GitMC!</value>
+  </data>
+  <data name="Welcome_GettingStarted" xml:space="preserve">
+    <value>Getting Started</value>
+  </data>
+  <data name="Welcome_OnboardChecklist" xml:space="preserve">
+    <value>Onboard checklist</value>
+  </data>
+  
+  <!-- Setup Steps -->
+  <data name="Setup_Step1_Title" xml:space="preserve">
+    <value>Configure GitMC</value>
+  </data>
+  <data name="Setup_Step1_Description" xml:space="preserve">
+    <value>Not your language? Decide GitMC display language at settings.</value>
+  </data>
+  <data name="Setup_Step1_Button" xml:space="preserve">
+    <value>Language Settings</value>
+  </data>
+  
+  <data name="Setup_Step2_Title" xml:space="preserve">
+    <value>Install Git</value>
+  </data>
+  <data name="Setup_Step2_Found" xml:space="preserve">
+    <value>✓ Git {0} has been installed and ready to use.</value>
+  </data>
+  <data name="Setup_Step2_NotFound" xml:space="preserve">
+    <value>No Git is found on your PC. Download Git by clicking the button below:</value>
+  </data>
+  <data name="Setup_Step2_Button" xml:space="preserve">
+    <value>Download Git</value>
+  </data>
+  
+  <data name="Setup_Step3_Title" xml:space="preserve">
+    <value>Configure Git</value>
+  </data>
+  <data name="Setup_Step3_Description" xml:space="preserve">
+    <value>In order to make your save works with version control, you have to provide your credentials. If you wish to connect to any code hosting platform, fill in your platform email and username here.</value>
+  </data>
+  <data name="Setup_Step3_Button" xml:space="preserve">
+    <value>Configure Git</value>
+  </data>
+  
+  <data name="Setup_Step4_Title" xml:space="preserve">
+    <value>Connect to Code-Hosting Platform</value>
+  </data>
+  <data name="Setup_Step4_Description" xml:space="preserve">
+    <value>Save and sync your save on cloud, you can choose which platform to use, or use GitMC locally:</value>
+  </data>
+  <data name="Setup_Step4_DescriptionShort" xml:space="preserve">
+    <value>Optional cloud sync setup</value>
+  </data>
+  <data name="Setup_Step4_GitHub" xml:space="preserve">
+    <value>GitHub</value>
+  </data>
+  <data name="Setup_Step4_SelfHosting" xml:space="preserve">
+    <value>Self-Hosting</value>
+  </data>
+  <data name="Setup_Step4_Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="Setup_Step4_UseLocally" xml:space="preserve">
+    <value>Use GitMC Locally</value>
+  </data>
+  
+  <data name="Setup_Step5_Title" xml:space="preserve">
+    <value>Add Your Save</value>
+  </data>
+  <data name="Setup_Step5_Description" xml:space="preserve">
+    <value>Now you can manage your save with versioning control! Add your first save or add a Minecraft version folder below:</value>
+  </data>
+  <data name="Setup_Step5_DescriptionShort" xml:space="preserve">
+    <value>Start managing your worlds</value>
+  </data>
+  <data name="Setup_Step5_AddSave" xml:space="preserve">
+    <value>Add Save</value>
+  </data>
+  <data name="Setup_Step5_AddVersionFolder" xml:space="preserve">
+    <value>Add Version Folder</value>
+  </data>
+  
+  <!-- Status -->
+  <data name="Status_GitInstallation" xml:space="preserve">
+    <value>Git Installation</value>
+  </data>
+  <data name="Status_GitReady" xml:space="preserve">
+    <value>v{0} ready</value>
+  </data>
+  <data name="Status_GitIdentity" xml:space="preserve">
+    <value>Git Identity</value>
+  </data>
+  <data name="Status_NotConfigured" xml:space="preserve">
+    <value>Not configured</value>
+  </data>
+  <data name="Status_ConnectPlatform" xml:space="preserve">
+    <value>Connect to code hosting platform</value>
+  </data>
+  <data name="Status_NotConnected" xml:space="preserve">
+    <value>Not connected</value>
+  </data>
+  
+  <!-- Console -->
+  <data name="Console_Title" xml:space="preserve">
+    <value>Console</value>
+  </data>
+  <data name="Console_GitBash" xml:space="preserve">
+    <value>Git Bash</value>
+  </data>
+  <data name="Console_Welcome" xml:space="preserve">
+    <value>GitMC Console v0.1.0</value>
+  </data>
+  <data name="Console_Ready" xml:space="preserve">
+    <value>Git Bash integration ready. Type 'git --version' to verify installation.</value>
+  </data>
+  <data name="Console_Placeholder" xml:space="preserve">
+    <value>Enter Git command...</value>
+  </data>
+  <data name="Console_Execute" xml:space="preserve">
+    <value>Execute</value>
+  </data>
+  <data name="Console_CommandSuccess" xml:space="preserve">
+    <value>Command executed successfully.</value>
+  </data>
+  <data name="Console_CommandCancelled" xml:space="preserve">
+    <value>Command cancellation requested.</value>
+  </data>
+  <data name="Console_OutputCopied" xml:space="preserve">
+    <value>Console output copied to clipboard.</value>
+  </data>
+  <data name="Console_CopyFailed" xml:space="preserve">
+    <value>Failed to copy to clipboard: {0}</value>
+  </data>
+  <data name="Console_ChangeDirectory" xml:space="preserve">
+    <value>Changed to: {0}</value>
+  </data>
+  <data name="Console_DirectoryNotFound" xml:space="preserve">
+    <value>Directory not found: {0}</value>
+  </data>
+  <data name="Console_DirectoryError" xml:space="preserve">
+    <value>Error changing directory: {0}</value>
+  </data>
+  
+  <!-- Navigation -->
+  <data name="Nav_Home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="Nav_Console" xml:space="preserve">
+    <value>Console</value>
+  </data>
+  <data name="Nav_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  
+  <!-- Settings -->
+  <data name="Settings_App" xml:space="preserve">
+    <value>App Settings</value>
+  </data>
+  <data name="Settings_DevDebug" xml:space="preserve">
+    <value>Dev &amp; Debug</value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings_Language_Description" xml:space="preserve">
+    <value>Choose your preferred language for GitMC</value>
+  </data>
+  <data name="Settings_Language_Select" xml:space="preserve">
+    <value>Display Language</value>
+  </data>
+  <data name="Settings_Language_SelectDescription" xml:space="preserve">
+    <value>Changes take effect immediately</value>
+  </data>
+  
+  <!-- Common -->
+  <data name="Common_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Common_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Common_Success" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="Common_Loading" xml:space="preserve">
+    <value>Loading...</value>
+  </data>
+  
+  <!-- Errors -->
+  <data name="Error_InvalidMinecraftSave" xml:space="preserve">
+    <value>Invalid Minecraft Save</value>
+  </data>
+  <data name="Error_InvalidSaveDescription" xml:space="preserve">
+    <value>The selected folder doesn't appear to be a valid Minecraft save. A valid save should contain level.dat or level.dat_old.</value>
+  </data>
+  <data name="Error_AnalyzingSave" xml:space="preserve">
+    <value>Analyzing save folder...</value>
+  </data>
+
+  <!-- Additional UI strings -->
+  <data name="UI_Skip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="UI_SetPreferredLanguage" xml:space="preserve">
+    <value>Set your preferred language</value>
+  </data>
+  <data name="UI_GitVersionControl" xml:space="preserve">
+    <value>Git version control system</value>
+  </data>
+  <data name="UI_SystemInfo" xml:space="preserve">
+    <value>System Info</value>
+  </data>
+  <data name="UI_OverallProgress" xml:space="preserve">
+    <value>Overall Progress</value>
+  </data>
+  <data name="UI_ReadyToUse" xml:space="preserve">
+    <value>✓ Ready to use</value>
+  </data>
+  <data name="UI_GitConfigured" xml:space="preserve">
+    <value>✓ Git configured</value>
+  </data>
+  <data name="UI_RepoConfigured" xml:space="preserve">
+    <value>✓ Repository configured</value>
+  </data>
+  <data name="UI_MarkChangesInGit" xml:space="preserve">
+    <value>Mark your changes in the Git system</value>
+  </data>
+  <data name="UI_SystemStatus" xml:space="preserve">
+    <value>System Status</value>
+  </data>
+  <data name="UI_SetupProgress" xml:space="preserve">
+    <value>Setup Progress</value>
+  </data>
+  <data name="UI_StepsCompleted" xml:space="preserve">
+    <value>{0} of {1} steps completed</value>
+  </data>
+  <data name="UI_CheckingGitInstallation" xml:space="preserve">
+    <value>Checking Git installation...</value>
+  </data>
+  <data name="UI_PlatformConnection" xml:space="preserve">
+    <value>Platform Connection</value>
+  </data>
+  <data name="Main_Title" xml:space="preserve">
+    <value>GitMC</value>
+  </data>
+  <data name="Setup_GitHub" xml:space="preserve">
+    <value>GitHub</value>
+  </data>
+  <data name="Setup_SelfHosting" xml:space="preserve">
+    <value>Self-Hosting</value>
+  </data>
+  <data name="Setup_Progress" xml:space="preserve">
+    <value>1 of 5 steps completed</value>
+  </data>
+  <data name="Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Language_Chinese" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="UI_Launch" xml:space="preserve">
+    <value>Launch</value>
+  </data>
+  <data name="Console_Prompt" xml:space="preserve">
+    <value>$</value>
+  </data>
+  <data name="SaveTranslator_Title" xml:space="preserve">
+    <value>Save translation tool</value>
+  </data>
+  <data name="SaveTranslator_SelectSave" xml:space="preserve">
+    <value>Select Save</value>
+  </data>
+  <data name="SaveTranslator_PlaceholderText" xml:space="preserve">
+    <value>Select Minecraft save folder...</value>
+  </data>
+  <data name="UI_Browse" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="UI_NotSelected" xml:space="preserve">
+    <value>Not selected</value>
+  </data>
+  <data name="SaveTranslator_TranslationOptions" xml:space="preserve">
+    <value>Translation Options</value>
+  </data>
+  <data name="SaveTranslator_RegionFiles" xml:space="preserve">
+    <value>Region files (.mca)</value>
+  </data>
+  <data name="SaveTranslator_DataFiles" xml:space="preserve">
+    <value>Data files (.dat)</value>
+  </data>
+  <data name="SaveTranslator_NbtFiles" xml:space="preserve">
+    <value>NBT structure files (.nbt)</value>
+  </data>
+  <data name="SaveTranslator_PlayerData" xml:space="preserve">
+    <value>Player data (playerdata/*.dat)</value>
+  </data>
+  <data name="SaveTranslator_WorldData" xml:space="preserve">
+    <value>World data (level.dat)</value>
+  </data>
+  <data name="SaveTranslator_OutputSettings" xml:space="preserve">
+    <value>Output Settings</value>
+  </data>
+  <data name="SaveTranslator_PreserveSnbt" xml:space="preserve">
+    <value>Preserve intermediate SNBT files</value>
+  </data>
+  <data name="SaveTranslator_CreateBackup" xml:space="preserve">
+    <value>Create backup files</value>
+  </data>
+  <data name="SaveTranslator_VerifyIntegrity" xml:space="preserve">
+    <value>Verify file integrity</value>
+  </data>
+  <data name="SaveTranslator_Progress" xml:space="preserve">
+    <value>Translation Progress</value>
+  </data>
+  <data name="UI_Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="UI_CpuUsage" xml:space="preserve">
+    <value>CPU Usage</value>
+  </data>
+  <data name="UI_MemoryUsage" xml:space="preserve">
+    <value>Memory Usage</value>
+  </data>
+  <data name="SaveTranslator_DetailedLogs" xml:space="preserve">
+    <value>Detailed Logs</value>
+  </data>
+  <data name="SaveTranslator_StartTranslation" xml:space="preserve">
+    <value>Start Translation</value>
+  </data>
+  <data name="SaveTranslator_PreparingTranslation" xml:space="preserve">
+    <value>Preparing for translation...</value>
+  </data>
+  <data name="UI_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Nav_ManagedSaves" xml:space="preserve">
+    <value>Managed Saves</value>
+  </data>
+</root>

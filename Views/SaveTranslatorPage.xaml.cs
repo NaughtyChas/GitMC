@@ -1,17 +1,13 @@
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Navigation;
-using GitMC.Services;
-using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-using Windows.Storage.Pickers;
-using Windows.Storage;
-using System.Collections.Generic;
-using System.Linq;
 using System.Diagnostics;
+using System.Text;
+using System.Text.RegularExpressions;
+using Windows.Storage.Pickers;
+using GitMC.Services;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Navigation;
+using WinRT.Interop;
+
 namespace GitMC.Views
 {
     public sealed partial class SaveTranslatorPage : Page
@@ -25,7 +21,7 @@ namespace GitMC.Views
 
         public SaveTranslatorPage()
         {
-            this.InitializeComponent();
+            InitializeComponent();
             _nbtService = new NbtService();
             InitializePerformanceCounters();
         }
@@ -77,8 +73,8 @@ namespace GitMC.Views
 
             // Get the current window's handle
             var window = App.MainWindow;
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-            WinRT.Interop.InitializeWithWindow.Initialize(folderPicker, hwnd);
+            var hwnd = WindowNative.GetWindowHandle(window);
+            InitializeWithWindow.Initialize(folderPicker, hwnd);
 
             var folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
@@ -105,7 +101,7 @@ namespace GitMC.Views
                         if (File.Exists(levelDatPath) || File.Exists(levelDatOldPath))
                         {
                             SaveInfoTextBlock.Text = "✓ Detected valid Minecraft save";
-                            SaveInfoTextBlock.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorSuccessBrush"];
+                            SaveInfoTextBlock.Foreground = (Brush)Application.Current.Resources["SystemFillColorSuccessBrush"];
                             SaveInfoTextBlock.Visibility = Visibility.Visible;
                             
                             StartTranslationButton.IsEnabled = true;
@@ -117,7 +113,7 @@ namespace GitMC.Views
                         else
                         {
                             SaveInfoTextBlock.Text = "⚠ Detected invalid Minecraft save";
-                            SaveInfoTextBlock.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+                            SaveInfoTextBlock.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
                             SaveInfoTextBlock.Visibility = Visibility.Visible;
                             
                             StartTranslationButton.IsEnabled = false;
@@ -132,7 +128,7 @@ namespace GitMC.Views
                     DispatcherQueue.TryEnqueue(() =>
                     {
                         SaveInfoTextBlock.Text = $"Validation error: {ex.Message}";
-                        SaveInfoTextBlock.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+                        SaveInfoTextBlock.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
                         SaveInfoTextBlock.Visibility = Visibility.Visible;
                         LogMessage($"Save validation error: {ex.Message}");
                     });
@@ -314,7 +310,7 @@ namespace GitMC.Views
             
             // Log final statistics
             LogMessage("=== Save translation process complete ===");
-            LogMessage($"📈 Processing Statistics:");
+            LogMessage("\ud83d\udcc8 Processing Statistics:");
             LogMessage($"  ✓ Total files processed: {processedCount}");
             LogMessage($"  📦 Multi-chunk files: {multiChunkFiles}");
             LogMessage($"  🧊 Total chunks processed: {totalChunksProcessed}");
@@ -582,7 +578,7 @@ namespace GitMC.Views
                                 // Look for total chunks in header (much faster than parsing entire file)
                                 if (headerText.Contains("// Total chunks:"))
                                 {
-                                    var match = System.Text.RegularExpressions.Regex.Match(headerText, @"// Total chunks:\s*(\d+)");
+                                    var match = Regex.Match(headerText, @"// Total chunks:\s*(\d+)");
                                     if (match.Success && int.TryParse(match.Groups[1].Value, out chunkCount))
                                     {
                                         isMultiChunk = chunkCount > 1;
@@ -767,7 +763,7 @@ namespace GitMC.Views
             // Use synchronous Enqueue instead of TryEnqueue to ensure UI updates are processed
             try
             {
-                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal, () =>
+                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, () =>
                 {
                     if (OverallProgressBar != null) OverallProgressBar.Value = value;
                     if (ProgressTextBlock != null) ProgressTextBlock.Text = text;
@@ -776,14 +772,14 @@ namespace GitMC.Views
             catch (Exception ex)
             {
                 // Fallback - ignore UI update errors during debug
-                System.Diagnostics.Debug.WriteLine($"UI Update Error: {ex.Message}");
+                Debug.WriteLine($"UI Update Error: {ex.Message}");
             }
         }
 
         private readonly Queue<string> _logQueue = new Queue<string>();
         private readonly object _logLock = new object();
         private DateTime _lastLogFlush = DateTime.Now;
-        private bool _isLogFlushScheduled = false;
+        private bool _isLogFlushScheduled;
 
         private void LogMessage(string message)
         {
@@ -820,7 +816,7 @@ namespace GitMC.Views
             catch (Exception ex)
             {
                 // Fallback - output to debug console
-                System.Diagnostics.Debug.WriteLine($"Log Error: {ex.Message} - Message: {logEntry}");
+                Debug.WriteLine($"Log Error: {ex.Message} - Message: {logEntry}");
             }
         }
 
@@ -850,7 +846,7 @@ namespace GitMC.Views
                     _logQueue.Clear();
                 }
                 
-                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
                 {
                     try
                     {
@@ -925,7 +921,7 @@ namespace GitMC.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FlushLogQueue Error: {ex.Message}");
+                Debug.WriteLine($"FlushLogQueue Error: {ex.Message}");
             }
         }
 

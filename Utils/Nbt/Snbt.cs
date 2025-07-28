@@ -1,39 +1,35 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using fNbt;
-using GitMC.Utils;
 
 namespace GitMC.Utils.Nbt
 {
     public static class Snbt
     {
-        public const char BYTE_SUFFIX = 'b';
-        public const char SHORT_SUFFIX = 's';
-        public const char LONG_SUFFIX = 'L';
-        public const char FLOAT_SUFFIX = 'f';
-        public const char DOUBLE_SUFFIX = 'd';
-        public const char BYTE_ARRAY_PREFIX = 'B';
-        public const char INT_ARRAY_PREFIX = 'I';
-        public const char LONG_ARRAY_PREFIX = 'L';
-        public const char NAME_VALUE_SEPARATOR = ':';
-        public const char VALUE_SEPARATOR = ',';
-        public const char ARRAY_DELIMITER = ';';
-        public const char LIST_OPEN = '[';
-        public const char LIST_CLOSE = ']';
-        public const char COMPOUND_OPEN = '{';
-        public const char COMPOUND_CLOSE = '}';
-        public const char STRING_ESCAPE = '\\';
-        public const char STRING_PRIMARY_QUOTE = '"';
-        public const char STRING_SECONDARY_QUOTE = '\'';
-        public const string VALUE_SPACING = " ";
-        public const string INDENTATION = "    ";
+        public const char ByteSuffix = 'b';
+        public const char ShortSuffix = 's';
+        public const char LongSuffix = 'L';
+        public const char FloatSuffix = 'f';
+        public const char DoubleSuffix = 'd';
+        public const char ByteArrayPrefix = 'B';
+        public const char IntArrayPrefix = 'I';
+        public const char LongArrayPrefix = 'L';
+        public const char NameValueSeparator = ':';
+        public const char ValueSeparator = ',';
+        public const char ArrayDelimiter = ';';
+        public const char ListOpen = '[';
+        public const char ListClose = ']';
+        public const char CompoundOpen = '{';
+        public const char CompoundClose = '}';
+        public const char StringEscape = '\\';
+        public const char StringPrimaryQuote = '"';
+        public const char StringSecondaryQuote = '\'';
+        public const string ValueSpacing = " ";
+        public const string Indentation = "    ";
 
         // convert a tag to its string form
-        public static string ToSnbt(this NbtTag tag, SnbtOptions options, bool include_name = false)
+        public static string ToSnbt(this NbtTag tag, SnbtOptions options, bool includeName = false)
         {
-            string name = include_name ? GetNameBeforeValue(tag, options) : String.Empty;
+            string name = includeName ? GetNameBeforeValue(tag, options) : String.Empty;
             if (tag is NbtByte b)
                 return name + b.ToSnbt(options);
             if (tag is NbtShort s)
@@ -66,10 +62,10 @@ namespace GitMC.Utils.Nbt
             return options.NumberSuffixes ? suffix.ToString() : String.Empty;
         }
 
-        public static string ToSnbt(this NbtByte tag, SnbtOptions options) => (sbyte)tag.Value + OptionalSuffix(options, BYTE_SUFFIX);
-        public static string ToSnbt(this NbtShort tag, SnbtOptions options) => tag.Value + OptionalSuffix(options, SHORT_SUFFIX);
+        public static string ToSnbt(this NbtByte tag, SnbtOptions options) => (sbyte)tag.Value + OptionalSuffix(options, ByteSuffix);
+        public static string ToSnbt(this NbtShort tag, SnbtOptions options) => tag.Value + OptionalSuffix(options, ShortSuffix);
         public static string ToSnbt(this NbtInt tag, SnbtOptions options) => tag.Value.ToString();
-        public static string ToSnbt(this NbtLong tag, SnbtOptions options) => tag.Value + OptionalSuffix(options, LONG_SUFFIX);
+        public static string ToSnbt(this NbtLong tag, SnbtOptions options) => tag.Value + OptionalSuffix(options, LongSuffix);
         public static string ToSnbt(this NbtFloat tag, SnbtOptions options)
         {
             string result;
@@ -81,7 +77,7 @@ namespace GitMC.Utils.Nbt
                 result = "NaN";
             else
                 result = DataUtils.FloatToString(tag.Value);
-            return result + OptionalSuffix(options, FLOAT_SUFFIX);
+            return result + OptionalSuffix(options, FloatSuffix);
         }
         public static string ToSnbt(this NbtDouble tag, SnbtOptions options)
         {
@@ -94,7 +90,7 @@ namespace GitMC.Utils.Nbt
                 result = "NaN";
             else
                 result = DataUtils.DoubleToString(tag.Value);
-            return result + OptionalSuffix(options, DOUBLE_SUFFIX);
+            return result + OptionalSuffix(options, DoubleSuffix);
         }
         public static string ToSnbt(this NbtString tag, SnbtOptions options)
         {
@@ -119,13 +115,10 @@ namespace GitMC.Utils.Nbt
         public static string ToSnbt(this NbtList tag, SnbtOptions options)
         {
             if (options.Minified)
-                return ListToString("", x => x.ToSnbt(options, include_name: false), tag, options);
-            else
-            {
-                var sb = new StringBuilder();
-                AddSnbtList(tag, options, sb, INDENTATION, 0, false);
-                return sb.ToString();
-            }
+                return ListToString("", x => x.ToSnbt(options, includeName: false), tag, options);
+            var sb = new StringBuilder();
+            AddSnbtList(tag, options, sb, Indentation, 0, false);
+            return sb.ToString();
         }
 
         public static string ToSnbt(this NbtCompound tag, SnbtOptions options)
@@ -133,33 +126,33 @@ namespace GitMC.Utils.Nbt
             var sb = new StringBuilder();
             if (options.Minified)
             {
-                sb.Append(COMPOUND_OPEN);
+                sb.Append(CompoundOpen);
                 // Optimized: Use StringBuilder instead of String.Join to avoid creating intermediate arrays
                 bool first = true;
                 foreach (var childTag in tag)
                 {
                     if (!first)
-                        sb.Append(VALUE_SEPARATOR);
-                    sb.Append(childTag.ToSnbt(options, include_name: true));
+                        sb.Append(ValueSeparator);
+                    sb.Append(childTag.ToSnbt(options, includeName: true));
                     first = false;
                 }
-                sb.Append(COMPOUND_CLOSE);
+                sb.Append(CompoundClose);
             }
             else
-                AddSnbtCompound(tag, options, sb, INDENTATION, 0, false);
+                AddSnbtCompound(tag, options, sb, Indentation, 0, false);
             return sb.ToString();
         }
 
         // shared technique for single-line arrays
-        private static string ListToString<T>(string list_prefix, Func<T, string> function, IEnumerable<T> values, SnbtOptions options)
+        private static string ListToString<T>(string listPrefix, Func<T, string> function, IEnumerable<T> values, SnbtOptions options)
         {
             if (!options.ArrayPrefixes)
-                list_prefix = String.Empty;
+                listPrefix = String.Empty;
             // spacing between values
-            string spacing = options.Minified ? String.Empty : VALUE_SPACING;
+            string spacing = options.Minified ? String.Empty : ValueSpacing;
             // spacing between list prefix and first value
-            string prefix_separator = !options.Minified && list_prefix.Length > 0 && values.Any() ? VALUE_SPACING : String.Empty;
-            var s = new StringBuilder(LIST_OPEN + list_prefix + prefix_separator);
+            string prefixSeparator = !options.Minified && listPrefix.Length > 0 && values.Any() ? ValueSpacing : String.Empty;
+            var s = new StringBuilder(ListOpen + listPrefix + prefixSeparator);
             
             // Optimized: Use StringBuilder instead of String.Join to avoid creating intermediate arrays
             bool first = true;
@@ -167,23 +160,22 @@ namespace GitMC.Utils.Nbt
             {
                 if (!first)
                 {
-                    s.Append(VALUE_SEPARATOR);
+                    s.Append(ValueSeparator);
                     s.Append(spacing);
                 }
                 s.Append(function(value));
                 first = false;
             }
             
-            s.Append(LIST_CLOSE);
+            s.Append(ListClose);
             return s.ToString();
         }
 
-        private static string QuoteIfRequested(string str, Predicate<string> should_quote, SnbtOptions.QuoteMode mode, SnbtOptions.INewlineHandler newlines)
+        private static string QuoteIfRequested(string str, Predicate<string> shouldQuote, SnbtOptions.QuoteMode mode, SnbtOptions.INewlineHandler newlines)
         {
-            if (should_quote(str))
+            if (shouldQuote(str))
                 return QuoteAndEscape(str, mode, newlines);
-            else
-                return str?.Replace("\n", newlines.Handle()) ?? "";
+            return str?.Replace("\n", newlines.Handle()) ?? "";
         }
 
         public static string GetName(NbtTag tag, SnbtOptions options)
@@ -195,110 +187,110 @@ namespace GitMC.Utils.Nbt
         {
             if (tag.Name == null)
                 return String.Empty;
-            return GetName(tag, options) + NAME_VALUE_SEPARATOR + (options.Minified ? String.Empty : VALUE_SPACING);
+            return GetName(tag, options) + NameValueSeparator + (options.Minified ? String.Empty : ValueSpacing);
         }
 
         // adapted directly from minecraft's (decompiled) source
         private static string QuoteAndEscape(string input, SnbtOptions.QuoteMode mode, SnbtOptions.INewlineHandler newlines)
         {
-            const char PLACEHOLDER_QUOTE = '\0';
-            var builder = new StringBuilder(PLACEHOLDER_QUOTE.ToString()); // dummy value to be replaced at end
-            char preferred_quote;
+            const char placeholderQuote = '\0';
+            var builder = new StringBuilder(placeholderQuote.ToString()); // dummy value to be replaced at end
+            char preferredQuote;
             if (mode == SnbtOptions.QuoteMode.DoubleQuotes)
-                preferred_quote = '"';
+                preferredQuote = '"';
             else if (mode == SnbtOptions.QuoteMode.SingleQuotes)
-                preferred_quote = '\'';
+                preferredQuote = '\'';
             else
-                preferred_quote = PLACEHOLDER_QUOTE; // dummy value when we're not sure which quote type to use yet
+                preferredQuote = placeholderQuote; // dummy value when we're not sure which quote type to use yet
             foreach (char c in input)
             {
-                if (c == STRING_ESCAPE)
-                    builder.Append(STRING_ESCAPE);
-                else if (c == STRING_PRIMARY_QUOTE || c == STRING_SECONDARY_QUOTE)
+                if (c == StringEscape)
+                    builder.Append(StringEscape);
+                else if (c == StringPrimaryQuote || c == StringSecondaryQuote)
                 {
-                    if (preferred_quote == PLACEHOLDER_QUOTE)
-                        preferred_quote = (c == STRING_PRIMARY_QUOTE ? STRING_SECONDARY_QUOTE : STRING_PRIMARY_QUOTE);
-                    if (c == preferred_quote)
-                        builder.Append(STRING_ESCAPE);
+                    if (preferredQuote == placeholderQuote)
+                        preferredQuote = (c == StringPrimaryQuote ? StringSecondaryQuote : StringPrimaryQuote);
+                    if (c == preferredQuote)
+                        builder.Append(StringEscape);
                 }
                 if (c == '\n')
                     builder.Append(newlines.Handle());
                 else
                     builder.Append(c);
             }
-            if (preferred_quote == PLACEHOLDER_QUOTE)
-                preferred_quote = STRING_PRIMARY_QUOTE;
-            builder[0] = preferred_quote;
-            builder.Append(preferred_quote);
+            if (preferredQuote == placeholderQuote)
+                preferredQuote = StringPrimaryQuote;
+            builder[0] = preferredQuote;
+            builder.Append(preferredQuote);
             return builder.ToString();
         }
 
-        private static void AddIndents(StringBuilder sb, string indent_string, int indent_level)
+        private static void AddIndents(StringBuilder sb, string indentString, int indentLevel)
         {
-            for (int i = 0; i < indent_level; i++)
-                sb.Append(indent_string);
+            for (int i = 0; i < indentLevel; i++)
+                sb.Append(indentString);
         }
 
         // add contents of tag to stringbuilder
-        private static void AddSnbt(NbtTag tag, SnbtOptions options, StringBuilder sb, string indent_string, int indent_level, bool include_name)
+        private static void AddSnbt(NbtTag tag, SnbtOptions options, StringBuilder sb, string indentString, int indentLevel, bool includeName)
         {
             if (tag is NbtCompound compound)
-                AddSnbtCompound(compound, options, sb, indent_string, indent_level, include_name);
+                AddSnbtCompound(compound, options, sb, indentString, indentLevel, includeName);
             else if (tag is NbtList list)
-                AddSnbtList(list, options, sb, indent_string, indent_level, include_name);
+                AddSnbtList(list, options, sb, indentString, indentLevel, includeName);
             else
             {
-                AddIndents(sb, indent_string, indent_level);
-                sb.Append(tag.ToSnbt(options, include_name));
+                AddIndents(sb, indentString, indentLevel);
+                sb.Append(tag.ToSnbt(options, includeName));
             }
         }
 
-        private static void AddSnbtCompound(NbtCompound tag, SnbtOptions options, StringBuilder sb, string indent_string, int indent_level, bool include_name)
+        private static void AddSnbtCompound(NbtCompound tag, SnbtOptions options, StringBuilder sb, string indentString, int indentLevel, bool includeName)
         {
-            AddIndents(sb, indent_string, indent_level);
-            if (include_name)
+            AddIndents(sb, indentString, indentLevel);
+            if (includeName)
                 sb.Append(GetNameBeforeValue(tag, options));
-            sb.Append(COMPOUND_OPEN);
+            sb.Append(CompoundOpen);
             if (tag.Count > 0)
             {
                 sb.Append(Environment.NewLine);
                 var tags = tag.ToArray();
                 for (int i = 0; i < tags.Length; i++)
                 {
-                    AddSnbt(tags[i], options, sb, indent_string, indent_level + 1, true);
+                    AddSnbt(tags[i], options, sb, indentString, indentLevel + 1, true);
                     if (i < tags.Length - 1)
-                        sb.Append(VALUE_SEPARATOR);
+                        sb.Append(ValueSeparator);
                     sb.Append(Environment.NewLine);
                 }
-                AddIndents(sb, indent_string, indent_level);
+                AddIndents(sb, indentString, indentLevel);
             }
-            sb.Append(COMPOUND_CLOSE);
+            sb.Append(CompoundClose);
         }
 
-        private static void AddSnbtList(NbtList tag, SnbtOptions options, StringBuilder sb, string indent_string, int indent_level, bool include_name)
+        private static void AddSnbtList(NbtList tag, SnbtOptions options, StringBuilder sb, string indentString, int indentLevel, bool includeName)
         {
-            AddIndents(sb, indent_string, indent_level);
-            if (include_name)
+            AddIndents(sb, indentString, indentLevel);
+            if (includeName)
                 sb.Append(GetNameBeforeValue(tag, options));
             bool compressed = ShouldCompressListOf(tag.ListType);
             if (compressed)
-                sb.Append(ListToString("", x => x.ToSnbt(options, include_name: false), tag, options));
+                sb.Append(ListToString("", x => x.ToSnbt(options, includeName: false), tag, options));
             else
             {
-                sb.Append(LIST_OPEN);
+                sb.Append(ListOpen);
                 if (tag.Count > 0)
                 {
                     sb.Append(Environment.NewLine);
                     for (int i = 0; i < tag.Count; i++)
                     {
-                        AddSnbt(tag[i], options, sb, indent_string, indent_level + 1, false);
+                        AddSnbt(tag[i], options, sb, indentString, indentLevel + 1, false);
                         if (i < tag.Count - 1)
-                            sb.Append(VALUE_SEPARATOR);
+                            sb.Append(ValueSeparator);
                         sb.Append(Environment.NewLine);
                     }
-                    AddIndents(sb, indent_string, indent_level);
+                    AddIndents(sb, indentString, indentLevel);
                 }
-                sb.Append(LIST_CLOSE);
+                sb.Append(ListClose);
             }
         }
 
@@ -318,33 +310,33 @@ namespace GitMC.Utils.Nbt
             // Add array prefix
             if (options.ArrayPrefixes)
             {
-                sb.Append(LIST_OPEN);
-                sb.Append(BYTE_ARRAY_PREFIX);
-                sb.Append(ARRAY_DELIMITER);
+                sb.Append(ListOpen);
+                sb.Append(ByteArrayPrefix);
+                sb.Append(ArrayDelimiter);
                 if (!options.Minified && array.Length > 0)
-                    sb.Append(VALUE_SPACING);
+                    sb.Append(ValueSpacing);
             }
             else
             {
-                sb.Append(LIST_OPEN);
+                sb.Append(ListOpen);
             }
 
             // Add array elements
-            string spacing = options.Minified ? String.Empty : VALUE_SPACING;
-            string suffix = options.NumberSuffixes ? BYTE_SUFFIX.ToString() : String.Empty;
+            string spacing = options.Minified ? String.Empty : ValueSpacing;
+            string suffix = options.NumberSuffixes ? ByteSuffix.ToString() : String.Empty;
             
             for (int i = 0; i < array.Length; i++)
             {
                 if (i > 0)
                 {
-                    sb.Append(VALUE_SEPARATOR);
+                    sb.Append(ValueSeparator);
                     sb.Append(spacing);
                 }
                 sb.Append(((sbyte)array[i]).ToString());
                 sb.Append(suffix);
             }
 
-            sb.Append(LIST_CLOSE);
+            sb.Append(ListClose);
             return sb.ToString();
         }
 
@@ -355,31 +347,31 @@ namespace GitMC.Utils.Nbt
             // Add array prefix
             if (options.ArrayPrefixes)
             {
-                sb.Append(LIST_OPEN);
-                sb.Append(INT_ARRAY_PREFIX);
-                sb.Append(ARRAY_DELIMITER);
+                sb.Append(ListOpen);
+                sb.Append(IntArrayPrefix);
+                sb.Append(ArrayDelimiter);
                 if (!options.Minified && array.Length > 0)
-                    sb.Append(VALUE_SPACING);
+                    sb.Append(ValueSpacing);
             }
             else
             {
-                sb.Append(LIST_OPEN);
+                sb.Append(ListOpen);
             }
 
             // Add array elements
-            string spacing = options.Minified ? String.Empty : VALUE_SPACING;
+            string spacing = options.Minified ? String.Empty : ValueSpacing;
             
             for (int i = 0; i < array.Length; i++)
             {
                 if (i > 0)
                 {
-                    sb.Append(VALUE_SEPARATOR);
+                    sb.Append(ValueSeparator);
                     sb.Append(spacing);
                 }
                 sb.Append(array[i].ToString());
             }
 
-            sb.Append(LIST_CLOSE);
+            sb.Append(ListClose);
             return sb.ToString();
         }
 
@@ -390,33 +382,33 @@ namespace GitMC.Utils.Nbt
             // Add array prefix
             if (options.ArrayPrefixes)
             {
-                sb.Append(LIST_OPEN);
-                sb.Append(LONG_ARRAY_PREFIX);
-                sb.Append(ARRAY_DELIMITER);
+                sb.Append(ListOpen);
+                sb.Append(LongArrayPrefix);
+                sb.Append(ArrayDelimiter);
                 if (!options.Minified && array.Length > 0)
-                    sb.Append(VALUE_SPACING);
+                    sb.Append(ValueSpacing);
             }
             else
             {
-                sb.Append(LIST_OPEN);
+                sb.Append(ListOpen);
             }
 
             // Add array elements
-            string spacing = options.Minified ? String.Empty : VALUE_SPACING;
-            string suffix = options.NumberSuffixes ? LONG_SUFFIX.ToString() : String.Empty;
+            string spacing = options.Minified ? String.Empty : ValueSpacing;
+            string suffix = options.NumberSuffixes ? LongSuffix.ToString() : String.Empty;
             
             for (int i = 0; i < array.Length; i++)
             {
                 if (i > 0)
                 {
-                    sb.Append(VALUE_SEPARATOR);
+                    sb.Append(ValueSeparator);
                     sb.Append(spacing);
                 }
                 sb.Append(array[i].ToString());
                 sb.Append(suffix);
             }
 
-            sb.Append(LIST_CLOSE);
+            sb.Append(ListClose);
             return sb.ToString();
         }
     }

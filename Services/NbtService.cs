@@ -1,8 +1,9 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using fNbt;
-using GitMC.Utils.Nbt;
-using GitMC.Utils.Mca;
 using GitMC.Utils;
+using GitMC.Utils.Mca;
+using GitMC.Utils.Nbt;
 
 namespace GitMC.Services
 {
@@ -297,7 +298,7 @@ namespace GitMC.Services
                     // Add region information header even for single chunk
                     snbtContent.AppendLine($"// Region file: {Path.GetFileName(inputPath)}");
                     snbtContent.AppendLine($"// Region coordinates: {mcaFile.RegionCoordinates.X}, {mcaFile.RegionCoordinates.Z}");
-                    snbtContent.AppendLine($"// Total chunks: 1");
+                    snbtContent.AppendLine("// Total chunks: 1");
                     snbtContent.AppendLine();
 
                     if (chunkData?.NbtData != null)
@@ -430,7 +431,7 @@ namespace GitMC.Services
                     // Add region information header even for single chunk
                     snbtContent.AppendLine($"// Region file: {Path.GetFileName(inputPath)}");
                     snbtContent.AppendLine($"// Region coordinates: {mcaFile.RegionCoordinates.X}, {mcaFile.RegionCoordinates.Z}");
-                    snbtContent.AppendLine($"// Total chunks: 1");
+                    snbtContent.AppendLine("// Total chunks: 1");
                     snbtContent.AppendLine();
 
                     if (chunkData?.NbtData != null)
@@ -528,7 +529,7 @@ namespace GitMC.Services
                 var snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
                 
                 // Parse SNBT with multiple chunks
-                var chunks = new Dictionary<Point2i, NbtCompound>();
+                var chunks = new Dictionary<Point2I, NbtCompound>();
                 
                 // Check if single or multiple chunks
                 // First, check for old format with separators
@@ -621,7 +622,7 @@ namespace GitMC.Services
                         // Extract cords from NBT tag
                         var xPos = rootNbt.Get<NbtInt>("xPos")?.Value ?? 0;
                         var zPos = rootNbt.Get<NbtInt>("zPos")?.Value ?? 0;
-                        chunks[new Point2i(xPos, zPos)] = rootNbt;
+                        chunks[new Point2I(xPos, zPos)] = rootNbt;
                     }
                 }
                 
@@ -634,7 +635,7 @@ namespace GitMC.Services
                 var firstChunk = chunks.First().Key;
                 int regionX = (int)Math.Floor(firstChunk.X / 32.0);
                 int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
-                var regionCoords = new Point2i(regionX, regionZ);
+                var regionCoords = new Point2I(regionX, regionZ);
                 
                 // Verify all chunks belong to the same region
                 foreach (var chunk in chunks)
@@ -744,7 +745,7 @@ namespace GitMC.Services
                     
                     progress?.Report("Parsing snbt content...");
                     // Parse SNBT with multiple chunks
-                    var chunks = new Dictionary<Point2i, NbtCompound>();
+                    var chunks = new Dictionary<Point2I, NbtCompound>();
                     
                     // Check if single or multiple chunks
                     if (snbtContent.Contains("// SNBT for chunk") && snbtContent.Contains("// =========================================="))
@@ -840,7 +841,7 @@ namespace GitMC.Services
                             // Extract cords from NBT tag
                             var xPos = rootNbt.Get<NbtInt>("xPos")?.Value ?? 0;
                             var zPos = rootNbt.Get<NbtInt>("zPos")?.Value ?? 0;
-                            chunks[new Point2i(xPos, zPos)] = rootNbt;
+                            chunks[new Point2I(xPos, zPos)] = rootNbt;
                         }
                     }
                     
@@ -855,7 +856,7 @@ namespace GitMC.Services
                     var firstChunk = chunks.First().Key;
                     int regionX = (int)Math.Floor(firstChunk.X / 32.0);
                     int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
-                    var regionCoords = new Point2i(regionX, regionZ);
+                    var regionCoords = new Point2I(regionX, regionZ);
                     
                     // Verify all chunks belong to the same region
                     foreach (var chunk in chunks)
@@ -1157,8 +1158,8 @@ namespace GitMC.Services
                     var chunkInfo = regionFile.Header.ChunkInfos[i];
                     if (chunkInfo.SectorOffset == 0) continue; // Skip chunks that does not exist
 
-                    var localCoords = Point2i.FromChunkIndex(i);
-                    var globalCoords = new Point2i(
+                    var localCoords = Point2I.FromChunkIndex(i);
+                    var globalCoords = new Point2I(
                         regionFile.RegionCoordinates.X * 32 + localCoords.X,
                         regionFile.RegionCoordinates.Z * 32 + localCoords.Z
                     );
@@ -1185,7 +1186,7 @@ namespace GitMC.Services
                     }
                     catch (Exception ex)  
                     {  
-                        Console.WriteLine($"Error occurred while reading chunk data: {ex.Message}");
+                        Console.WriteLine($@"Error occurred while reading chunk data: {ex.Message}");
                         isValid = false;  
                     } 
 
@@ -1221,7 +1222,7 @@ namespace GitMC.Services
                 using var regionFile = new McaRegionFile(mcaFilePath);
                 await regionFile.LoadAsync();
 
-                var chunkCoords = new Point2i(chunkX, chunkZ);
+                var chunkCoords = new Point2I(chunkX, chunkZ);
                 var chunkData = await regionFile.GetChunkAsync(chunkCoords);
 
                 if (chunkData?.NbtData == null)
@@ -1285,7 +1286,7 @@ namespace GitMC.Services
                 CompressionType.GZip => AnvilCompressionType.GZip,
                 CompressionType.Zlib => AnvilCompressionType.Zlib,
                 CompressionType.Uncompressed => AnvilCompressionType.Uncompressed,
-                CompressionType.LZ4 => AnvilCompressionType.LZ4,
+                CompressionType.Lz4 => AnvilCompressionType.Lz4,
                 CompressionType.Custom => AnvilCompressionType.Custom,
                 _ => AnvilCompressionType.Zlib
             };
@@ -1412,7 +1413,7 @@ namespace GitMC.Services
         }
         
         // Optimized: Process chunk section using spans to avoid string allocations
-        private void ProcessChunkSectionSpan(ReadOnlySpan<char> section, Dictionary<Point2i, NbtCompound> chunks)
+        private void ProcessChunkSectionSpan(ReadOnlySpan<char> section, Dictionary<Point2I, NbtCompound> chunks)
         {
             // Find the header line with chunk coordinates
             int lineStart = 0;
@@ -1443,9 +1444,9 @@ namespace GitMC.Services
                 
                 // Extract chunk coordinates using regex for different formats
                 // Try old format: "// SNBT for chunk X, Z:"
-                var oldFormatMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
+                var oldFormatMatch = Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
                 // Try new format: "// Chunk(X,Z)"
-                var newFormatMatch = System.Text.RegularExpressions.Regex.Match(headerLine, @"Chunk\((-?\d+),(-?\d+)\)");
+                var newFormatMatch = Regex.Match(headerLine, @"Chunk\((-?\d+),(-?\d+)\)");
                 
                 if (oldFormatMatch.Success)
                 {
@@ -1466,7 +1467,7 @@ namespace GitMC.Services
                     return;
                 }
                 
-                var chunkCoord = new Point2i(x, z);
+                var chunkCoord = new Point2I(x, z);
                 
                 // Build SNBT content excluding comment lines
                 var snbtBuilder = new StringBuilder();
@@ -1512,23 +1513,23 @@ namespace GitMC.Services
                             }
                             else
                             {
-                                Console.WriteLine($"Warning: Parsed SNBT for chunk {x},{z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
+                                Console.WriteLine($@"Warning: Parsed SNBT for chunk {x},{z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
                             }
                         }
                         else
                         {
-                            Console.WriteLine($"Warning: Invalid SNBT format for chunk {x},{z} - must start with '{{' and end with '}}'");
+                            Console.WriteLine($@"Warning: Invalid SNBT format for chunk {x},{z} - must start with '{{' and end with '}}'");
                         }
                     }
                     catch (Exception ex)
                     {
                         // Log parsing error but continue with other chunks
-                        Console.WriteLine($"Failed to parse chunk {x},{z}: {ex.Message}");
+                        Console.WriteLine($@"Failed to parse chunk {x},{z}: {ex.Message}");
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"Warning: Empty SNBT content for chunk {x},{z}");
+                    Console.WriteLine($@"Warning: Empty SNBT content for chunk {x},{z}");
                 }
             }
         }
@@ -1537,11 +1538,11 @@ namespace GitMC.Services
         /// Process multiple chunks without separators - used for new SNBT format
         /// where chunks are simply placed one after another with "// Chunk(X,Z)" headers
         /// </summary>
-        private void ProcessMultipleChunksWithoutSeparator(string snbtContent, Dictionary<Point2i, NbtCompound> chunks)
+        private void ProcessMultipleChunksWithoutSeparator(string snbtContent, Dictionary<Point2I, NbtCompound> chunks)
         {
             // Optimized: Use span-based line enumeration instead of Split to avoid massive string allocations
             var currentChunkLines = new StringBuilder();
-            Point2i? currentChunkCoord = null;
+            Point2I? currentChunkCoord = null;
             
             ReadOnlySpan<char> contentSpan = snbtContent.AsSpan();
             ReadOnlySpan<char> remaining = contentSpan;
@@ -1602,13 +1603,13 @@ namespace GitMC.Services
         /// <summary>
         /// Process chunk from StringBuilder with boundary parameters (ultra-optimized version)
         /// </summary>
-        private void ProcessChunkFromStringBuilder(StringBuilder allContent, int startIdx, int endIdx, Point2i chunkCoord, Dictionary<Point2i, NbtCompound> chunks)
+        private void ProcessChunkFromStringBuilder(StringBuilder allContent, int startIdx, int endIdx, Point2I chunkCoord, Dictionary<Point2I, NbtCompound> chunks)
         {
             try
             {
                 if (startIdx >= endIdx || startIdx >= allContent.Length)
                 {
-                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                     return;
                 }
 
@@ -1626,14 +1627,14 @@ namespace GitMC.Services
                 
                 if (contentStart > contentEnd)
                 {
-                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                     return;
                 }
                 
                 // Validate JSON structure without string creation
                 if (allContent[contentStart] != '{' || allContent[contentEnd] != '}')
                 {
-                    Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
+                    Console.WriteLine($@"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
                     return;
                 }
                 
@@ -1649,28 +1650,28 @@ namespace GitMC.Services
                         compound.Name = "";
                     }
                     chunks[chunkCoord] = compound;
-                    Console.WriteLine($"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($@"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
                 }
                 else
                 {
-                    Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
+                    Console.WriteLine($@"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
+                Console.WriteLine($@"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
             }
         }
         
         /// <summary>
         /// Process chunk from StringBuilder content (optimized version)
         /// </summary>
-        private void ProcessChunkFromStringBuilder(StringBuilder chunkContent, Point2i chunkCoord, Dictionary<Point2i, NbtCompound> chunks)
+        private void ProcessChunkFromStringBuilder(StringBuilder chunkContent, Point2I chunkCoord, Dictionary<Point2I, NbtCompound> chunks)
         {
             // Optimized: Use span-based operations to avoid massive string allocations
             if (chunkContent.Length == 0)
             {
-                Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                 return;
             }
 
@@ -1691,14 +1692,14 @@ namespace GitMC.Services
                 
                 if (startIndex > endIndex)
                 {
-                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                     return;
                 }
                 
                 // Check if content starts with '{' and ends with '}'
                 if (chunkContent[startIndex] != '{' || chunkContent[endIndex] != '}')
                 {
-                    Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
+                    Console.WriteLine($@"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
                     return;
                 }
                 
@@ -1715,17 +1716,17 @@ namespace GitMC.Services
                         compound.Name = "";
                     }
                     chunks[chunkCoord] = compound;
-                    Console.WriteLine($"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($@"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
                 }
                 else
                 {
-                    Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
+                    Console.WriteLine($@"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
                 }
             }
             catch (Exception ex)
             {
                 // Log parsing error but continue with other chunks
-                Console.WriteLine($"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
+                Console.WriteLine($@"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
             }
         }
         
@@ -1733,25 +1734,25 @@ namespace GitMC.Services
         /// Extract chunk coordinates from header line using span (optimized version)
         /// Supports both "// SNBT for chunk X, Z:" and "// Chunk(X,Z)" formats
         /// </summary>
-        private Point2i? ExtractChunkCoordinatesFromHeaderSpan(ReadOnlySpan<char> headerLine)
+        private Point2I? ExtractChunkCoordinatesFromHeaderSpan(ReadOnlySpan<char> headerLine)
         {
             // Try old format: "// SNBT for chunk X, Z:"
             string headerString = headerLine.ToString(); // Only convert when needed for regex
-            var oldFormatMatch = System.Text.RegularExpressions.Regex.Match(headerString, @"chunk (-?\d+), (-?\d+):");
+            var oldFormatMatch = Regex.Match(headerString, @"chunk (-?\d+), (-?\d+):");
             if (oldFormatMatch.Success)
             {
                 int x = int.Parse(oldFormatMatch.Groups[1].Value);
                 int z = int.Parse(oldFormatMatch.Groups[2].Value);
-                return new Point2i(x, z);
+                return new Point2I(x, z);
             }
             
             // Try new format: "// Chunk(X,Z)"
-            var newFormatMatch = System.Text.RegularExpressions.Regex.Match(headerString, @"Chunk\((-?\d+),(-?\d+)\)");
+            var newFormatMatch = Regex.Match(headerString, @"Chunk\((-?\d+),(-?\d+)\)");
             if (newFormatMatch.Success)
             {
                 int x = int.Parse(newFormatMatch.Groups[1].Value);
                 int z = int.Parse(newFormatMatch.Groups[2].Value);
-                return new Point2i(x, z);
+                return new Point2I(x, z);
             }
             
             return null;
@@ -1760,14 +1761,14 @@ namespace GitMC.Services
         /// <summary>
         /// Process a chunk from a list of lines (fully optimized to eliminate massive string allocations)
         /// </summary>
-        private void ProcessChunkFromLines(List<string> lines, Point2i chunkCoord, Dictionary<Point2i, NbtCompound> chunks)
+        private void ProcessChunkFromLines(List<string> lines, Point2I chunkCoord, Dictionary<Point2I, NbtCompound> chunks)
         {
             try
             {
                 // Ultra-optimized: Avoid all intermediate string allocations by directly processing lines
                 if (lines.Count == 0)
                 {
-                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                     return;
                 }
 
@@ -1792,7 +1793,7 @@ namespace GitMC.Services
                 
                 if (contentLines.Count == 0)
                 {
-                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                     return;
                 }
 
@@ -1809,7 +1810,7 @@ namespace GitMC.Services
                 // Phase 3: Direct character-level validation without ToString() or Trim()
                 if (snbtBuilder.Length == 0)
                 {
-                    Console.WriteLine($"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                     return;
                 }
                 
@@ -1828,7 +1829,7 @@ namespace GitMC.Services
                 // Validate JSON structure without creating strings
                 if (startIndex > endIndex || snbtBuilder[startIndex] != '{' || snbtBuilder[endIndex] != '}')
                 {
-                    Console.WriteLine($"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
+                    Console.WriteLine($@"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
                     return;
                 }
                 
@@ -1845,17 +1846,17 @@ namespace GitMC.Services
                         chunkNbt.Name = "";
                     }
                     chunks[chunkCoord] = chunkNbt;
-                    Console.WriteLine($"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
+                    Console.WriteLine($@"Successfully parsed chunk {chunkCoord.X},{chunkCoord.Z}");
                 }
                 else
                 {
-                    Console.WriteLine($"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
+                    Console.WriteLine($@"Warning: Parsed SNBT for chunk {chunkCoord.X},{chunkCoord.Z} did not result in a valid NBT compound: {parseResult.Exception?.Message}");
                 }
             }
             catch (Exception ex)
             {
                 // Log parsing error but continue with other chunks
-                Console.WriteLine($"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
+                Console.WriteLine($@"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
             }
         }
 
@@ -1863,7 +1864,7 @@ namespace GitMC.Services
         /// Extract region coordinates from MCA file path
         /// Example: "r.2.-1.mca" -> Point2i(2, -1)
         /// </summary>
-        private static Point2i ExtractRegionCoordinatesFromMcaPath(string filePath)
+        private static Point2I ExtractRegionCoordinatesFromMcaPath(string filePath)
         {
             var fileName = Path.GetFileNameWithoutExtension(filePath);
             if (fileName.StartsWith("r."))
@@ -1887,7 +1888,7 @@ namespace GitMC.Services
                         
                         if (int.TryParse(xSpan, out var x) && int.TryParse(zSpan, out var z))
                         {
-                            return new Point2i(x, z);
+                            return new Point2I(x, z);
                         }
                     }
                 }
@@ -1895,7 +1896,7 @@ namespace GitMC.Services
             
             // If we can't extract from filename, try to infer from chunks
             // For now, default to region 0,0
-            return new Point2i(0, 0);
+            return new Point2I(0, 0);
         }
     }
 }

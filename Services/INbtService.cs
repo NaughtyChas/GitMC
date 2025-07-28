@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
 namespace GitMC.Services
 {
     public interface INbtService
@@ -150,7 +146,7 @@ namespace GitMC.Services
         GZip = 1,
         Zlib = 2,
         Uncompressed = 3,
-        LZ4 = 4,
+        Lz4 = 4,
         Custom = 127
     }
 }

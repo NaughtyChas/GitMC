@@ -1,7 +1,4 @@
 using GitMC.Services;
-using System;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace GitMC.Tests
 {
@@ -25,32 +22,34 @@ namespace GitMC.Tests
             try
             {
                 // Test SNBT validation
-                Console.WriteLine($"SNBT validation result: {nbtService.IsValidSnbt(testSnbt)}");
+                Console.WriteLine($@"SNBT validation result: {nbtService.IsValidSnbt(testSnbt)}");
 
                 // Test conversion to NBT
                 var tempFile = Path.GetTempFileName() + ".nbt";
                 await nbtService.ConvertSnbtToNbtAsync(testSnbt, tempFile);
-                Console.WriteLine($"NBT file created: {tempFile}");
+                Console.WriteLine($@"NBT file created: {tempFile}");
 
                 // Test file validation
                 var isValid = await nbtService.IsValidNbtFileAsync(tempFile);
-                Console.WriteLine($"File validation result: {isValid}");
+                Console.WriteLine($@"File validation result: {isValid}");
 
                 // Test file info
                 var fileInfo = await nbtService.GetNbtFileInfoAsync(tempFile);
-                Console.WriteLine($"File info:\n{fileInfo}");
+                Console.WriteLine($@"File info:
+{fileInfo}");
 
                 // Test conversion back to SNBT
                 var convertedSnbt = await nbtService.ConvertNbtToSnbtAsync(tempFile);
-                Console.WriteLine($"Converted back to SNBT:\n{convertedSnbt}");
+                Console.WriteLine($@"Converted back to SNBT:
+{convertedSnbt}");
 
                 // Clean up
                 File.Delete(tempFile);
-                Console.WriteLine("Test completed!");
+                Console.WriteLine(@"Test completed!");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Test failed: {ex.Message}");
+                Console.WriteLine($@"Test failed: {ex.Message}");
             }
         }
     }
