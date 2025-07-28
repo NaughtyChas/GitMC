@@ -12,9 +12,7 @@
         <Grid Margin="24,0,24,24">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <!--  Compact Header Section  -->
@@ -22,75 +20,48 @@
                 Grid.Row="0"
                 HorizontalAlignment="Center"
                 Margin="0,24,0,16">
-                <!--  App Icon  -->
-                <Border
-                    Background="#f3f3f3"
-                    CornerRadius="8"
-                    Height="80"
-                    HorizontalAlignment="Center"
-                    Margin="0,0,0,16"
-                    Width="80">
-                    <StackPanel Padding="10">
-                        <ImageIcon Source="../Assets/Icons/mcIcon.png" />
+                <!--  Horizontal Layout: Icon + Text  -->
+                <Grid HorizontalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  App Icon  -->
+                    <Border
+                        Background="#f3f3f3"
+                        CornerRadius="12"
+                        Grid.Column="0"
+                        Height="80"
+                        VerticalAlignment="Top"
+                        Width="80">
+                        <StackPanel Padding="8">
+                            <ImageIcon Source="../Assets/Icons/mcIcon.png" />
+                        </StackPanel>
+                    </Border>
+
+                    <!--  Title and Description  -->
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock
+                            FontSize="26"
+                            FontWeight="SemiBold"
+                            Margin="0,0,0,4"
+                            Text="Welcome to GitMC!" />
+                        <TextBlock
+                            FontSize="18"
+                            Foreground="#6B6B6B"
+                            Text="The powerful tool that brings Git version control to your Minecraft worlds." />
                     </StackPanel>
-                </Border>
-
-                <TextBlock
-                    FontSize="22"
-                    FontWeight="SemiBold"
-                    HorizontalAlignment="Center"
-                    Margin="0,0,0,8"
-                    Text="Welcome to Minecraft Save Manager" />
-
-                <TextBlock
-                    FontSize="13"
-                    Foreground="#6B6B6B"
-                    HorizontalAlignment="Center"
-                    Margin="0,0,0,0"
-                    Text="The powerful tool that brings Git version control to your Minecraft worlds." />
-            </StackPanel>
-
-            <!--  Action Buttons  -->
-            <StackPanel
-                Grid.Row="1"
-                HorizontalAlignment="Center"
-                Margin="0,0,0,32"
-                Orientation="Horizontal">
-                <Button
-                    Click="AddSaveButton_Click"
-                    Margin="0,0,16,0"
-                    Padding="16,12"
-                    Style="{StaticResource AccentButtonStyle}"
-                    x:Name="AddFirstSaveButton">
-                    <StackPanel Orientation="Horizontal">
-                        <FontIcon
-                            FontSize="14"
-                            Glyph="&#xE710;"
-                            Margin="0,0,8,0" />
-                        <TextBlock Text="Add Your First Save" />
-                    </StackPanel>
-                </Button>
-
-                <Button
-                    Click="SettingsButton_Click"
-                    Padding="16,12"
-                    x:Name="ConfigureSettingsButton">
-                    <StackPanel Orientation="Horizontal">
-                        <FontIcon
-                            FontSize="14"
-                            Glyph="&#xE713;"
-                            Margin="0,0,8,0" />
-                        <TextBlock Text="Configure Settings" />
-                    </StackPanel>
-                </Button>
+                </Grid>
             </StackPanel>
 
             <!--  Main Content Grid  -->
-            <Grid Grid.Row="2" Margin="24,0,24,0">
+            <Grid Grid.Row="1" Margin="24,0,24,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="2*" />
                     <ColumnDefinition Width="32" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="1.2*" />
                 </Grid.ColumnDefinitions>
 
                 <!--  Left Panel - Getting Started  -->
@@ -124,6 +95,8 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <!--  Vertical Timeline Line  -->
@@ -131,12 +104,12 @@
                                 Fill="#E1E1E1"
                                 Grid.Column="0"
                                 Grid.Row="0"
-                                Grid.RowSpan="3"
+                                Grid.RowSpan="5"
                                 HorizontalAlignment="Center"
                                 Margin="0,0,0,16"
                                 Width="2" />
 
-                            <!--  Step 1 Container  -->
+                            <!--  Step 1: Configure GitMC Language  -->
                             <Grid
                                 Grid.Column="0"
                                 Grid.Row="0"
@@ -171,28 +144,28 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Configure Your Setup" />
+                                    Text="Configure GitMC" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
                                     Margin="0,0,0,12"
-                                    Text="Set up your Git identity and configure workspace directories for optimal performance."
+                                    Text="Not your language? Decide GitMC display language at settings."
                                     TextWrapping="Wrap" />
                                 <Button
-                                    Click="SettingsButton_Click"
+                                    Click="LanguageSettingsButton_Click"
                                     HorizontalAlignment="Left"
                                     Padding="12,8"
-                                    x:Name="OpenSettingsButton">
+                                    x:Name="LanguageSettingsButton">
                                     <StackPanel Orientation="Horizontal">
                                         <FontIcon
                                             FontSize="12"
-                                            Glyph="&#xE713;"
+                                            Glyph="&#xE774;"
                                             Margin="0,0,6,0" />
-                                        <TextBlock Text="Open Settings" />
+                                        <TextBlock Text="Language Settings" />
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
 
-                            <!--  Step 2 Container  -->
+                            <!--  Step 2: Install Git  -->
                             <Grid
                                 Grid.Column="0"
                                 Grid.Row="1"
@@ -204,16 +177,17 @@
                                     Height="48"
                                     Width="48" />
                                 <Border
-                                    Background="#D1D1D1"
+                                    Background="#107C10"
                                     CornerRadius="16"
                                     Height="32"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Width="32">
-                                    <TextBlock
-                                        FontWeight="SemiBold"
+                                    <FontIcon
+                                        FontSize="14"
+                                        Foreground="White"
+                                        Glyph="&#xE73E;"
                                         HorizontalAlignment="Center"
-                                        Text="2"
                                         VerticalAlignment="Center" />
                                 </Border>
                             </Grid>
@@ -226,31 +200,98 @@
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Add Your First World" />
+                                    Text="Install Git" />
+                                <!-- Git Found State -->
+                                <TextBlock
+                                    Foreground="#107C10"
+                                    Margin="0,0,0,4"
+                                    Text="✓ Git 2.41.0 has been installed and ready to use."
+                                    TextWrapping="Wrap"
+                                    x:Name="GitFoundText" />
+                                <!-- Git Not Found State (Hidden by default) -->
+                                <StackPanel x:Name="GitNotFoundPanel" Visibility="Collapsed">
+                                    <TextBlock
+                                        Foreground="#D13438"
+                                        Margin="0,0,0,12"
+                                        Text="No Git is found on your PC. Download Git by clicking the button below:"
+                                        TextWrapping="Wrap" />
+                                    <Button
+                                        Click="DownloadGitButton_Click"
+                                        HorizontalAlignment="Left"
+                                        Padding="12,8"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        x:Name="DownloadGitButton">
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon
+                                                FontSize="12"
+                                                Glyph="&#xE896;"
+                                                Margin="0,0,6,0" />
+                                            <TextBlock Text="Download Git" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!--  Step 3: Configure Git Identity  -->
+                            <Grid
+                                Grid.Column="0"
+                                Grid.Row="2"
+                                Height="48"
+                                Width="48">
+                                <Border
+                                    Background="#fafafa"
+                                    CornerRadius="24"
+                                    Height="48"
+                                    Width="48" />
+                                <Border
+                                    Background="#FF8C00"
+                                    CornerRadius="16"
+                                    Height="32"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Width="32">
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        Foreground="White"
+                                        HorizontalAlignment="Center"
+                                        Text="3"
+                                        VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
+
+                            <StackPanel
+                                Grid.Column="2"
+                                Grid.Row="2"
+                                Margin="0,0,0,32"
+                                VerticalAlignment="Center">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Margin="0,0,0,4"
+                                    Text="Configure Git" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
                                     Margin="0,0,0,12"
-                                    Text="Import an existing Minecraft world or create a new one to start tracking with Git."
+                                    Text="In order to make your save works with version control, you have to provide your credentials. If you wish to connect to any code hosting platform, fill in your platform email and username here."
                                     TextWrapping="Wrap" />
                                 <Button
-                                    Click="AddSaveButton_Click"
+                                    Click="GitConfigButton_Click"
                                     HorizontalAlignment="Left"
                                     Padding="12,8"
-                                    x:Name="AddSaveStepButton">
+                                    x:Name="GitConfigButton">
                                     <StackPanel Orientation="Horizontal">
                                         <FontIcon
                                             FontSize="12"
-                                            Glyph="&#xE710;"
+                                            Glyph="&#xE713;"
                                             Margin="0,0,6,0" />
-                                        <TextBlock Text="Add Save" />
+                                        <TextBlock Text="Configure Git" />
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
 
-                            <!--  Step 3 Container  -->
+                            <!--  Step 4: Connect to Code-Hosting Platform  -->
                             <Grid
                                 Grid.Column="0"
-                                Grid.Row="2"
+                                Grid.Row="3"
                                 Height="48"
                                 Width="48">
                                 <Border
@@ -268,23 +309,153 @@
                                     <TextBlock
                                         FontWeight="SemiBold"
                                         HorizontalAlignment="Center"
-                                        Text="3"
+                                        Text="4"
                                         VerticalAlignment="Center" />
                                 </Border>
                             </Grid>
 
                             <StackPanel
                                 Grid.Column="2"
-                                Grid.Row="2"
+                                Grid.Row="3"
+                                Margin="0,0,0,32"
                                 VerticalAlignment="Center">
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
-                                    Text="Start Building!" />
+                                    Text="Connect to Code-Hosting Platform" />
                                 <TextBlock
                                     Foreground="#6B6B6B"
-                                    Text="Begin creating and the app will automatically track your changes, create backups, and manage versions."
+                                    Margin="0,0,0,12"
+                                    Text="Save and sync your save on cloud, you can choose which platform to use, or use GitMC locally:"
                                     TextWrapping="Wrap" />
+                                
+                                <!-- Platform Selector -->
+                                <StackPanel Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <RadioButton
+                                            Grid.Column="0"
+                                            Content="GitHub"
+                                            GroupName="PlatformGroup"
+                                            IsChecked="True"
+                                            Margin="0,0,8,0"
+                                            x:Name="GitHubRadio" />
+                                        <RadioButton
+                                            Grid.Column="1"
+                                            Content="Self-Hosting"
+                                            GroupName="PlatformGroup"
+                                            x:Name="SelfHostingRadio" />
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Action Buttons -->
+                                <StackPanel Orientation="Horizontal">
+                                    <Button
+                                        Click="ConnectPlatformButton_Click"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,0,8,0"
+                                        Padding="12,8"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        x:Name="ConnectPlatformButton">
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon
+                                                FontSize="12"
+                                                Glyph="&#xE8A7;"
+                                                Margin="0,0,6,0" />
+                                            <TextBlock Text="Connect" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button
+                                        Click="UseLocallyButton_Click"
+                                        HorizontalAlignment="Left"
+                                        Padding="12,8"
+                                        x:Name="UseLocallyButton">
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon
+                                                FontSize="12"
+                                                Glyph="&#xE8B7;"
+                                                Margin="0,0,6,0" />
+                                            <TextBlock Text="Use GitMC Locally" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!--  Step 5: Add Your Save  -->
+                            <Grid
+                                Grid.Column="0"
+                                Grid.Row="4"
+                                Height="48"
+                                Width="48">
+                                <Border
+                                    Background="#fafafa"
+                                    CornerRadius="24"
+                                    Height="48"
+                                    Width="48" />
+                                <Border
+                                    Background="#D1D1D1"
+                                    CornerRadius="16"
+                                    Height="32"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Width="32">
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        HorizontalAlignment="Center"
+                                        Text="5"
+                                        VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
+
+                            <StackPanel
+                                Grid.Column="2"
+                                Grid.Row="4"
+                                VerticalAlignment="Center">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Margin="0,0,0,4"
+                                    Text="Add Your Save" />
+                                <TextBlock
+                                    Foreground="#6B6B6B"
+                                    Margin="0,0,0,12"
+                                    Text="Now you can manage your save with versioning control! Add your first save or add a Minecraft version folder below:"
+                                    TextWrapping="Wrap" />
+                                
+                                <!-- Add Save Buttons -->
+                                <StackPanel Orientation="Horizontal">
+                                    <Button
+                                        Click="AddSaveButton_Click"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,0,8,0"
+                                        Padding="12,8"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        x:Name="AddSaveButton">
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon
+                                                FontSize="12"
+                                                Glyph="&#xE710;"
+                                                Margin="0,0,6,0" />
+                                            <TextBlock Text="Add Save" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button
+                                        Click="AddVersionFolderButton_Click"
+                                        HorizontalAlignment="Left"
+                                        Padding="12,8"
+                                        x:Name="AddVersionFolderButton">
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon
+                                                FontSize="12"
+                                                Glyph="&#xE8B7;"
+                                                Margin="0,0,6,0" />
+                                            <TextBlock Text="Add Version Folder" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
@@ -297,148 +468,102 @@
                     BorderThickness="1"
                     CornerRadius="12"
                     Grid.Column="2"
-                    Padding="24">
+                    Padding="20">
                     <StackPanel>
                         <TextBlock
-                            FontSize="18"
+                            FontSize="16"
                             FontWeight="SemiBold"
-                            Margin="0,0,0,24"
-                            Text="System Status" />
+                            Margin="0,0,0,16"
+                            Text="Onboard checklist" />
 
                         <!--  Git Installation  -->
-                        <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
+                        <StackPanel Margin="0,0,0,12" Orientation="Horizontal">
                             <Border
                                 Background="#107C10"
-                                CornerRadius="10"
-                                Height="20"
-                                Margin="0,0,12,0"
-                                Width="20">
+                                CornerRadius="8"
+                                Height="16"
+                                Margin="0,0,8,0"
+                                Width="16">
                                 <FontIcon
-                                    FontSize="10"
+                                    FontSize="8"
                                     Foreground="White"
                                     Glyph="&#xE73E;"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center" />
                             </Border>
                             <StackPanel>
-                                <TextBlock FontWeight="SemiBold" Text="Git Installation" />
                                 <TextBlock
-                                    FontSize="12"
+                                    FontSize="13"
+                                    FontWeight="SemiBold"
+                                    Text="Git Installation" />
+                                <TextBlock
+                                    FontSize="11"
                                     Foreground="#6B6B6B"
-                                    Text="Git 2.41.0 detected" />
+                                    Text="v2.41.0 ready" />
                             </StackPanel>
                         </StackPanel>
 
-                        <!--  Minecraft Installation  -->
-                        <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
-                            <Border
-                                Background="#107C10"
-                                CornerRadius="10"
-                                Height="20"
-                                Margin="0,0,12,0"
-                                Width="20">
-                                <FontIcon
-                                    FontSize="10"
-                                    Foreground="White"
-                                    Glyph="&#xE73E;"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center" />
-                            </Border>
-                            <StackPanel>
-                                <TextBlock FontWeight="SemiBold" Text="Minecraft Installation" />
-                                <TextBlock
-                                    FontSize="12"
-                                    Foreground="#6B6B6B"
-                                    Text="Found at default location" />
-                            </StackPanel>
-                        </StackPanel>
-
-                        <!--  Workspace Directory  -->
+                        <!--  Git Identity  -->
                         <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
                             <Border
                                 Background="#FF8C00"
-                                CornerRadius="10"
-                                Height="20"
-                                Margin="0,0,12,0"
-                                Width="20">
+                                CornerRadius="8"
+                                Height="16"
+                                Margin="0,0,8,0"
+                                Width="16">
                                 <FontIcon
-                                    FontSize="10"
+                                    FontSize="8"
                                     Foreground="White"
                                     Glyph="&#xE7BA;"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center" />
                             </Border>
                             <StackPanel>
-                                <TextBlock FontWeight="SemiBold" Text="Workspace Directory" />
                                 <TextBlock
-                                    FontSize="12"
+                                    FontSize="13"
+                                    FontWeight="SemiBold"
+                                    Text="Git Identity" />
+                                <TextBlock
+                                    FontSize="11"
                                     Foreground="#6B6B6B"
                                     Text="Not configured" />
                             </StackPanel>
                         </StackPanel>
 
-                        <!--  Git Identity  -->
-                        <StackPanel Margin="0,0,0,24" Orientation="Horizontal">
+                        <!--  Workspace  -->
+                        <StackPanel Margin="0,0,0,0" Orientation="Horizontal">
                             <Border
                                 Background="#FF8C00"
-                                CornerRadius="10"
-                                Height="20"
-                                Margin="0,0,12,0"
-                                Width="20">
+                                CornerRadius="8"
+                                Height="16"
+                                Margin="0,0,8,0"
+                                Width="16">
                                 <FontIcon
-                                    FontSize="10"
+                                    FontSize="8"
                                     Foreground="White"
-                                    Glyph="&#xE7BA;"
+                                    Glyph="&#xE8B7;"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center" />
                             </Border>
                             <StackPanel>
-                                <TextBlock FontWeight="SemiBold" Text="Git Identity" />
                                 <TextBlock
-                                    FontSize="12"
+                                    FontSize="13"
+                                    FontWeight="SemiBold"
+                                    Text="Connect to code hosting platform" />
+                                <TextBlock
+                                    FontSize="11"
                                     Foreground="#6B6B6B"
-                                    Text="Name and email not set" />
+                                    Text="Not connected" />
                             </StackPanel>
                         </StackPanel>
-
-                        <Button
-                            Click="SettingsButton_Click"
-                            HorizontalAlignment="Stretch"
-                            Padding="12,8"
-                            Style="{StaticResource AccentButtonStyle}"
-                            x:Name="FixConfigurationButton">
-                            <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
-                                <FontIcon
-                                    FontSize="14"
-                                    Glyph="&#xE713;"
-                                    Margin="0,0,6,0" />
-                                <TextBlock Text="Fix Configuration Issues" />
-                            </StackPanel>
-                        </Button>
                     </StackPanel>
                 </Border>
             </Grid>
 
-            <!--  Bottom Toggle  -->
-            <Border
-                Grid.Row="3"
-                HorizontalAlignment="Right"
-                Margin="24,24,24,0">
-                <ToggleButton Padding="16,8" x:Name="FirstTimeToggle">
-                    <StackPanel Orientation="Horizontal">
-                        <FontIcon
-                            FontSize="14"
-                            Glyph="&#xE897;"
-                            Margin="0,0,8,0" />
-                        <TextBlock Text="Toggle: First Time" />
-                    </StackPanel>
-                </ToggleButton>
-            </Border>
-
             <!--  Loading Panel (Hidden by default)  -->
             <Grid
-                Background="#80000000"
-                Grid.RowSpan="4"
+                Background="#40000000"
+                Grid.RowSpan="3"
                 Visibility="Collapsed"
                 x:Name="LoadingPanel">
                 <Border

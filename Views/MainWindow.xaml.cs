@@ -20,7 +20,7 @@ namespace GitMC.Views
             this.Title = "GitMC";
             this.ExtendsContentIntoTitleBar = true;
             this.SetTitleBar(this.TitleBar);
-            this.AppWindow.SetIcon("Assets/StoreLogo.png");
+            this.AppWindow.SetIcon("Assets/Icons/mcIcon.png");
             this.AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
         }
         
@@ -62,6 +62,13 @@ namespace GitMC.Views
                             ContentFrame.Navigate(typeof(HomePage));
                         }
                     }
+                    else if (tag == "Console")
+                    {
+                        if (ContentFrame.CurrentSourcePageType != typeof(ConsolePage))
+                        {
+                            ContentFrame.Navigate(typeof(ConsolePage));
+                        }
+                    }
                     // Potentially handle save-specific navigation here
                 }
             }
@@ -87,6 +94,13 @@ namespace GitMC.Views
                         if (ContentFrame.CurrentSourcePageType != typeof(HomePage))
                         {
                             ContentFrame.Navigate(typeof(HomePage));
+                        }
+                    }
+                    else if (tag == "Console")
+                    {
+                        if (ContentFrame.CurrentSourcePageType != typeof(ConsolePage))
+                        {
+                            ContentFrame.Navigate(typeof(ConsolePage));
                         }
                     }
                     // Potentially handle save-specific navigation here
@@ -116,6 +130,17 @@ namespace GitMC.Views
                 foreach (var item in NavView.MenuItems)
                 {
                     if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Home")
+                    {
+                        NavView.SelectedItem = navItem;
+                        break;
+                    }
+                }
+            }
+            else if (pageType == typeof(ConsolePage))
+            {
+                foreach (var item in NavView.FooterMenuItems)
+                {
+                    if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Console")
                     {
                         NavView.SelectedItem = navItem;
                         break;
