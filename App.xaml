@@ -1,68 +1,66 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Application
+    mc:Ignorable="d"
     x:Class="GitMC.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-                <!-- Other merged dictionaries here -->
+                <!--  Other merged dictionaries here  -->
             </ResourceDictionary.MergedDictionaries>
-            <!-- Other app resources here -->
+            <!--  Other app resources here  -->
             <Color x:Key="Primary">#512BD4</Color>
 
-            <!-- Font Families for better Chinese character support -->
-            <FontFamily x:Key="AppFontFamily">Torus, Segoe UI, Microsoft YaHei, 微软雅黑, SimSun, 宋体</FontFamily>
+            <!--  Font Families for better Chinese character support  -->
+            <FontFamily x:Key="AppFontFamily">Segoe UI, Microsoft YaHei, 微软雅黑, SimSun, 宋体</FontFamily>
             <FontFamily x:Key="ChineseFontFamily">ms-appx:///Fonts/HarmonyOS_Sans_Regular.ttf#HarmonyOS Sans, Microsoft YaHei, 微软雅黑, SimSun, 宋体, Segoe UI</FontFamily>
 
-            <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}" />
-            <SolidColorBrush x:Key="WhiteBrush" Color="White" />
-            <SolidColorBrush x:Key="BlackBrush" Color="Black" />
+            <SolidColorBrush Color="{StaticResource Primary}" x:Key="PrimaryBrush" />
+            <SolidColorBrush Color="White" x:Key="WhiteBrush" />
+            <SolidColorBrush Color="Black" x:Key="BlackBrush" />
 
             <x:Double x:Key="AppFontSize">14</x:Double>
 
-            <!-- Global Text Style with better Chinese font support -->
+            <!--  Global Text Style with better Chinese font support  -->
             <Style TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
             </Style>
 
-            <!-- Chinese-specific TextBlock style -->
-            <Style x:Key="ChineseTextStyle" TargetType="TextBlock">
+            <!--  Chinese-specific TextBlock style  -->
+            <Style TargetType="TextBlock" x:Key="ChineseTextStyle">
                 <Setter Property="FontFamily" Value="{StaticResource ChineseFontFamily}" />
                 <Setter Property="FontWeight" Value="Normal" />
             </Style>
 
-            <!-- Button font support -->
-            <Style TargetType="Button">
-                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
-            </Style>
-
-            <!-- ComboBox font support -->
+            <!--  ComboBox font support  -->
             <Style TargetType="ComboBox">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
             </Style>
 
-            <!-- TextBox font support -->
+            <!--  TextBox font support  -->
             <Style TargetType="TextBox">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
             </Style>
 
-            <Style x:Key="MyLabel" TargetType="TextBlock">
+            <Style TargetType="TextBlock" x:Key="MyLabel">
                 <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
             </Style>
 
-            <Style x:Key="Action" TargetType="Button">
+            <Style TargetType="Button" x:Key="Action">
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="Padding" Value="14,10" />
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
             </Style>
 
-            <Style x:Key="PrimaryAction" TargetType="Button" BasedOn="{StaticResource Action}">
+            <Style
+                BasedOn="{StaticResource Action}"
+                TargetType="Button"
+                x:Key="PrimaryAction">
                 <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
                 <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
             </Style>

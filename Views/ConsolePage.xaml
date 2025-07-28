@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Page
     Background="{ThemeResource LayerFillColorDefaultBrush}"
+    FontFamily="{StaticResource AppFontFamily}"
     mc:Ignorable="d"
     x:Class="GitMC.Views.ConsolePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"

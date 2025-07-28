@@ -1,9 +1,6 @@
-using System;
 using System.ComponentModel;
 using System.Globalization;
 using System.Resources;
-using System.Threading;
-using Windows.ApplicationModel.Resources;
 
 namespace GitMC.Services
 {
@@ -79,7 +76,10 @@ namespace GitMC.Services
             {
                 // Log error and fallback to English
                 System.Diagnostics.Debug.WriteLine($"Failed to set language to {languageCode}: {ex.Message}");
-                SetLanguage("en-US");
+                if (languageCode != "en-US")
+                {
+                    SetLanguage("en-US");
+                }
             }
         }
 

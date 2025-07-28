@@ -28,7 +28,10 @@ namespace GitMC.Services
                     return parts.Length >= 3 ? parts[2] : "Unknown";
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"An error occurred while getting Git version: {ex.Message}");
+            }
 
             return "Not Found";
         }

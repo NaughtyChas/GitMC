@@ -29,7 +29,7 @@
             FontFamily="{StaticResource AppFontFamily}"
             Grid.Row="1"
             IsBackButtonVisible="Collapsed"
-            IsSettingsVisible="True"
+            IsSettingsVisible="False"
             ItemInvoked="NavView_ItemInvoked"
             PaneDisplayMode="Left"
             SelectionChanged="NavView_SelectionChanged"
@@ -51,6 +51,11 @@
                     FontFamily="{StaticResource AppFontFamily}"
                     Icon="Admin"
                     Tag="Console" />
+                <NavigationViewItem
+                    Content="{ext:Localize Key=Nav_Settings}"
+                    FontFamily="{StaticResource AppFontFamily}"
+                    Icon="Setting"
+                    Tag="Settings" />
             </NavigationView.FooterMenuItems>
             <Frame x:Name="ContentFrame" />
         </NavigationView>

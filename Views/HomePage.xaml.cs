@@ -477,8 +477,9 @@ namespace GitMC.Views
 
                 return Task.FromResult<MinecraftSave?>(save);
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Failed to analyze save folder: {ex.Message}");
                 return Task.FromResult<MinecraftSave?>(null);
             }
         }

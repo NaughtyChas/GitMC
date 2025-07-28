@@ -67,6 +67,13 @@ namespace GitMC.Views
                             ContentFrame.Navigate(typeof(ConsolePage));
                         }
                     }
+                    else if (tag == "Settings")
+                    {
+                        if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
+                        {
+                            ContentFrame.Navigate(typeof(SettingsPage));
+                        }
+                    }
                     // Potentially handle save-specific navigation here
                 }
             }
@@ -99,6 +106,13 @@ namespace GitMC.Views
                         if (ContentFrame.CurrentSourcePageType != typeof(ConsolePage))
                         {
                             ContentFrame.Navigate(typeof(ConsolePage));
+                        }
+                    }
+                    else if (tag == "Settings")
+                    {
+                        if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
+                        {
+                            ContentFrame.Navigate(typeof(SettingsPage));
                         }
                     }
                     // Potentially handle save-specific navigation here
@@ -147,11 +161,31 @@ namespace GitMC.Views
             }
             else if (pageType == typeof(SettingsPage))
             {
+                // Look for custom Settings item in FooterMenuItems
+                foreach (var item in NavView.FooterMenuItems)
+                {
+                    if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Settings")
+                    {
+                        NavView.SelectedItem = navItem;
+                        return;
+                    }
+                }
+                // Fallback to built-in settings item if custom one not found
                 NavView.SelectedItem = NavView.SettingsItem;
             }
             else if (pageType == typeof(DebugPage) || pageType == typeof(SaveTranslatorPage))
             {
                 // For debug/tools pages, keep settings selected since they're accessed from settings
+                // Look for custom Settings item in FooterMenuItems
+                foreach (var item in NavView.FooterMenuItems)
+                {
+                    if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Settings")
+                    {
+                        NavView.SelectedItem = navItem;
+                        return;
+                    }
+                }
+                // Fallback to built-in settings item if custom one not found
                 NavView.SelectedItem = NavView.SettingsItem;
             }
             else
