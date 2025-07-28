@@ -1,10 +1,6 @@
-using System;
-using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 using fNbt;
 using GitMC.Services;
-using GitMC.Utils.Nbt;
 
 namespace GitMC.Tests
 {

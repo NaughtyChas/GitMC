@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Threading.Tasks;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -129,7 +123,7 @@ namespace GitMC.Views
 
             // Display the command with current directory
             var currentDirectory = _gitService.GetCurrentDirectory();
-            var directoryName = System.IO.Path.GetFileName(currentDirectory);
+            var directoryName = Path.GetFileName(currentDirectory);
             if (string.IsNullOrEmpty(directoryName))
                 directoryName = currentDirectory;
             

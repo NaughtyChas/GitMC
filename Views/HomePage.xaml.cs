@@ -1,12 +1,7 @@
-using System;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using GitMC.Services;
 using GitMC.Models;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
-using System.IO;
-using System.Linq;
 
 namespace GitMC.Views
 {
@@ -182,7 +177,7 @@ namespace GitMC.Views
             }
         }
 
-        private System.Threading.Tasks.Task<MinecraftSave?> AnalyzeSaveFolder(string savePath)
+        private Task<MinecraftSave?> AnalyzeSaveFolder(string savePath)
         {
             try
             {
@@ -192,7 +187,7 @@ namespace GitMC.Views
 
                 if (!File.Exists(levelDatPath) && !File.Exists(levelDatOldPath))
                 {
-                    return System.Threading.Tasks.Task.FromResult<MinecraftSave?>(null);
+                    return Task.FromResult<MinecraftSave?>(null);
                 }
 
                 var directoryInfo = new DirectoryInfo(savePath);
@@ -217,11 +212,11 @@ namespace GitMC.Views
                     _ => "🌍"
                 };
 
-                return System.Threading.Tasks.Task.FromResult<MinecraftSave?>(save);
+                return Task.FromResult<MinecraftSave?>(save);
             }
             catch
             {
-                return System.Threading.Tasks.Task.FromResult<MinecraftSave?>(null);
+                return Task.FromResult<MinecraftSave?>(null);
             }
         }
 
