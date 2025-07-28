@@ -1,4 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using fNbt;
+using GitMC.Utils;
 
 namespace GitMC.Utils.Nbt
 {
@@ -50,13 +56,13 @@ namespace GitMC.Utils.Nbt
 
         public SnbtOptions Expanded()
         {
-            Minified = false;
+            this.Minified = false;
             return this;
         }
 
         public SnbtOptions WithHandler(INewlineHandler handler)
         {
-            NewlineHandling = handler;
+            this.NewlineHandling = handler;
             return this;
         }
 

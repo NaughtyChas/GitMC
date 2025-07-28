@@ -1,9 +1,13 @@
-using Windows.ApplicationModel.Core;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using System;
+using System.IO;
+using System.Linq;
 using Windows.Storage.Pickers;
-using Windows.UI.Core;
+using Windows.Storage;
 using GitMC.Services;
 using GitMC.Tests;
-using WinRT.Interop;
+using System.Threading.Tasks;
 
 namespace GitMC.Views
 {
@@ -16,7 +20,7 @@ namespace GitMC.Views
 
         public DebugPage()
         {
-            InitializeComponent();
+            this.InitializeComponent();
             _nbtService = new NbtService();
         }
 
@@ -34,8 +38,8 @@ namespace GitMC.Views
                 
                 // Get current window handle for the picker
                 var window = App.MainWindow;
-                var hWnd = WindowNative.GetWindowHandle(window);
-                InitializeWithWindow.Initialize(picker, hWnd);
+                var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
 
                 var file = await picker.PickSingleFileAsync();
                 if (file != null)
@@ -298,8 +302,8 @@ namespace GitMC.Views
 
                 // Get current window handle for the picker
                 var window = App.MainWindow;
-                var hWnd = WindowNative.GetWindowHandle(window);
-                InitializeWithWindow.Initialize(picker, hWnd);
+                var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
 
                 var file = await picker.PickSaveFileAsync();
                 if (file != null)
@@ -376,7 +380,7 @@ namespace GitMC.Views
                     button.IsEnabled = false;
                 }
                 
-                OutputTextBox.Text = "\ud83e\uddea Running Round-Trip Test on selected file...\n\n";
+                OutputTextBox.Text = $"🧪 Running Round-Trip Test on selected file...\n\n";
                 OutputTextBox.Text += $"File: {Path.GetFileName(_selectedFilePath)}\n";
 
                 if (_isAnvilFile)
@@ -398,8 +402,8 @@ namespace GitMC.Views
                         }
                         catch (Exception ex)
                         {
-                            await CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
-                                CoreDispatcherPriority.Normal, 
+                            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
+                                Windows.UI.Core.CoreDispatcherPriority.Normal, 
                                 () => OutputTextBox.Text += $"\nError during test: {ex.Message}\n");
                             return false;
                         }
@@ -421,7 +425,7 @@ namespace GitMC.Views
                     // Test NBT file roundtrip conversion
                     OutputTextBox.Text += "\nRunning NBT round-trip test...\n";
                     
-                    var test = new NbtRoundTripTest();
+                    var test = new GitMC.Tests.NbtRoundTripTest();
                     var success = await Task.Run(async () => 
                     {
                         try
@@ -430,8 +434,8 @@ namespace GitMC.Views
                         }
                         catch (Exception ex)
                         {
-                            await CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
-                                CoreDispatcherPriority.Normal, 
+                            await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
+                                Windows.UI.Core.CoreDispatcherPriority.Normal, 
                                 () => OutputTextBox.Text += $"\nError during test: {ex.Message}\n");
                             return false;
                         }
@@ -493,8 +497,8 @@ namespace GitMC.Views
 
                 // Get current window handle for the picker
                 var window = App.MainWindow;
-                var hWnd = WindowNative.GetWindowHandle(window);
-                InitializeWithWindow.Initialize(picker, hWnd);
+                var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, hWnd);
 
                 var file = await picker.PickSaveFileAsync();
                 if (file != null)
@@ -510,12 +514,12 @@ namespace GitMC.Views
 
                     // Update UI after conversion
                     var fileInfo = new FileInfo(file.Path);
-                    OutputTextBox.Text = "\u2705 Success!\n\n";
-                    OutputTextBox.Text += "MCA file converted to SNBT format\n";
+                    OutputTextBox.Text = $"✅ Success!\n\n";
+                    OutputTextBox.Text += $"MCA file converted to SNBT format\n";
                     OutputTextBox.Text += $"Input: {Path.GetFileName(_selectedFilePath)}\n";
                     OutputTextBox.Text += $"Output: {file.Path}\n";
                     OutputTextBox.Text += $"SNBT file size: {fileInfo.Length / 1024.0:F1} KB\n\n";
-                    OutputTextBox.Text += "The SNBT file contains all chunk data from the MCA region file.";
+                    OutputTextBox.Text += $"The SNBT file contains all chunk data from the MCA region file.";
                 }
             }
             catch (Exception ex)
@@ -543,8 +547,8 @@ namespace GitMC.Views
 
                 // Get current window handle for the picker
                 var window = App.MainWindow;
-                var hWnd = WindowNative.GetWindowHandle(window);
-                InitializeWithWindow.Initialize(openPicker, hWnd);
+                var hWnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                WinRT.Interop.InitializeWithWindow.Initialize(openPicker, hWnd);
 
                 var snbtFile = await openPicker.PickSingleFileAsync();
                 if (snbtFile == null)
@@ -560,7 +564,7 @@ namespace GitMC.Views
                 savePicker.FileTypeChoices.Add("MCA File", new[] { ".mca" });
                 savePicker.SuggestedFileName = Path.GetFileNameWithoutExtension(snbtFile.Path);
 
-                InitializeWithWindow.Initialize(savePicker, hWnd);
+                WinRT.Interop.InitializeWithWindow.Initialize(savePicker, hWnd);
 
                 var mcaFile = await savePicker.PickSaveFileAsync();
                 if (mcaFile != null)
@@ -576,12 +580,12 @@ namespace GitMC.Views
 
                     // Update UI after conversion
                     var fileInfo = new FileInfo(mcaFile.Path);
-                    OutputTextBox.Text = "\u2705 Success!\n\n";
-                    OutputTextBox.Text += "SNBT file converted to MCA format\n";
+                    OutputTextBox.Text = $"✅ Success!\n\n";
+                    OutputTextBox.Text += $"SNBT file converted to MCA format\n";
                     OutputTextBox.Text += $"Input: {snbtFile.Path}\n";
                     OutputTextBox.Text += $"Output: {mcaFile.Path}\n";
                     OutputTextBox.Text += $"MCA file size: {fileInfo.Length / 1024.0:F1} KB\n\n";
-                    OutputTextBox.Text += "The MCA file has been reconstructed from the SNBT data.";
+                    OutputTextBox.Text += $"The MCA file has been reconstructed from the SNBT data.";
                 }
             }
             catch (Exception ex)

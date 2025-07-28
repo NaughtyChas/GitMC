@@ -1,5 +1,9 @@
-using System.Text;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
 using fNbt;
+using GitMC.Utils;
 
 namespace GitMC.Utils.Mca
 {
@@ -10,25 +14,25 @@ namespace GitMC.Utils.Mca
     public class McaRegionWriter : IDisposable
     {
         private readonly string _filePath;
-        private readonly Point2I _regionCoordinates;
-        private readonly Dictionary<Point2I, ChunkData> _chunks;
+        private readonly Point2i _regionCoordinates;
+        private readonly Dictionary<Point2i, ChunkData> _chunks;
         private bool _disposed;
 
         /// <summary>
         /// Region coordinates of this writer
         /// </summary>
-        public Point2I RegionCoordinates => _regionCoordinates;
+        public Point2i RegionCoordinates => _regionCoordinates;
 
         /// <summary>
         /// Number of chunks currently loaded
         /// </summary>
         public int ChunkCount => _chunks.Count;
 
-        public McaRegionWriter(string filePath, Point2I regionCoordinates)
+        public McaRegionWriter(string filePath, Point2i regionCoordinates)
         {
             _filePath = filePath ?? throw new ArgumentNullException(nameof(filePath));
             _regionCoordinates = regionCoordinates;
-            _chunks = new Dictionary<Point2I, ChunkData>();
+            _chunks = new Dictionary<Point2i, ChunkData>();
         }
 
         public McaRegionWriter(string filePath) : this(filePath, ExtractRegionCoordinatesFromPath(filePath))
@@ -42,7 +46,7 @@ namespace GitMC.Utils.Mca
         /// <param name="nbtData">Chunk NBT data</param>
         /// <param name="compressionType">Compression type to use</param>
         /// <param name="timestamp">Chunk timestamp (optional, defaults to current time)</param>
-        public void AddChunk(Point2I chunkCoordinates, NbtCompound nbtData, 
+        public void AddChunk(Point2i chunkCoordinates, NbtCompound nbtData, 
             CompressionType compressionType = CompressionType.Zlib, 
             uint? timestamp = null)
         {
@@ -71,7 +75,7 @@ namespace GitMC.Utils.Mca
         /// <summary>
         /// Remove a chunk from the region
         /// </summary>
-        public bool RemoveChunk(Point2I chunkCoordinates)
+        public bool RemoveChunk(Point2i chunkCoordinates)
         {
             return _chunks.Remove(chunkCoordinates);
         }
@@ -163,7 +167,7 @@ namespace GitMC.Utils.Mca
         /// </summary>
         private void SerializeChunks(Stream chunkDataStream, Dictionary<int, ChunkSectorInfo> chunkSectors)
         {
-            using var writer = new BinaryWriter(chunkDataStream, Encoding.UTF8, leaveOpen: true);
+            using var writer = new BinaryWriter(chunkDataStream, System.Text.Encoding.UTF8, leaveOpen: true);
             
             var currentSector = 2; // Start after 8KB headers (2 sectors of 4KB each)
 
@@ -245,7 +249,7 @@ namespace GitMC.Utils.Mca
                     ChunkCoordinates = chunkCoordinates
                 };
 
-                currentSector += sectorCount;
+                currentSector += (int)sectorCount;
             }
         }
 
@@ -307,7 +311,7 @@ namespace GitMC.Utils.Mca
         /// <summary>
         /// Extract region coordinates from file path
         /// </summary>
-        private static Point2I ExtractRegionCoordinatesFromPath(string filePath)
+        private static Point2i ExtractRegionCoordinatesFromPath(string filePath)
         {
             var fileName = Path.GetFileNameWithoutExtension(filePath);
             if (fileName.StartsWith("r."))
@@ -331,7 +335,7 @@ namespace GitMC.Utils.Mca
                         
                         if (int.TryParse(xSpan, out var x) && int.TryParse(zSpan, out var z))
                         {
-                            return new Point2I(x, z);
+                            return new Point2i(x, z);
                         }
                     }
                 }
@@ -357,7 +361,7 @@ namespace GitMC.Utils.Mca
             public uint SectorOffset { get; set; }
             public uint SectorCount { get; set; }
             public uint Timestamp { get; set; }
-            public Point2I ChunkCoordinates { get; set; }
+            public Point2i ChunkCoordinates { get; set; }
         }
     }
 }
