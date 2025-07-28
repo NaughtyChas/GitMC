@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Page
     Background="{ThemeResource LayerFillColorDefaultBrush}"
-    FontFamily="{StaticResource AppFontFamily}"
     mc:Ignorable="d"
     x:Class="GitMC.Views.SaveTranslatorPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:ext="using:GitMC.Extensions"
+    xmlns:local="using:GitMC.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <ScrollViewer>
@@ -15,83 +15,83 @@
             <TextBlock
                 Margin="0,0,0,24"
                 Style="{StaticResource TitleTextBlockStyle}"
-                Text="{ext:Localize Key=SaveTranslator_Title}" />
+                Text="Save translation tool" />
 
             <!--  Select Save  -->
             <StackPanel Spacing="12">
-                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{ext:Localize Key=SaveTranslator_SelectSave}" />
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Select Save" />
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBox
                         Grid.Column="0"
                         IsReadOnly="True"
-                        PlaceholderText="{ext:Localize Key=SaveTranslator_PlaceholderText}"
+                        PlaceholderText="Select Minecraft save folder..."
                         x:Name="SavePathTextBox" />
                     <Button
                         Click="BrowseSaveButton_Click"
-                        Content="{ext:Localize Key=UI_Browse}"
+                        Content="Browse..."
                         Grid.Column="1"
                         Margin="8,0,0,0"
                         x:Name="BrowseSaveButton" />
                 </Grid>
                 <TextBlock
                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                    Text="{ext:Localize Key=UI_NotSelected}"
+                    Text="Not selected"
                     Visibility="Collapsed"
                     x:Name="SaveInfoTextBlock" />
             </StackPanel>
 
             <!--  Translation settings  -->
             <StackPanel Spacing="8">
-                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{ext:Localize Key=SaveTranslator_TranslationOptions}" />
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Translation Options" />
                 <CheckBox
-                    Content="{ext:Localize Key=SaveTranslator_RegionFiles}"
+                    Content="Region files (.mca)"
                     IsChecked="True"
                     x:Name="RegionFilesCheckBox" />
                 <CheckBox
-                    Content="{ext:Localize Key=SaveTranslator_DataFiles}"
+                    Content="Data files (.dat)"
                     IsChecked="True"
                     x:Name="DataFilesCheckBox" />
                 <CheckBox
-                    Content="{ext:Localize Key=SaveTranslator_NbtFiles}"
+                    Content="NBT structure files (.nbt)"
                     IsChecked="True"
                     x:Name="NbtFilesCheckBox" />
                 <CheckBox
-                    Content="{ext:Localize Key=SaveTranslator_PlayerData}"
+                    Content="Player data (playerdata/*.dat)"
                     IsChecked="True"
                     x:Name="PlayerDataCheckBox" />
                 <CheckBox
-                    Content="{ext:Localize Key=SaveTranslator_WorldData}"
+                    Content="World data (level.dat)"
                     IsChecked="True"
                     x:Name="LevelDataCheckBox" />
             </StackPanel>
 
             <!--  Output settings  -->
             <StackPanel Spacing="8">
-                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{ext:Localize Key=SaveTranslator_OutputSettings}" />
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Output Settings" />
                 <CheckBox
-                    Content="{ext:Localize Key=SaveTranslator_PreserveSNBT}"
+                    Content="Preserve intermediate SNBT files"
                     IsChecked="False"
                     x:Name="PreserveSNBTCheckBox" />
                 <CheckBox
-                    Content="{ext:Localize Key=SaveTranslator_CreateBackup}"
+                    Content="Create backup files"
                     IsChecked="True"
                     x:Name="CreateBackupCheckBox" />
                 <CheckBox
-                    Content="{ext:Localize Key=SaveTranslator_VerifyIntegrity}"
+                    Content="Verify file integrity"
                     IsChecked="True"
                     x:Name="VerifyIntegrityCheckBox" />
             </StackPanel>
 
             <!--  Progress and control area  -->
             <StackPanel Spacing="12">
-                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{ext:Localize Key=SaveTranslator_Progress}" />
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Translation Progress" />
                 <ProgressBar
                     Maximum="100"
                     Value="0"
                     x:Name="OverallProgressBar" />
                 <TextBlock
                     HorizontalAlignment="Center"
-                    Text="{ext:Localize Key=UI_Ready}"
+                    Text="Ready"
                     x:Name="ProgressTextBlock" />
 
                 <Grid ColumnDefinitions="*,*">
@@ -99,7 +99,7 @@
                         <TextBlock
                             FontSize="12"
                             Opacity="0.8"
-                            Text="{ext:Localize Key=UI_CpuUsage}" />
+                            Text="CPU Usage" />
                         <ProgressBar
                             Maximum="100"
                             Value="0"
@@ -112,7 +112,7 @@
                         <TextBlock
                             FontSize="12"
                             Opacity="0.8"
-                            Text="{ext:Localize Key=UI_MemoryUsage}" />
+                            Text="Memory Usage" />
                         <ProgressBar
                             Maximum="100"
                             Value="0"
@@ -123,7 +123,7 @@
 
             <!--  Detailed logs  -->
             <StackPanel Spacing="8">
-                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{ext:Localize Key=SaveTranslator_DetailedLogs}" />
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Detailed Logs" />
                 <TextBox
                     AcceptsReturn="True"
                     FontFamily="Consolas"
@@ -131,7 +131,7 @@
                     Height="200"
                     IsReadOnly="True"
                     ScrollViewer.VerticalScrollMode="Auto"
-                    Text="{ext:Localize Key=SaveTranslator_PreparingTranslation}"
+                    Text="Preparing for translation..."
                     TextWrapping="Wrap"
                     x:Name="LogTextBox" />
             </StackPanel>
@@ -140,7 +140,7 @@
             <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,24,0,0">
                 <Button
                     Click="StartTranslationButton_Click"
-                    Content="{ext:Localize Key=SaveTranslator_StartTranslation}"
+                    Content="Start Translation"
                     Grid.Column="1"
                     IsEnabled="False"
                     Margin="0,0,8,0"
@@ -148,7 +148,7 @@
                     x:Name="StartTranslationButton" />
                 <Button
                     Click="CancelButton_Click"
-                    Content="{ext:Localize Key=UI_Cancel}"
+                    Content="Cancel"
                     Grid.Column="2"
                     IsEnabled="False"
                     Margin="0,0,8,0"

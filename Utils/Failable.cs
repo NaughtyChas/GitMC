@@ -1,3 +1,5 @@
+using System;
+
 namespace GitMC.Utils
 {
     public interface IFailable

@@ -1,5 +1,3 @@
-using System.IO.Compression;
-
 namespace GitMC.Utils.Mca
 {
     /// <summary>
@@ -26,7 +24,7 @@ namespace GitMC.Utils.Mca
         /// <summary>
         /// LZ4 compression algorithm
         /// </summary>
-        Lz4 = 4,
+        LZ4 = 4,
 
         /// <summary>
         /// Custom compression algorithm (third-party server implementation)
@@ -87,7 +85,7 @@ namespace GitMC.Utils.Mca
                 CompressionType.GZip => "GZip (RFC1952)",
                 CompressionType.Zlib => "Zlib (RFC1950) - Default",
                 CompressionType.Uncompressed => "Uncompressed",
-                CompressionType.Lz4 => "LZ4",
+                CompressionType.LZ4 => "LZ4",
                 CompressionType.Custom => "Custom (Third-party)",
                 _ => "Unknown"
             };
@@ -103,7 +101,7 @@ namespace GitMC.Utils.Mca
                 CompressionType.GZip => CompressGZip(data),
                 CompressionType.Zlib => CompressZlib(data),
                 CompressionType.Uncompressed => data,
-                CompressionType.Lz4 => CompressLz4(data),
+                CompressionType.LZ4 => CompressLZ4(data),
                 CompressionType.Custom => throw new NotSupportedException("Custom compression not implemented"),
                 _ => throw new ArgumentException($"Invalid compression type: {compressionType}")
             };
@@ -119,7 +117,7 @@ namespace GitMC.Utils.Mca
                 CompressionType.GZip => DecompressGZip(compressedData),
                 CompressionType.Zlib => DecompressZlib(compressedData),
                 CompressionType.Uncompressed => compressedData,
-                CompressionType.Lz4 => DecompressLz4(compressedData),
+                CompressionType.LZ4 => DecompressLZ4(compressedData),
                 CompressionType.Custom => throw new NotSupportedException("Custom compression not implemented"),
                 _ => throw new ArgumentException($"Invalid compression type: {compressionType}")
             };
@@ -128,7 +126,7 @@ namespace GitMC.Utils.Mca
         private static byte[] CompressGZip(byte[] data)
         {
             using var memoryStream = new MemoryStream();
-            using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Compress))
+            using (var gzipStream = new System.IO.Compression.GZipStream(memoryStream, System.IO.Compression.CompressionMode.Compress))
             {
                 gzipStream.Write(data, 0, data.Length);
             }
@@ -138,7 +136,7 @@ namespace GitMC.Utils.Mca
         private static byte[] DecompressGZip(byte[] compressedData)
         {
             using var memoryStream = new MemoryStream(compressedData);
-            using var gzipStream = new GZipStream(memoryStream, CompressionMode.Decompress);
+            using var gzipStream = new System.IO.Compression.GZipStream(memoryStream, System.IO.Compression.CompressionMode.Decompress);
             using var resultStream = new MemoryStream();
             gzipStream.CopyTo(resultStream);
             return resultStream.ToArray();
@@ -159,7 +157,7 @@ namespace GitMC.Utils.Mca
             resultStream.WriteByte(flg);
             
             // Compress data using DeflateStream
-            using (var deflateStream = new DeflateStream(resultStream, CompressionMode.Compress, true))
+            using (var deflateStream = new System.IO.Compression.DeflateStream(resultStream, System.IO.Compression.CompressionMode.Compress, true))
             {
                 deflateStream.Write(data, 0, data.Length);
             }
@@ -176,13 +174,13 @@ namespace GitMC.Utils.Mca
         
         private static uint CalculateAdler32(byte[] data)
         {
-            const uint modAdler = 65521;
+            const uint MOD_ADLER = 65521;
             uint a = 1, b = 0;
             
             foreach (byte bt in data)
             {
-                a = (a + bt) % modAdler;
-                b = (b + a) % modAdler;
+                a = (a + bt) % MOD_ADLER;
+                b = (b + a) % MOD_ADLER;
             }
             
             return (b << 16) | a;
@@ -215,7 +213,7 @@ namespace GitMC.Utils.Mca
 
             // Decompress using DeflateStream with a buffered approach
             using var memoryStream = new MemoryStream(deflateData);
-            using var deflateStream = new DeflateStream(memoryStream, CompressionMode.Decompress);
+            using var deflateStream = new System.IO.Compression.DeflateStream(memoryStream, System.IO.Compression.CompressionMode.Decompress);
             using var resultStream = new MemoryStream();
 
             byte[] buffer = new byte[8192]; // 8 KB buffer
@@ -228,14 +226,14 @@ namespace GitMC.Utils.Mca
             return resultStream.ToArray();
         }
 
-        private static byte[] CompressLz4(byte[] data)
+        private static byte[] CompressLZ4(byte[] data)
         {
             // Note: This requires the LZ4 NuGet package
             // To maintain compatibility, throw an exception for now
             throw new NotImplementedException("LZ4 compression requires additional NuGet package");
         }
 
-        private static byte[] DecompressLz4(byte[] compressedData)
+        private static byte[] DecompressLZ4(byte[] compressedData)
         {
             // Note: This requires the LZ4 NuGet package
             // To maintain compatibility, throw an exception for now

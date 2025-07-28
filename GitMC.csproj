@@ -12,7 +12,7 @@
 
         <!-- Project Options -->
         <Nullable>enable</Nullable>
-        <LangVersion>preview</LangVersion>
+        <LangVersion>latest</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>GitMC</RootNamespace>
 
@@ -23,9 +23,6 @@
         <PublishProfile>win-$(Platform).pubxml</PublishProfile>
         <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
         <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">win10-x86;win10-x64;win10-arm64</RuntimeIdentifiers>
-        
-        <!-- Localization -->
-        <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
     </PropertyGroup>
 
     <ItemGroup>
@@ -36,11 +33,6 @@
         <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
         <Content Include="Assets\StoreLogo.png" />
         <Content Include="Assets\Wide310x150Logo.scale-200.png" />
-    </ItemGroup>
-
-    <!-- Custom Fonts for Chinese characters -->
-    <ItemGroup>
-        <Content Include="Fonts\**" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>
@@ -55,15 +47,6 @@
         <Manifest Include="$(ApplicationManifest)" />
     </ItemGroup>
 
-    <!-- Resources for Localization -->
-    <ItemGroup>
-        <Compile Update="Resources\Strings\Resources.Designer.cs">
-            <DesignTime>True</DesignTime>
-            <AutoGen>True</AutoGen>
-            <DependentUpon>Resources.resx</DependentUpon>
-        </Compile>
-    </ItemGroup>
-
     <!-- 
         Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
         Tools extension to be activated for this project even if the Windows App SDK Nuget
@@ -71,15 +54,6 @@
     -->
     <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
         <ProjectCapability Include="Msix" />
-    </ItemGroup>
-    <ItemGroup>
-      <Resource Remove="Controls\SaveCard.xaml" />
-    </ItemGroup>
-    <ItemGroup>
-      <Page Remove="Views\HomePageNew.xaml" />
-    </ItemGroup>
-    <ItemGroup>
-      <Compile Remove="Views\HomePageNew.xaml.cs" />
     </ItemGroup>
 
     <!-- 
