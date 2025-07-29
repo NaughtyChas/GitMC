@@ -20,6 +20,10 @@ namespace GitMC.Views
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        // Property to determine which view to show
+        public bool HasManagedSaves => GetManagedSavesCount() > 0;
+        public bool ShowOnboarding => !HasManagedSaves;
+
         public HomePage()
         {
             InitializeComponent();
@@ -54,6 +58,27 @@ namespace GitMC.Views
             await _onboardingService.RefreshAllSteps();
             UpdateStepVisibility();
             UpdateSystemStatus();
+
+            // Notify property change for conditional view logic
+            OnPropertyChanged(nameof(HasManagedSaves));
+            OnPropertyChanged(nameof(ShowOnboarding));
+        }
+
+        private int GetManagedSavesCount()
+        {
+            // For now, check if the "Add Save" step (step 4) is completed
+            // This indicates that at least one save has been added
+            var statuses = _onboardingService.StepStatuses;
+            if (statuses.Length > 4 && statuses[4] == OnboardingStepStatus.Completed)
+            {
+                return 1; // At least one save exists
+            }
+            return 0;
+        }
+
+        private void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         private void OnboardingService_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -68,33 +93,66 @@ namespace GitMC.Views
 
         private void UpdateStepVisibility()
         {
-            var currentStep = _onboardingService.CurrentStepIndex;
-            var statuses = _onboardingService.StepStatuses;
+            // Check if we should show save management or onboarding
+            var showSaveManagement = HasManagedSaves;
 
-            // Update step 1 (Language Configuration)
-            UpdateStepDisplay(0, Step1Content, Step1CollapsedContent, currentStep, statuses);
+            // Update main content visibility
+            if (FindName("OnboardingContent") is FrameworkElement onboardingContent)
+            {
+                onboardingContent.Visibility = showSaveManagement ? Visibility.Collapsed : Visibility.Visible;
+            }
 
-            // Update step 2 (Git Installation)
-            UpdateStepDisplay(1, Step2Content, Step2CollapsedContent, currentStep, statuses);
+            if (FindName("SaveManagementContent") is FrameworkElement saveManagementContent)
+            {
+                saveManagementContent.Visibility = showSaveManagement ? Visibility.Visible : Visibility.Collapsed;
+            }
 
-            // Update step 3 (Git Configuration)
-            UpdateStepDisplay(2, Step3Content, Step3CollapsedContent, currentStep, statuses);
+            // Only update onboarding steps if showing onboarding view
+            if (!showSaveManagement)
+            {
+                var currentStep = _onboardingService.CurrentStepIndex;
+                var statuses = _onboardingService.StepStatuses;
 
-            // Update step 4 (Platform Connection)
-            UpdateStepDisplay(3, Step4Content, Step4CollapsedContent, currentStep, statuses);
+                // Update step displays (only if elements exist)
+                UpdateStepDisplaySafe(0, "Step1Content", "Step1CollapsedContent", currentStep, statuses);
+                UpdateStepDisplaySafe(1, "Step2Content", "Step2CollapsedContent", currentStep, statuses);
+                UpdateStepDisplaySafe(2, "Step3Content", "Step3CollapsedContent", currentStep, statuses);
+                UpdateStepDisplaySafe(3, "Step4Content", "Step4CollapsedContent", currentStep, statuses);
+                UpdateStepDisplaySafe(4, "Step5Content", "Step5CollapsedContent", currentStep, statuses);
 
-            // Update step 5 (Add Save)
-            UpdateStepDisplay(4, Step5Content, Step5CollapsedContent, currentStep, statuses);
+                // Update step indicators (only if elements exist)
+                UpdateStepIndicatorSafe("Step1Circle", "Step1CheckIcon", "Step1NumberText", 0, statuses);
+                UpdateStepIndicatorSafe("Step2Circle", "Step2CheckIcon", "Step2NumberText", 1, statuses);
+                UpdateStepIndicatorSafe("Step3Circle", "Step3CheckIcon", "Step3NumberText", 2, statuses);
+                UpdateStepIndicatorSafe("Step4Circle", "Step4CheckIcon", "Step4NumberText", 3, statuses);
+                UpdateStepIndicatorSafe("Step5Circle", "Step5CheckIcon", "Step5NumberText", 4, statuses);
 
-            // Update step indicators
-            UpdateStepIndicator(Step1Circle, Step1CheckIcon, Step1NumberText, 0, statuses);
-            UpdateStepIndicator(Step2Circle, Step2CheckIcon, Step2NumberText, 1, statuses);
-            UpdateStepIndicator(Step3Circle, Step3CheckIcon, Step3NumberText, 2, statuses);
-            UpdateStepIndicator(Step4Circle, Step4CheckIcon, Step4NumberText, 3, statuses);
-            UpdateStepIndicator(Step5Circle, Step5CheckIcon, Step5NumberText, 4, statuses);
+                // Update step status texts
+                UpdateStepStatusTexts();
+            }
+        }
 
-            // Update step status texts
-            UpdateStepStatusTexts();
+        private void UpdateStepDisplaySafe(int stepIndex, string fullContentName, string collapsedContentName, int currentStep, OnboardingStepStatus[] statuses)
+        {
+            var fullContent = FindName(fullContentName) as FrameworkElement;
+            var collapsedContent = FindName(collapsedContentName) as FrameworkElement;
+
+            if (fullContent != null && collapsedContent != null)
+            {
+                UpdateStepDisplay(stepIndex, fullContent, collapsedContent, currentStep, statuses);
+            }
+        }
+
+        private void UpdateStepIndicatorSafe(string circleName, string checkIconName, string numberTextName, int stepIndex, OnboardingStepStatus[] statuses)
+        {
+            var circleBorder = FindName(circleName) as Border;
+            var checkIcon = FindName(checkIconName) as FontIcon;
+            var numberText = FindName(numberTextName) as TextBlock;
+
+            if (circleBorder != null)
+            {
+                UpdateStepIndicator(circleBorder, checkIcon, numberText, stepIndex, statuses);
+            }
         }
 
         private void UpdateStepDisplay(int stepIndex, FrameworkElement? fullContent, FrameworkElement? collapsedContent, int currentStep, OnboardingStepStatus[] statuses)
@@ -157,73 +215,83 @@ namespace GitMC.Views
         {
             try
             {
-                var statuses = _onboardingService.StepStatuses;
-
-                // Step 2: Git Installation
-                if (statuses.Length > 1)
+                // Only update if we're showing the onboarding view
+                if (ShowOnboarding)
                 {
-                    bool gitInstalled = await _gitService.IsInstalledAsync();
-                    if (gitInstalled)
-                    {
-                        // Show green text if Git is installed, regardless of step status
-                        var gitVersion = await _gitService.GetVersionAsync();
-                        GitFoundText.Text = $"√ Git version {gitVersion} detected";
-                        GitFoundText.Visibility = Visibility.Visible;
-                        GitNotFoundPanel.Visibility = Visibility.Collapsed;
-                    }
-                    else if (statuses[1] == OnboardingStepStatus.Current)
-                    {
-                        // Only show "not found" panel when it's the current step and Git is not installed
-                        GitFoundText.Visibility = Visibility.Collapsed;
-                        GitNotFoundPanel.Visibility = Visibility.Visible;
-                    }
-                    else
-                    {
-                        // For pending steps when Git is not installed
-                        GitFoundText.Visibility = Visibility.Collapsed;
-                        GitNotFoundPanel.Visibility = Visibility.Collapsed;
-                    }
-                }
+                    var statuses = _onboardingService.StepStatuses;
 
-                // Step 3: Git Configuration
-                if (statuses.Length > 2)
-                {
-                    var (userName, userEmail) = await _gitService.GetIdentityAsync();
-                    if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail) &&
-                        statuses[2] == OnboardingStepStatus.Completed)
+                    // Step 2: Git Installation
+                    if (statuses.Length > 1)
                     {
-                        // Find Git config status text element and update it
-                        var gitConfigText = FindName("GitConfigCompletedText") as TextBlock;
-                        if (gitConfigText != null)
+                        bool gitInstalled = await _gitService.IsInstalledAsync();
+                        var gitFoundText = FindName("GitFoundText") as TextBlock;
+                        var gitNotFoundPanel = FindName("GitNotFoundPanel") as StackPanel;
+
+                        if (gitFoundText != null && gitNotFoundPanel != null)
                         {
-                            gitConfigText.Text = $"✓ Configured as {userName} ({userEmail})";
-                            gitConfigText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
-                            gitConfigText.Visibility = Visibility.Visible;
+                            if (gitInstalled)
+                            {
+                                // Show green text if Git is installed, regardless of step status
+                                var gitVersion = await _gitService.GetVersionAsync();
+                                gitFoundText.Text = $"√ Git version {gitVersion} detected";
+                                gitFoundText.Visibility = Visibility.Visible;
+                                gitNotFoundPanel.Visibility = Visibility.Collapsed;
+                            }
+                            else if (statuses[1] == OnboardingStepStatus.Current)
+                            {
+                                // Only show "not found" panel when it's the current step and Git is not installed
+                                gitFoundText.Visibility = Visibility.Collapsed;
+                                gitNotFoundPanel.Visibility = Visibility.Visible;
+                            }
+                            else
+                            {
+                                // For pending steps when Git is not installed
+                                gitFoundText.Visibility = Visibility.Collapsed;
+                                gitNotFoundPanel.Visibility = Visibility.Collapsed;
+                            }
                         }
                     }
-                }
 
-                // Step 4: Repository Setup
-                if (statuses.Length > 3 && statuses[3] == OnboardingStepStatus.Completed)
-                {
-                    var repoStatusText = FindName("RepoSetupCompletedText") as TextBlock;
-                    if (repoStatusText != null)
+                    // Step 3: Git Configuration
+                    if (statuses.Length > 2)
                     {
-                        repoStatusText.Text = "✓ Repository configured successfully";
-                        repoStatusText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
-                        repoStatusText.Visibility = Visibility.Visible;
+                        var (userName, userEmail) = await _gitService.GetIdentityAsync();
+                        if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail) &&
+                            statuses[2] == OnboardingStepStatus.Completed)
+                        {
+                            // Find Git config status text element and update it
+                            var gitConfigText = FindName("GitConfigCompletedText") as TextBlock;
+                            if (gitConfigText != null)
+                            {
+                                gitConfigText.Text = $"✓ Configured as {userName} ({userEmail})";
+                                gitConfigText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                                gitConfigText.Visibility = Visibility.Visible;
+                            }
+                        }
                     }
-                }
 
-                // Step 5: Usage Mode
-                if (statuses.Length > 4 && statuses[4] == OnboardingStepStatus.Completed)
-                {
-                    var usageModeText = FindName("UsageModeCompletedText") as TextBlock;
-                    if (usageModeText != null)
+                    // Step 4: Repository Setup
+                    if (statuses.Length > 3 && statuses[3] == OnboardingStepStatus.Completed)
                     {
-                        usageModeText.Text = "✓ Usage mode configured";
-                        usageModeText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
-                        usageModeText.Visibility = Visibility.Visible;
+                        var repoStatusText = FindName("RepoSetupCompletedText") as TextBlock;
+                        if (repoStatusText != null)
+                        {
+                            repoStatusText.Text = "✓ Repository configured successfully";
+                            repoStatusText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                            repoStatusText.Visibility = Visibility.Visible;
+                        }
+                    }
+
+                    // Step 5: Usage Mode
+                    if (statuses.Length > 4 && statuses[4] == OnboardingStepStatus.Completed)
+                    {
+                        var usageModeText = FindName("UsageModeCompletedText") as TextBlock;
+                        if (usageModeText != null)
+                        {
+                            usageModeText.Text = "✓ Usage mode configured";
+                            usageModeText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                            usageModeText.Visibility = Visibility.Visible;
+                        }
                     }
                 }
             }
@@ -279,8 +347,14 @@ namespace GitMC.Views
 
         private async void AddSaveButton_Click(object sender, RoutedEventArgs e)
         {
-            LoadingPanel.Visibility = Visibility.Visible;
-            LoadingProgressRing.IsIndeterminate = true;
+            var loadingPanel = FindName("LoadingPanel") as Grid;
+            var loadingProgressRing = FindName("LoadingProgressRing") as ProgressBar;
+
+            if (loadingPanel != null && loadingProgressRing != null)
+            {
+                loadingPanel.Visibility = Visibility.Visible;
+                loadingProgressRing.IsIndeterminate = true;
+            }
 
             try
             {
@@ -309,6 +383,11 @@ namespace GitMC.Views
                         // Mark save as added
                         await _onboardingService.SetConfigurationValueAsync("SaveAdded", true);
                         await _onboardingService.CompleteStep(4);
+
+                        // Update the view to show save management
+                        OnPropertyChanged(nameof(HasManagedSaves));
+                        OnPropertyChanged(nameof(ShowOnboarding));
+                        UpdateStepVisibility();
                     }
                     else
                     {
@@ -320,8 +399,11 @@ namespace GitMC.Views
             }
             finally
             {
-                LoadingPanel.Visibility = Visibility.Collapsed;
-                LoadingProgressRing.IsIndeterminate = false;
+                if (loadingPanel != null && loadingProgressRing != null)
+                {
+                    loadingPanel.Visibility = Visibility.Collapsed;
+                    loadingProgressRing.IsIndeterminate = false;
+                }
             }
         }
 
@@ -330,100 +412,128 @@ namespace GitMC.Views
         {
             try
             {
-                // Check Git installation
-                var gitInstalled = await _gitService.IsInstalledAsync();
-                var statuses = _onboardingService.StepStatuses;
-
-                if (gitInstalled)
+                // Only update status elements if we're showing the onboarding view
+                if (ShowOnboarding)
                 {
-                    var gitVersion = await _gitService.GetVersionAsync();
-                    GitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
-                    GitStatusText.Text = $"Git v{gitVersion} installed and ready";
+                    // Check Git installation
+                    var gitInstalled = await _gitService.IsInstalledAsync();
+                    var statuses = _onboardingService.StepStatuses;
 
-                    // Change icon to checkmark when completed
-                    if (statuses.Length > 1 && statuses[1] == OnboardingStepStatus.Completed)
+                    var gitStatusIcon = FindName("GitStatusIcon") as Border;
+                    var gitStatusText = FindName("GitStatusText") as TextBlock;
+
+                    if (gitStatusIcon != null && gitStatusText != null)
                     {
-                        var gitIconControl = GitStatusIcon.Child as FontIcon;
-                        if (gitIconControl != null)
+                        if (gitInstalled)
                         {
-                            gitIconControl.Glyph = "\uE73E"; // Checkmark
+                            var gitVersion = await _gitService.GetVersionAsync();
+                            gitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
+                            gitStatusText.Text = $"Git v{gitVersion} installed and ready";
+
+                            // Change icon to checkmark when completed
+                            if (statuses.Length > 1 && statuses[1] == OnboardingStepStatus.Completed)
+                            {
+                                var gitIconControl = gitStatusIcon.Child as FontIcon;
+                                if (gitIconControl != null)
+                                {
+                                    gitIconControl.Glyph = "\uE73E"; // Checkmark
+                                }
+                            }
+                        }
+                        else
+                        {
+                            gitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
+                            gitStatusText.Text = "Git is not installed. Please install Git to continue.";
+
+                            // Keep original icon when not completed
+                            var gitIconControl = gitStatusIcon.Child as FontIcon;
+                            if (gitIconControl != null)
+                            {
+                                gitIconControl.Glyph = "\uE896"; // Download/Install icon
+                            }
                         }
                     }
-                }
-                else
-                {
-                    GitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
-                    GitStatusText.Text = "Git is not installed. Please install Git to continue.";
 
-                    // Keep original icon when not completed
-                    var gitIconControl = GitStatusIcon.Child as FontIcon;
-                    if (gitIconControl != null)
+                    // Check Git identity
+                    var gitIdentityStatusIcon = FindName("GitIdentityStatusIcon") as Border;
+                    var gitIdentityStatusText = FindName("GitIdentityStatusText") as TextBlock;
+
+                    if (gitIdentityStatusIcon != null && gitIdentityStatusText != null)
                     {
-                        gitIconControl.Glyph = "\uE896"; // Download/Install icon
-                    }
-                }
-
-                // Check Git identity
-                var (userName, userEmail) = await _gitService.GetIdentityAsync();
-                if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
-                {
-                    GitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
-                    GitIdentityStatusText.Text = $"Configured as {userName} ({userEmail})";
-
-                    // Change icon to checkmark when completed
-                    if (statuses.Length > 2 && statuses[2] == OnboardingStepStatus.Completed)
-                    {
-                        var identityIconControl = GitIdentityStatusIcon.Child as FontIcon;
-                        if (identityIconControl != null)
+                        var (userName, userEmail) = await _gitService.GetIdentityAsync();
+                        if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
                         {
-                            identityIconControl.Glyph = "\uE73E"; // Checkmark
+                            gitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
+                            gitIdentityStatusText.Text = $"Configured as {userName} ({userEmail})";
+
+                            // Change icon to checkmark when completed
+                            if (statuses.Length > 2 && statuses[2] == OnboardingStepStatus.Completed)
+                            {
+                                var identityIconControl = gitIdentityStatusIcon.Child as FontIcon;
+                                if (identityIconControl != null)
+                                {
+                                    identityIconControl.Glyph = "\uE73E"; // Checkmark
+                                }
+                            }
+                        }
+                        else
+                        {
+                            gitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
+                            gitIdentityStatusText.Text = "Git identity not configured. Set your name and email.";
+
+                            // Keep original icon when not completed
+                            var identityIconControl = gitIdentityStatusIcon.Child as FontIcon;
+                            if (identityIconControl != null)
+                            {
+                                identityIconControl.Glyph = "\uE7BA"; // Person icon
+                            }
                         }
                     }
-                }
-                else
-                {
-                    GitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
-                    GitIdentityStatusText.Text = "Git identity not configured. Set your name and email.";
 
-                    // Keep original icon when not completed
-                    var identityIconControl = GitIdentityStatusIcon.Child as FontIcon;
-                    if (identityIconControl != null)
+                    // Check Platform Connection
+                    var platformStatusIcon = FindName("PlatformStatusIcon") as Border;
+                    var platformStatusText = FindName("PlatformStatusText") as TextBlock;
+
+                    if (platformStatusIcon != null && platformStatusText != null)
                     {
-                        identityIconControl.Glyph = "\uE7BA"; // Person icon
+                        if (statuses.Length > 3 && statuses[3] == OnboardingStepStatus.Completed)
+                        {
+                            platformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
+                            platformStatusText.Text = "Platform connected";
+
+                            var platformIconControl = platformStatusIcon.Child as FontIcon;
+                            if (platformIconControl != null)
+                            {
+                                platformIconControl.Glyph = "\uE73E"; // Checkmark
+                            }
+                        }
+                        else
+                        {
+                            platformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
+                            platformStatusText.Text = "Not connected";
+
+                            var platformIconControl = platformStatusIcon.Child as FontIcon;
+                            if (platformIconControl != null)
+                            {
+                                platformIconControl.Glyph = "\uE8A7"; // Cloud icon
+                            }
+                        }
+                    }
+
+                    // Update overall progress
+                    var overallProgressBar = FindName("OverallProgressBar") as ProgressBar;
+                    var progressText = FindName("ProgressText") as TextBlock;
+
+                    if (overallProgressBar != null && progressText != null)
+                    {
+                        var completedSteps = _onboardingService.StepStatuses.Count(s => s == OnboardingStepStatus.Completed);
+                        var totalSteps = _onboardingService.StepStatuses.Length;
+                        var progressPercentage = totalSteps > 0 ? (completedSteps * 100.0 / totalSteps) : 0;
+
+                        overallProgressBar.Value = progressPercentage;
+                        progressText.Text = $"{completedSteps} of {totalSteps} steps completed";
                     }
                 }
-
-                // Check Platform Connection
-                if (statuses.Length > 3 && statuses[3] == OnboardingStepStatus.Completed)
-                {
-                    PlatformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
-                    PlatformStatusText.Text = "Platform connected";
-
-                    var platformIconControl = PlatformStatusIcon.Child as FontIcon;
-                    if (platformIconControl != null)
-                    {
-                        platformIconControl.Glyph = "\uE73E"; // Checkmark
-                    }
-                }
-                else
-                {
-                    PlatformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
-                    PlatformStatusText.Text = "Not connected";
-
-                    var platformIconControl = PlatformStatusIcon.Child as FontIcon;
-                    if (platformIconControl != null)
-                    {
-                        platformIconControl.Glyph = "\uE8A7"; // Cloud icon
-                    }
-                }
-
-                // Update overall progress
-                var completedSteps = _onboardingService.StepStatuses.Count(s => s == OnboardingStepStatus.Completed);
-                var totalSteps = _onboardingService.StepStatuses.Length;
-                var progressPercentage = totalSteps > 0 ? (completedSteps * 100.0 / totalSteps) : 0;
-
-                OverallProgressBar.Value = progressPercentage;
-                ProgressText.Text = $"{completedSteps} of {totalSteps} steps completed";
             }
             catch { }
         }

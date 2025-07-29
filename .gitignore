@@ -47,3 +47,6 @@ TestData/
 # Misc
 *.pfx
 *.log
+
+# IntelliSense
+GlobalSuppressions.cs
