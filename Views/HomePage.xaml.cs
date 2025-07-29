@@ -15,6 +15,7 @@ namespace GitMC.Views
     {
         private readonly NbtService _nbtService;
         private readonly IGitService _gitService;
+        private readonly IConfigurationService _configurationService;
         private readonly IOnboardingService _onboardingService;
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -24,7 +25,8 @@ namespace GitMC.Views
             InitializeComponent();
             _nbtService = new NbtService();
             _gitService = new GitService();
-            _onboardingService = new OnboardingService(_gitService);
+            _configurationService = new ConfigurationService();
+            _onboardingService = new OnboardingService(_gitService, _configurationService);
             
             // Subscribe to onboarding changes
             _onboardingService.PropertyChanged += OnboardingService_PropertyChanged;
@@ -37,7 +39,8 @@ namespace GitMC.Views
 
         private async void HomePage_Loaded(object sender, RoutedEventArgs e)
         {
-            // First try to refresh the application data cache safely
+            // Initialize the configuration service and onboarding
+            await _onboardingService.InitializeAsync();
             try
             {
                 _onboardingService.RefreshApplicationDataCache();

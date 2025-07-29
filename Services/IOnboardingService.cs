@@ -9,13 +9,21 @@ namespace GitMC.Services
         int CurrentStepIndex { get; }
         OnboardingStepStatus[] StepStatuses { get; }
         
+        // Initialization
+        Task InitializeAsync();
+        
         // Step management
         Task<bool> CheckStepStatus(int stepIndex);
         Task CompleteStep(int stepIndex);
         Task MoveToNextStep();
         Task RefreshAllSteps();
-        void RefreshApplicationDataCache();
-        void SetConfigurationValue(string key, bool value);
+        
+        // Configuration management - both sync and async versions
+        Task SetConfigurationValueAsync(string key, bool value);
+        void SetConfigurationValue(string key, bool value); // Legacy compatibility
+        
+        Task RefreshApplicationDataCacheAsync();
+        void RefreshApplicationDataCache(); // Legacy compatibility
         
         // First launch detection
         bool IsFirstLaunch { get; }

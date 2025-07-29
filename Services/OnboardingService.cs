@@ -1,90 +1,77 @@
 using System.ComponentModel;
-using Windows.Storage;
 
 namespace GitMC.Services
 {
     public class OnboardingService : IOnboardingService
     {
         private readonly IGitService _gitService;
+        private readonly IConfigurationService _configurationService;
         private int _currentStepIndex;
         private OnboardingStepStatus[] _stepStatuses = Array.Empty<OnboardingStepStatus>();
         private OnboardingStep[] _steps = Array.Empty<OnboardingStep>();
-        
-        // Cache for ApplicationData values to avoid thread issues
-        private bool? _isLanguageConfigured;
-        private bool? _isPlatformConfigured;
-        private bool? _isSaveAdded;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public OnboardingService(IGitService gitService)
+        public OnboardingService(IGitService gitService, IConfigurationService configurationService)
         {
             _gitService = gitService;
+            _configurationService = configurationService;
             InitializeSteps();
-            // Don't call RefreshAllSteps in constructor to avoid thread issues
-            // It will be called from the UI thread in HomePage_Loaded
+            
+            // Subscribe to configuration changes to update steps
+            _configurationService.ConfigurationChanged += OnConfigurationChanged;
         }
 
-        // Method to safely update cached values from UI thread
-        public void RefreshApplicationDataCache()
+        private async void OnConfigurationChanged(object? sender, string key)
         {
-            try
-            {
-                // Small delay to ensure app is fully initialized
-                Task.Delay(100).Wait();
-                
-                var localSettings = ApplicationData.Current.LocalSettings;
-                _isLanguageConfigured = localSettings.Values.ContainsKey("LanguageConfigured");
-                _isPlatformConfigured = localSettings.Values.ContainsKey("PlatformConfigured");
-                _isSaveAdded = localSettings.Values.ContainsKey("SaveAdded");
-            }
-            catch
-            {
-                // If we can't access ApplicationData, use default values
-                _isLanguageConfigured ??= false;
-                _isPlatformConfigured ??= false;
-                _isSaveAdded ??= false;
-            }
+            // When configuration changes, refresh the relevant step
+            await RefreshAllSteps();
         }
 
-        // Safe method to set ApplicationData values and update cache
+        // Updated method for new configuration system
+        public async Task InitializeAsync()
+        {
+            await _configurationService.LoadAsync();
+            await RefreshAllSteps();
+        }
+
+        // Safe method to set configuration values
+        public async Task SetConfigurationValueAsync(string key, bool value)
+        {
+            switch (key)
+            {
+                case "LanguageConfigured":
+                    _configurationService.IsLanguageConfigured = value;
+                    break;
+                case "PlatformConfigured":
+                    _configurationService.IsPlatformConfigured = value;
+                    break;
+                case "SaveAdded":
+                    _configurationService.IsSaveAdded = value;
+                    break;
+            }
+            
+            // Refresh steps after configuration change
+            await RefreshAllSteps();
+        }
+
+        // Legacy method kept for compatibility - now just delegates
+        public async Task RefreshApplicationDataCacheAsync()
+        {
+            // No longer needed with file-based configuration
+            await RefreshAllSteps();
+        }
+
+        // Synchronous version for backward compatibility
         public void SetConfigurationValue(string key, bool value)
         {
-            try
-            {
-                var localSettings = ApplicationData.Current.LocalSettings;
-                localSettings.Values[key] = value;
-                
-                // Update corresponding cache
-                switch (key)
-                {
-                    case "LanguageConfigured":
-                        _isLanguageConfigured = value;
-                        break;
-                    case "PlatformConfigured":
-                        _isPlatformConfigured = value;
-                        break;
-                    case "SaveAdded":
-                        _isSaveAdded = value;
-                        break;
-                }
-            }
-            catch
-            {
-                // If we can't access ApplicationData, just update cache
-                switch (key)
-                {
-                    case "LanguageConfigured":
-                        _isLanguageConfigured = value;
-                        break;
-                    case "PlatformConfigured":
-                        _isPlatformConfigured = value;
-                        break;
-                    case "SaveAdded":
-                        _isSaveAdded = value;
-                        break;
-                }
-            }
+            _ = SetConfigurationValueAsync(key, value);
+        }
+
+        // Synchronous version for backward compatibility
+        public void RefreshApplicationDataCache()
+        {
+            _ = RefreshApplicationDataCacheAsync();
         }
 
         private void InitializeSteps()
@@ -147,36 +134,13 @@ namespace GitMC.Services
         {
             get
             {
-                try
-                {
-                    var localSettings = ApplicationData.Current.LocalSettings;
-                    return !localSettings.Values.ContainsKey("FirstLaunchComplete");
-                }
-                catch (InvalidOperationException)
-                {
-                    // If we can't access ApplicationData (wrong thread), assume first launch
-                    return true;
-                }
-                catch
-                {
-                    return true;
-                }
+                return !_configurationService.IsFirstLaunchComplete;
             }
         }
 
         public void MarkFirstLaunchComplete()
         {
-            try
-            {
-                var localSettings = ApplicationData.Current.LocalSettings;
-                localSettings.Values["FirstLaunchComplete"] = true;
-            }
-            catch (InvalidOperationException)
-            {
-                // If we can't access ApplicationData (wrong thread), ignore
-                System.Diagnostics.Debug.WriteLine("MarkFirstLaunchComplete: Cannot access ApplicationData from this thread");
-            }
-            catch { }
+            _configurationService.IsFirstLaunchComplete = true;
         }
 
         public async Task<bool> CheckStepStatus(int stepIndex)
@@ -289,8 +253,7 @@ namespace GitMC.Services
         // Step-specific checkers
         private Task<bool> CheckLanguageConfiguration()
         {
-            // Use cached value to avoid ApplicationData access issues
-            return Task.FromResult(_isLanguageConfigured ?? false);
+            return Task.FromResult(_configurationService.IsLanguageConfigured);
         }
 
         private async Task<bool> CheckGitInstallation()
@@ -313,14 +276,12 @@ namespace GitMC.Services
 
         private Task<bool> CheckPlatformConnection()
         {
-            // Use cached value to avoid ApplicationData access issues
-            return Task.FromResult(_isPlatformConfigured ?? false);
+            return Task.FromResult(_configurationService.IsPlatformConfigured);
         }
 
         private Task<bool> CheckSaveAdded()
         {
-            // Use cached value to avoid ApplicationData access issues
-            return Task.FromResult(_isSaveAdded ?? false);
+            return Task.FromResult(_configurationService.IsSaveAdded);
         }
 
         private void NotifyPropertyChanged(string propertyName)
