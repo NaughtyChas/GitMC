@@ -120,9 +120,9 @@
                                 Grid.Column="0"
                                 Grid.Row="0"
                                 Height="48"
-                                Width="48"
+                                Margin="0,0,0,0"
                                 VerticalAlignment="Top"
-                                Margin="0,0,0,0">
+                                Width="48">
                                 <Border
                                     Background="#fafafa"
                                     CornerRadius="24"
@@ -226,8 +226,9 @@
                                 Grid.Column="0"
                                 Grid.Row="1"
                                 Height="48"
-                                Width="48"
-                                VerticalAlignment="Top">
+                                Margin="0,12,0,0"
+                                VerticalAlignment="Center"
+                                Width="48">
                                 <Border
                                     Background="#fafafa"
                                     CornerRadius="24"
@@ -473,155 +474,174 @@
                                     Text="{local:Localize Key=Setup_Step4_Description}"
                                     TextWrapping="Wrap" />
 
-                                <!--  Platform Selector  -->
-                                <StackPanel Margin="0,0,0,12">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
+                                <!--  Platform Selector with Border  -->
+                                <Border
+                                    Background="#FAFAFA"
+                                    BorderBrush="#E1E1E1"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Margin="0,0,0,12"
+                                    Padding="16">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
 
-                                        <SelectorBar x:Name="PlatformSelector" SelectionChanged="PlatformSelector_SelectionChanged">
-                                            <SelectorBarItem
-                                                IsSelected="True"
-                                                Text="{local:Localize Key=Setup_GitHub}"
-                                                x:Name="GitHubSelectorItem" />
-                                            <SelectorBarItem Text="{local:Localize Key=Setup_SelfHosting}" x:Name="SelfHostingSelectorItem" />
-                                        </SelectorBar>
-                                    </Grid>
-                                </StackPanel>
+                                            <SelectorBar SelectionChanged="PlatformSelector_SelectionChanged" x:Name="PlatformSelector">
+                                                <SelectorBarItem
+                                                    IsSelected="True"
+                                                    Text="{local:Localize Key=Setup_GitHub}"
+                                                    x:Name="GitHubSelectorItem">
+                                                    <SelectorBarItem.Icon>
+                                                        <ImageIcon
+                                                            MaxHeight="24"
+                                                            MaxWidth="24"
+                                                            Source="../Assets/Icons/github.png" />
+                                                    </SelectorBarItem.Icon>
+                                                </SelectorBarItem>
+                                                <SelectorBarItem Text="{local:Localize Key=Setup_SelfHosting}" x:Name="SelfHostingSelectorItem">
+                                                    <SelectorBarItem.Icon>
+                                                        <FontIcon Glyph="&#xEC27;" />
+                                                    </SelectorBarItem.Icon>
+                                                </SelectorBarItem>
+                                            </SelectorBar>
+                                        </Grid>
 
-                                <!--  Platform Configuration Content  -->
-                                <StackPanel Margin="0,0,0,16">
-                                    <!--  GitHub Configuration  -->
-                                    <StackPanel x:Name="GitHubConfigPanel" Visibility="Visible">
-                                        <TextBlock 
-                                            Text="Connect to GitHub"
-                                            FontWeight="SemiBold"
-                                            Margin="0,0,0,8"/>
-                                        <TextBlock 
-                                            Text="Sign in to your GitHub account to create and manage repositories for your Minecraft saves."
-                                            Foreground="#6B6B6B"
-                                            TextWrapping="Wrap"
-                                            Margin="0,0,0,12"/>
-                                        
-                                        <!--  GitHub Status  -->
-                                        <Border 
-                                            Background="#F8F9FA"
-                                            CornerRadius="8"
-                                            Padding="12"
-                                            Margin="0,0,0,12"
-                                            x:Name="GitHubStatusPanel">
-                                            <StackPanel Orientation="Horizontal">
-                                                <FontIcon 
-                                                    Glyph="&#xE946;" 
-                                                    FontSize="16"
+                                        <!--  Platform Configuration Content with Additional Indentation  -->
+                                        <StackPanel Margin="16,16,0,0">
+                                            <!--  GitHub Configuration  -->
+                                            <StackPanel Visibility="Visible" x:Name="GitHubConfigPanel">
+                                                <TextBlock
+                                                    FontWeight="SemiBold"
+                                                    Margin="0,0,0,8"
+                                                    Text="Connect to GitHub" />
+                                                <TextBlock
                                                     Foreground="#6B6B6B"
-                                                    Margin="0,0,8,0"/>
-                                                <TextBlock 
-                                                    Text="Not connected"
-                                                    VerticalAlignment="Center"
-                                                    x:Name="GitHubStatusText"/>
-                                            </StackPanel>
-                                        </Border>
+                                                    Margin="0,0,0,12"
+                                                    Text="Sign in to your GitHub account to create and manage repositories for your Minecraft saves."
+                                                    TextWrapping="Wrap" />
 
-                                        <!--  Repository Settings  -->
-                                        <StackPanel x:Name="GitHubRepoSettings" Visibility="Collapsed">
-                                            <TextBlock 
-                                                Text="Repository Settings"
-                                                FontWeight="SemiBold"
-                                                Margin="0,0,0,8"/>
-                                            
-                                            <Grid Margin="0,0,0,8">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock 
-                                                    Text="Repository Name:"
-                                                    VerticalAlignment="Center"
-                                                    Margin="0,0,8,0"/>
-                                                <TextBox 
-                                                    Grid.Column="1"
-                                                    PlaceholderText="minecraft-saves"
-                                                    x:Name="GitHubRepoNameBox"/>
-                                            </Grid>
-                                            
-                                            <CheckBox 
-                                                Content="Make repository private"
-                                                IsChecked="True"
-                                                x:Name="GitHubPrivateRepoBox"/>
+                                                <!--  GitHub Status  -->
+                                                <Border
+                                                    Background="#F8F9FA"
+                                                    CornerRadius="8"
+                                                    Margin="0,0,0,12"
+                                                    Padding="12"
+                                                    x:Name="GitHubStatusPanel">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <FontIcon
+                                                            FontSize="16"
+                                                            Foreground="#6B6B6B"
+                                                            Glyph="&#xE946;"
+                                                            Margin="0,0,8,0" />
+                                                        <TextBlock
+                                                            Text="Not connected"
+                                                            VerticalAlignment="Center"
+                                                            x:Name="GitHubStatusText" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <!--  Repository Settings  -->
+                                                <StackPanel Visibility="Collapsed" x:Name="GitHubRepoSettings">
+                                                    <TextBlock
+                                                        FontWeight="SemiBold"
+                                                        Margin="0,0,0,8"
+                                                        Text="Repository Settings" />
+
+                                                    <Grid Margin="0,0,0,8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock
+                                                            Margin="0,0,8,0"
+                                                            Text="Repository Name:"
+                                                            VerticalAlignment="Center" />
+                                                        <TextBox
+                                                            Grid.Column="1"
+                                                            PlaceholderText="minecraft-saves"
+                                                            x:Name="GitHubRepoNameBox" />
+                                                    </Grid>
+
+                                                    <CheckBox
+                                                        Content="Make repository private"
+                                                        IsChecked="True"
+                                                        x:Name="GitHubPrivateRepoBox" />
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <!--  Self-Hosting Configuration  -->
+                                            <StackPanel Visibility="Collapsed" x:Name="SelfHostingConfigPanel">
+                                                <TextBlock
+                                                    FontWeight="SemiBold"
+                                                    Margin="0,0,0,8"
+                                                    Text="Self-Hosted Git Server" />
+                                                <TextBlock
+                                                    Foreground="#6B6B6B"
+                                                    Margin="0,0,0,12"
+                                                    Text="Configure your own Git server (GitLab, Gitea, etc.) for managing your Minecraft saves."
+                                                    TextWrapping="Wrap" />
+
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+                                                        Margin="0,0,8,0"
+                                                        Text="Server URL:"
+                                                        VerticalAlignment="Center" />
+                                                    <TextBox
+                                                        Grid.Column="1"
+                                                        PlaceholderText="https://git.example.com"
+                                                        x:Name="SelfHostingUrlBox" />
+                                                </Grid>
+
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+                                                        Margin="0,0,8,0"
+                                                        Text="Username:"
+                                                        VerticalAlignment="Center" />
+                                                    <TextBox
+                                                        Grid.Column="1"
+                                                        PlaceholderText="Your username"
+                                                        x:Name="SelfHostingUsernameBox" />
+                                                </Grid>
+
+                                                <Grid Margin="0,0,0,12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+                                                        Margin="0,0,8,0"
+                                                        Text="Access Token:"
+                                                        VerticalAlignment="Center" />
+                                                    <PasswordBox
+                                                        Grid.Column="1"
+                                                        PlaceholderText="Personal access token"
+                                                        x:Name="SelfHostingTokenBox" />
+                                                </Grid>
+
+                                                <Button
+                                                    Click="TestConnectionButton_Click"
+                                                    Content="Test Connection"
+                                                    HorizontalAlignment="Left"
+                                                    Margin="0,0,0,12"
+                                                    x:Name="TestConnectionButton" />
+                                            </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
-
-                                    <!--  Self-Hosting Configuration  -->
-                                    <StackPanel x:Name="SelfHostingConfigPanel" Visibility="Collapsed">
-                                        <TextBlock 
-                                            Text="Self-Hosted Git Server"
-                                            FontWeight="SemiBold"
-                                            Margin="0,0,0,8"/>
-                                        <TextBlock 
-                                            Text="Configure your own Git server (GitLab, Gitea, etc.) for managing your Minecraft saves."
-                                            Foreground="#6B6B6B"
-                                            TextWrapping="Wrap"
-                                            Margin="0,0,0,12"/>
-                                        
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock 
-                                                Text="Server URL:"
-                                                VerticalAlignment="Center"
-                                                Margin="0,0,8,0"/>
-                                            <TextBox 
-                                                Grid.Column="1"
-                                                PlaceholderText="https://git.example.com"
-                                                x:Name="SelfHostingUrlBox"/>
-                                        </Grid>
-                                        
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock 
-                                                Text="Username:"
-                                                VerticalAlignment="Center"
-                                                Margin="0,0,8,0"/>
-                                            <TextBox 
-                                                Grid.Column="1"
-                                                PlaceholderText="Your username"
-                                                x:Name="SelfHostingUsernameBox"/>
-                                        </Grid>
-                                        
-                                        <Grid Margin="0,0,0,12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock 
-                                                Text="Access Token:"
-                                                VerticalAlignment="Center"
-                                                Margin="0,0,8,0"/>
-                                            <PasswordBox 
-                                                Grid.Column="1"
-                                                PlaceholderText="Personal access token"
-                                                x:Name="SelfHostingTokenBox"/>
-                                        </Grid>
-                                        
-                                        <Button 
-                                            Content="Test Connection"
-                                            HorizontalAlignment="Left"
-                                            Margin="0,0,0,12"
-                                            Click="TestConnectionButton_Click"
-                                            x:Name="TestConnectionButton"/>
-                                    </StackPanel>
-                                </StackPanel>
+                                </Border>
 
                                 <!--  Action Buttons  -->
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel Margin="0,16,0,0" Orientation="Horizontal">
                                     <Button
                                         Click="ConnectPlatformButton_Click"
                                         HorizontalAlignment="Left"
