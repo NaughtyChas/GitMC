@@ -31,6 +31,8 @@
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"
             ItemInvoked="NavView_ItemInvoked"
+            OpenPaneLength="200"
+            CompactPaneLength="48"
             PaneDisplayMode="Left"
             SelectionChanged="NavView_SelectionChanged"
             x:Name="NavView">

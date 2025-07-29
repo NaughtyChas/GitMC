@@ -481,7 +481,7 @@
                                     BorderThickness="1"
                                     CornerRadius="8"
                                     Margin="0,0,0,12"
-                                    Padding="16">
+                                    Padding="16,4,16,16">
                                     <StackPanel>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -496,8 +496,9 @@
                                                     x:Name="GitHubSelectorItem">
                                                     <SelectorBarItem.Icon>
                                                         <ImageIcon
-                                                            MaxHeight="24"
-                                                            MaxWidth="24"
+                                                            HorizontalAlignment="Center"
+                                                            MaxHeight="22"
+                                                            MaxWidth="22"
                                                             Source="../Assets/Icons/github.png" />
                                                     </SelectorBarItem.Icon>
                                                 </SelectorBarItem>
@@ -508,6 +509,11 @@
                                                 </SelectorBarItem>
                                             </SelectorBar>
                                         </Grid>
+
+                                        <Rectangle
+                                            Fill="#e1e1e1"
+                                            Height="1"
+                                            Margin="4,4,4,8" />
 
                                         <!--  Platform Configuration Content with Additional Indentation  -->
                                         <StackPanel Margin="16,16,0,0">
@@ -637,40 +643,40 @@
                                                     x:Name="TestConnectionButton" />
                                             </StackPanel>
                                         </StackPanel>
+
+                                        <!--  Action Buttons  -->
+                                        <StackPanel Margin="0,16,0,0" Orientation="Horizontal">
+                                            <Button
+                                                Click="ConnectPlatformButton_Click"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,0,8,0"
+                                                Padding="12,8"
+                                                Style="{StaticResource AccentButtonStyle}"
+                                                x:Name="ConnectPlatformButton">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <FontIcon
+                                                        FontSize="12"
+                                                        Glyph="&#xE8A7;"
+                                                        Margin="0,0,6,0" />
+                                                    <TextBlock Text="{local:Localize Key=Setup_Step4_Connect}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button
+                                                Click="UseLocallyButton_Click"
+                                                HorizontalAlignment="Left"
+                                                Padding="12,8"
+                                                x:Name="UseLocallyButton">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <FontIcon
+                                                        FontSize="12"
+                                                        Glyph="&#xE8B7;"
+                                                        Margin="0,0,6,0" />
+                                                    <TextBlock Text="{local:Localize Key=Setup_Step4_UseLocally}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
-
-                                <!--  Action Buttons  -->
-                                <StackPanel Margin="0,16,0,0" Orientation="Horizontal">
-                                    <Button
-                                        Click="ConnectPlatformButton_Click"
-                                        HorizontalAlignment="Left"
-                                        Margin="0,0,8,0"
-                                        Padding="12,8"
-                                        Style="{StaticResource AccentButtonStyle}"
-                                        x:Name="ConnectPlatformButton">
-                                        <StackPanel Orientation="Horizontal">
-                                            <FontIcon
-                                                FontSize="12"
-                                                Glyph="&#xE8A7;"
-                                                Margin="0,0,6,0" />
-                                            <TextBlock Text="{local:Localize Key=Setup_Step4_Connect}" />
-                                        </StackPanel>
-                                    </Button>
-                                    <Button
-                                        Click="UseLocallyButton_Click"
-                                        HorizontalAlignment="Left"
-                                        Padding="12,8"
-                                        x:Name="UseLocallyButton">
-                                        <StackPanel Orientation="Horizontal">
-                                            <FontIcon
-                                                FontSize="12"
-                                                Glyph="&#xE8B7;"
-                                                Margin="0,0,6,0" />
-                                            <TextBlock Text="{local:Localize Key=Setup_Step4_UseLocally}" />
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
                             </StackPanel>
 
                             <!--  Step 4 Collapsed Content  -->
