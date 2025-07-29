@@ -74,6 +74,7 @@
     </ItemGroup>
     <ItemGroup>
       <Resource Remove="Controls\SaveCard.xaml" />
+      <Resource Remove="Tests\UI\OnboardingTestWindow.xaml" />
     </ItemGroup>
     <ItemGroup>
       <Page Remove="Views\HomePageNew.xaml" />

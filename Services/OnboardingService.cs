@@ -51,6 +51,9 @@ namespace GitMC.Services
                     break;
             }
             
+            // Ensure configuration is immediately saved to file
+            await _configurationService.SaveAsync();
+            
             // Refresh steps after configuration change
             await RefreshAllSteps();
         }

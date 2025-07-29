@@ -169,10 +169,16 @@ namespace GitMC.Views
                         GitFoundText.Visibility = Visibility.Visible;
                         GitNotFoundPanel.Visibility = Visibility.Collapsed;
                     }
-                    else if (statuses[1] == OnboardingStepStatus.Current)
+                    else if (statuses[1] == OnboardingStepStatus.Current && !gitInstalled)
                     {
                         GitFoundText.Visibility = Visibility.Collapsed;
                         GitNotFoundPanel.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        // For pending or other states when Git is not the current step
+                        GitFoundText.Visibility = Visibility.Collapsed;
+                        GitNotFoundPanel.Visibility = Visibility.Collapsed;
                     }
                 }
 
@@ -230,21 +236,21 @@ namespace GitMC.Views
             }
             
             // Mark language as configured using safe method
-            _onboardingService.SetConfigurationValue("LanguageConfigured", true);
+            await _onboardingService.SetConfigurationValueAsync("LanguageConfigured", true);
             await _onboardingService.CompleteStep(0);
         }
 
         private async void SkipLanguageButton_Click(object sender, RoutedEventArgs e)
         {
             // Skip language configuration and move to next step
-            _onboardingService.SetConfigurationValue("LanguageConfigured", true);
+            await _onboardingService.SetConfigurationValueAsync("LanguageConfigured", true);
             await _onboardingService.CompleteStep(0);
         }
 
         private async void UseLocallyButton_Click(object sender, RoutedEventArgs e)
         {
             // Configure for local use only
-            _onboardingService.SetConfigurationValue("PlatformConfigured", true);
+            await _onboardingService.SetConfigurationValueAsync("PlatformConfigured", true);
             await _onboardingService.CompleteStep(3);
             
             // Show confirmation
@@ -301,7 +307,7 @@ namespace GitMC.Views
                         }
                         
                         // Mark save as added
-                        _onboardingService.SetConfigurationValue("SaveAdded", true);
+                        await _onboardingService.SetConfigurationValueAsync("SaveAdded", true);
                         await _onboardingService.CompleteStep(4);
                     }
                     else
