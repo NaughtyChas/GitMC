@@ -27,10 +27,10 @@ namespace GitMC.Views
             _gitService = new GitService();
             _configurationService = new ConfigurationService();
             _onboardingService = new OnboardingService(_gitService, _configurationService);
-            
+
             // Subscribe to onboarding changes
             _onboardingService.PropertyChanged += OnboardingService_PropertyChanged;
-            
+
             DataContext = this;
             Loaded += HomePage_Loaded;
         }
@@ -49,7 +49,7 @@ namespace GitMC.Views
             {
                 // If cache refresh fails, continue anyway
             }
-            
+
             // Then refresh onboarding status on page load
             await _onboardingService.RefreshAllSteps();
             UpdateStepVisibility();
@@ -58,7 +58,7 @@ namespace GitMC.Views
 
         private void OnboardingService_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(IOnboardingService.StepStatuses) || 
+            if (e.PropertyName == nameof(IOnboardingService.StepStatuses) ||
                 e.PropertyName == nameof(IOnboardingService.CurrentStepIndex))
             {
                 UpdateStepVisibility();
@@ -73,16 +73,16 @@ namespace GitMC.Views
 
             // Update step 1 (Language Configuration)
             UpdateStepDisplay(0, Step1Content, Step1CollapsedContent, currentStep, statuses);
-            
-            // Update step 2 (Git Installation)  
+
+            // Update step 2 (Git Installation)
             UpdateStepDisplay(1, Step2Content, Step2CollapsedContent, currentStep, statuses);
-            
+
             // Update step 3 (Git Configuration)
             UpdateStepDisplay(2, Step3Content, Step3CollapsedContent, currentStep, statuses);
-            
+
             // Update step 4 (Platform Connection)
             UpdateStepDisplay(3, Step4Content, Step4CollapsedContent, currentStep, statuses);
-            
+
             // Update step 5 (Add Save)
             UpdateStepDisplay(4, Step5Content, Step5CollapsedContent, currentStep, statuses);
 
@@ -104,7 +104,7 @@ namespace GitMC.Views
             // Check if all previous steps are completed
             bool canBeActive = stepIndex == 0 || statuses.Take(stepIndex).All(s => s == OnboardingStepStatus.Completed);
             bool isCurrentStep = stepIndex == currentStep && statuses[stepIndex] == OnboardingStepStatus.Current && canBeActive;
-            
+
             fullContent.Visibility = isCurrentStep ? Visibility.Visible : Visibility.Collapsed;
             collapsedContent.Visibility = isCurrentStep ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -115,11 +115,11 @@ namespace GitMC.Views
 
             var status = statuses[stepIndex];
             var currentStep = _onboardingService.CurrentStepIndex;
-            
+
             // Check if all previous steps are completed
-            bool canBeActive = stepIndex == 0 || (stepIndex <= currentStep && 
+            bool canBeActive = stepIndex == 0 || (stepIndex <= currentStep &&
                 statuses.Take(stepIndex).All(s => s == OnboardingStepStatus.Completed));
-            
+
             switch (status)
             {
                 case OnboardingStepStatus.Completed:
@@ -127,7 +127,7 @@ namespace GitMC.Views
                     if (checkIcon != null) checkIcon.Visibility = Visibility.Visible;
                     if (numberText != null) numberText.Visibility = Visibility.Collapsed;
                     break;
-                    
+
                 case OnboardingStepStatus.Current:
                     if (canBeActive)
                     {
@@ -143,7 +143,7 @@ namespace GitMC.Views
                         if (numberText != null) numberText.Visibility = Visibility.Visible;
                     }
                     break;
-                    
+
                 case OnboardingStepStatus.NotStarted:
                 default:
                     circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 209, 209, 209)); // Grey
@@ -185,11 +185,11 @@ namespace GitMC.Views
                     }
                 }
 
-                // Step 3: Git Configuration  
+                // Step 3: Git Configuration
                 if (statuses.Length > 2)
                 {
                     var (userName, userEmail) = await _gitService.GetIdentityAsync();
-                    if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail) && 
+                    if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail) &&
                         statuses[2] == OnboardingStepStatus.Completed)
                     {
                         // Find Git config status text element and update it
@@ -237,7 +237,7 @@ namespace GitMC.Views
             {
                 mainWindow.NavigateToPage(typeof(SettingsPage));
             }
-            
+
             // Mark language as configured using safe method
             await _onboardingService.SetConfigurationValueAsync("LanguageConfigured", true);
             await _onboardingService.CompleteStep(0);
@@ -252,19 +252,16 @@ namespace GitMC.Views
 
         private async void UseLocallyButton_Click(object sender, RoutedEventArgs e)
         {
-            // Configure for local use only
-            await _onboardingService.SetConfigurationValueAsync("PlatformConfigured", true);
-            await _onboardingService.CompleteStep(3);
-            
-            // Show confirmation
-            var dialog = new ContentDialog
+            // Show confirmation flyout first, only proceed if user clicks OK
+            var confirmed = await ShowConfirmationFlyoutWithOK(sender as FrameworkElement, "Local Mode Activated",
+                "GitMC will now operate in local mode. Your saves will be managed locally with Git version control.");
+
+            if (confirmed)
             {
-                Title = "Local Mode Activated",
-                Content = "GitMC will now operate in local mode. Your saves will be managed locally with Git version control.",
-                CloseButtonText = "OK",
-                XamlRoot = XamlRoot
-            };
-            await dialog.ShowAsync();
+                // Configure for local use only after user confirmation
+                await _onboardingService.SetConfigurationValueAsync("PlatformConfigured", true);
+                await _onboardingService.CompleteStep(3);
+            }
         }
 
         private async void GitConfigButton_Click(object sender, RoutedEventArgs e)
@@ -274,7 +271,7 @@ namespace GitMC.Views
             {
                 mainWindow.NavigateToPage(typeof(SettingsPage));
             }
-            
+
             // Check if Git is configured after navigation
             await Task.Delay(1000); // Small delay to allow settings page to potentially configure Git
             await _onboardingService.RefreshAllSteps();
@@ -284,7 +281,7 @@ namespace GitMC.Views
         {
             LoadingPanel.Visibility = Visibility.Visible;
             LoadingProgressRing.IsIndeterminate = true;
-            
+
             try
             {
                 var folderPicker = new FolderPicker();
@@ -308,22 +305,16 @@ namespace GitMC.Views
                         {
                             mainWindow.AddSaveToNavigation(save.Name, save.Path);
                         }
-                        
+
                         // Mark save as added
                         await _onboardingService.SetConfigurationValueAsync("SaveAdded", true);
                         await _onboardingService.CompleteStep(4);
                     }
                     else
                     {
-                        // Show error message
-                        var dialog = new ContentDialog
-                        {
-                            Title = "Invalid Minecraft Save",
-                            Content = "The selected folder doesn't appear to be a valid Minecraft save. A valid save should contain level.dat or level.dat_old.",
-                            CloseButtonText = "OK",
-                            XamlRoot = XamlRoot
-                        };
-                        await dialog.ShowAsync();
+                        // Show error message with flyout
+                        ShowErrorFlyout(sender as FrameworkElement, "Invalid Minecraft Save",
+                            "The selected folder doesn't appear to be a valid Minecraft save. A valid save should contain level.dat or level.dat_old.");
                     }
                 }
             }
@@ -342,13 +333,13 @@ namespace GitMC.Views
                 // Check Git installation
                 var gitInstalled = await _gitService.IsInstalledAsync();
                 var statuses = _onboardingService.StepStatuses;
-                
+
                 if (gitInstalled)
                 {
                     var gitVersion = await _gitService.GetVersionAsync();
                     GitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
                     GitStatusText.Text = $"Git v{gitVersion} installed and ready";
-                    
+
                     // Change icon to checkmark when completed
                     if (statuses.Length > 1 && statuses[1] == OnboardingStepStatus.Completed)
                     {
@@ -363,7 +354,7 @@ namespace GitMC.Views
                 {
                     GitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
                     GitStatusText.Text = "Git is not installed. Please install Git to continue.";
-                    
+
                     // Keep original icon when not completed
                     var gitIconControl = GitStatusIcon.Child as FontIcon;
                     if (gitIconControl != null)
@@ -378,7 +369,7 @@ namespace GitMC.Views
                 {
                     GitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
                     GitIdentityStatusText.Text = $"Configured as {userName} ({userEmail})";
-                    
+
                     // Change icon to checkmark when completed
                     if (statuses.Length > 2 && statuses[2] == OnboardingStepStatus.Completed)
                     {
@@ -393,7 +384,7 @@ namespace GitMC.Views
                 {
                     GitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
                     GitIdentityStatusText.Text = "Git identity not configured. Set your name and email.";
-                    
+
                     // Keep original icon when not completed
                     var identityIconControl = GitIdentityStatusIcon.Child as FontIcon;
                     if (identityIconControl != null)
@@ -407,7 +398,7 @@ namespace GitMC.Views
                 {
                     PlatformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
                     PlatformStatusText.Text = "Platform connected";
-                    
+
                     var platformIconControl = PlatformStatusIcon.Child as FontIcon;
                     if (platformIconControl != null)
                     {
@@ -418,7 +409,7 @@ namespace GitMC.Views
                 {
                     PlatformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
                     PlatformStatusText.Text = "Not connected";
-                    
+
                     var platformIconControl = PlatformStatusIcon.Child as FontIcon;
                     if (platformIconControl != null)
                     {
@@ -430,7 +421,7 @@ namespace GitMC.Views
                 var completedSteps = _onboardingService.StepStatuses.Count(s => s == OnboardingStepStatus.Completed);
                 var totalSteps = _onboardingService.StepStatuses.Length;
                 var progressPercentage = totalSteps > 0 ? (completedSteps * 100.0 / totalSteps) : 0;
-                
+
                 OverallProgressBar.Value = progressPercentage;
                 ProgressText.Text = $"{completedSteps} of {totalSteps} steps completed";
             }
@@ -458,23 +449,16 @@ namespace GitMC.Views
             {
                 if (PlatformSelector.SelectedItem == GitHubSelectorItem) // GitHub
                 {
-                    await ConnectToGitHub();
+                    await ConnectToGitHub(sender as FrameworkElement);
                 }
                 else // Self-hosting
                 {
-                    await ConnectToSelfHostedGit();
+                    await ConnectToSelfHostedGit(sender as FrameworkElement);
                 }
             }
             catch (Exception ex)
             {
-                var dialog = new ContentDialog
-                {
-                    Title = "Connection Error",
-                    Content = $"Failed to connect: {ex.Message}",
-                    CloseButtonText = "OK",
-                    XamlRoot = XamlRoot
-                };
-                await dialog.ShowAsync();
+                ShowErrorFlyout(sender as FrameworkElement, "Connection Error", $"Failed to connect: {ex.Message}");
             }
         }
 
@@ -505,14 +489,8 @@ namespace GitMC.Views
                     string.IsNullOrWhiteSpace(SelfHostingUsernameBox.Text) ||
                     string.IsNullOrWhiteSpace(SelfHostingTokenBox.Password))
                 {
-                    var errorDialog = new ContentDialog
-                    {
-                        Title = "Invalid Input",
-                        Content = "Please fill in all required fields (URL, Username, and Access Token).",
-                        CloseButtonText = "OK",
-                        XamlRoot = XamlRoot
-                    };
-                    await errorDialog.ShowAsync();
+                    ShowErrorFlyout(sender as FrameworkElement, "Invalid Input",
+                        "Please fill in all required fields (URL, Username, and Access Token).");
                     return;
                 }
 
@@ -523,25 +501,13 @@ namespace GitMC.Views
                 // TODO: Implement actual connection test
                 await Task.Delay(2000); // Simulate network request
 
-                var successDialog = new ContentDialog
-                {
-                    Title = "Connection Successful",
-                    Content = "Successfully connected to your Git server!",
-                    CloseButtonText = "OK",
-                    XamlRoot = XamlRoot
-                };
-                await successDialog.ShowAsync();
+                ShowSuccessFlyout(sender as FrameworkElement, "Connection Successful",
+                    "Successfully connected to your Git server!");
             }
             catch (Exception ex)
             {
-                var errorDialog = new ContentDialog
-                {
-                    Title = "Connection Failed",
-                    Content = $"Failed to connect to Git server: {ex.Message}",
-                    CloseButtonText = "OK",
-                    XamlRoot = XamlRoot
-                };
-                await errorDialog.ShowAsync();
+                ShowErrorFlyout(sender as FrameworkElement, "Connection Failed",
+                    $"Failed to connect to Git server: {ex.Message}");
             }
             finally
             {
@@ -550,20 +516,18 @@ namespace GitMC.Views
             }
         }
 
-        private async Task ConnectToGitHub()
+        private async Task ConnectToGitHub(FrameworkElement? anchor = null)
         {
-            // GitHub OAuth flow simulation
-            var dialog = new ContentDialog
-            {
-                Title = "Connect to GitHub",
-                Content = "This will open GitHub's authorization page in your browser. Continue?",
-                PrimaryButtonText = "Continue",
-                CloseButtonText = "Cancel",
-                XamlRoot = XamlRoot
-            };
+            // GitHub OAuth flow simulation - use flyout with buttons for confirmation
+            var confirmed = await ShowConfirmationFlyoutWithResult(
+                anchor ?? this, // Use the anchor button or fallback to page
+                "Connect to GitHub",
+                "This will open GitHub's authorization page in your browser. Continue?",
+                "Continue",
+                "Cancel"
+            );
 
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+            if (confirmed)
             {
                 // TODO: Implement actual GitHub OAuth
                 // For now, simulate successful connection
@@ -588,32 +552,20 @@ namespace GitMC.Views
                 // Update system status to reflect the changes
                 UpdateSystemStatus();
 
-                var successDialog = new ContentDialog
-                {
-                    Title = "GitHub Connected",
-                    Content = "Successfully connected to GitHub! You can now create repositories for your saves.",
-                    CloseButtonText = "OK",
-                    XamlRoot = XamlRoot
-                };
-                await successDialog.ShowAsync();
+                ShowSuccessFlyout(anchor ?? this, "GitHub Connected",
+                    "Successfully connected to GitHub! You can now create repositories for your saves.");
             }
         }
 
-        private async Task ConnectToSelfHostedGit()
+        private async Task ConnectToSelfHostedGit(FrameworkElement? anchor = null)
         {
             // Validate self-hosting configuration
             if (string.IsNullOrWhiteSpace(SelfHostingUrlBox?.Text) ||
                 string.IsNullOrWhiteSpace(SelfHostingUsernameBox?.Text) ||
                 string.IsNullOrWhiteSpace(SelfHostingTokenBox?.Password))
             {
-                var errorDialog = new ContentDialog
-                {
-                    Title = "Missing Configuration",
-                    Content = "Please fill in all required fields before connecting.",
-                    CloseButtonText = "OK",
-                    XamlRoot = XamlRoot
-                };
-                await errorDialog.ShowAsync();
+                ShowErrorFlyout(anchor ?? this, "Missing Configuration",
+                    "Please fill in all required fields before connecting.");
                 return;
             }
 
@@ -635,14 +587,8 @@ namespace GitMC.Views
             // Update system status to reflect the changes
             UpdateSystemStatus();
 
-            var successDialog = new ContentDialog
-            {
-                Title = "Git Server Connected",
-                Content = "Successfully connected to your Git server!",
-                CloseButtonText = "OK",
-                XamlRoot = XamlRoot
-            };
-            await successDialog.ShowAsync();
+            ShowSuccessFlyout(anchor ?? this, "Git Server Connected",
+                "Successfully connected to your Git server!");
         }
 
 
@@ -652,7 +598,7 @@ namespace GitMC.Views
             // Similar to AddSaveButton_Click but specifically for version folders
             LoadingPanel.Visibility = Visibility.Visible;
             LoadingProgressRing.IsIndeterminate = true;
-            
+
             try
             {
                 var folderPicker = new FolderPicker();
@@ -679,14 +625,8 @@ namespace GitMC.Views
                     }
                     else
                     {
-                        var dialog = new ContentDialog
-                        {
-                            Title = "Invalid Folder",
-                            Content = "The selected folder doesn't appear to contain valid Minecraft data.",
-                            CloseButtonText = "OK",
-                            XamlRoot = XamlRoot
-                        };
-                        await dialog.ShowAsync();
+                        ShowErrorFlyout(sender as FrameworkElement, "Invalid Folder",
+                            "The selected folder doesn't appear to contain valid Minecraft data.");
                     }
                 }
             }
@@ -752,6 +692,283 @@ namespace GitMC.Views
             {
                 return 0;
             }
+        }
+
+        // Flyout helper methods for less intrusive dialogs
+        private void ShowConfirmationFlyout(FrameworkElement? anchor, string title, string message)
+        {
+            if (anchor == null) return;
+
+            var okButton = new Button
+            {
+                Content = "OK",
+                HorizontalAlignment = HorizontalAlignment.Right,
+                MinWidth = 80
+            };
+
+            var flyout = new Flyout
+            {
+                Content = new StackPanel
+                {
+                    Width = 300,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = title,
+                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                            FontSize = 16,
+                            Margin = new Thickness(0, 0, 0, 8)
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap,
+                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
+                            Margin = new Thickness(0, 0, 0, 12)
+                        },
+                        okButton
+                    }
+                },
+                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
+            };
+
+            okButton.Click += (s, e) => flyout.Hide();
+            flyout.ShowAt(anchor);
+        }
+
+        private async Task<bool> ShowConfirmationFlyoutWithOK(FrameworkElement? anchor, string title, string message)
+        {
+            if (anchor == null) return false;
+
+            var tcs = new TaskCompletionSource<bool>();
+
+            var okButton = new Button
+            {
+                Content = "OK",
+                Style = Application.Current.Resources["AccentButtonStyle"] as Style,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                MinWidth = 80
+            };
+
+            var flyout = new Flyout
+            {
+                Content = new StackPanel
+                {
+                    Width = 300,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = title,
+                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                            FontSize = 16,
+                            Margin = new Thickness(0, 0, 0, 8)
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap,
+                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
+                            Margin = new Thickness(0, 0, 0, 12)
+                        },
+                        okButton
+                    }
+                },
+                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
+            };
+
+            okButton.Click += (s, e) =>
+            {
+                tcs.SetResult(true);
+                flyout.Hide();
+            };
+
+            flyout.ShowAt(anchor);
+            return await tcs.Task;
+        }
+
+        private void ShowErrorFlyout(FrameworkElement? anchor, string title, string message)
+        {
+            if (anchor == null) return;
+
+            var okButton = new Button
+            {
+                Content = "OK",
+                HorizontalAlignment = HorizontalAlignment.Right,
+                MinWidth = 80
+            };
+
+            var flyout = new Flyout
+            {
+                Content = new StackPanel
+                {
+                    Width = 300,
+                    Children =
+                    {
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Margin = new Thickness(0, 0, 0, 8),
+                            Children =
+                            {
+                                new FontIcon
+                                {
+                                    Glyph = "\uE783", // Error icon
+                                    FontSize = 16,
+                                    Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 209, 52, 56)),
+                                    Margin = new Thickness(0, 0, 8, 0),
+                                    VerticalAlignment = VerticalAlignment.Center
+                                },
+                                new TextBlock
+                                {
+                                    Text = title,
+                                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                                    FontSize = 16,
+                                    VerticalAlignment = VerticalAlignment.Center
+                                }
+                            }
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap,
+                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
+                            Margin = new Thickness(0, 0, 0, 12)
+                        },
+                        okButton
+                    }
+                },
+                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
+            };
+
+            okButton.Click += (s, e) => flyout.Hide();
+            flyout.ShowAt(anchor);
+        }
+
+        private void ShowSuccessFlyout(FrameworkElement? anchor, string title, string message)
+        {
+            if (anchor == null) return;
+
+            var okButton = new Button
+            {
+                Content = "OK",
+                HorizontalAlignment = HorizontalAlignment.Right,
+                MinWidth = 80
+            };
+
+            var flyout = new Flyout
+            {
+                Content = new StackPanel
+                {
+                    Width = 300,
+                    Children =
+                    {
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Margin = new Thickness(0, 0, 0, 8),
+                            Children =
+                            {
+                                new FontIcon
+                                {
+                                    Glyph = "\uE73E", // Checkmark icon
+                                    FontSize = 16,
+                                    Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)),
+                                    Margin = new Thickness(0, 0, 8, 0),
+                                    VerticalAlignment = VerticalAlignment.Center
+                                },
+                                new TextBlock
+                                {
+                                    Text = title,
+                                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                                    FontSize = 16,
+                                    VerticalAlignment = VerticalAlignment.Center
+                                }
+                            }
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap,
+                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
+                            Margin = new Thickness(0, 0, 0, 12)
+                        },
+                        okButton
+                    }
+                },
+                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
+            };
+
+            okButton.Click += (s, e) => flyout.Hide();
+            flyout.ShowAt(anchor);
+        }
+
+        private async Task<bool> ShowConfirmationFlyoutWithResult(FrameworkElement? anchor, string title, string message, string confirmText = "Continue", string cancelText = "Cancel")
+        {
+            if (anchor == null) return false;
+
+            var tcs = new TaskCompletionSource<bool>();
+
+            var confirmButton = new Button
+            {
+                Content = confirmText,
+                Style = Application.Current.Resources["AccentButtonStyle"] as Style,
+                Margin = new Thickness(0, 0, 8, 0),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+
+            var cancelButton = new Button
+            {
+                Content = cancelText,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+
+            var flyout = new Flyout
+            {
+                Content = new StackPanel
+                {
+                    Width = 300,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = title,
+                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                            FontSize = 16,
+                            Margin = new Thickness(0, 0, 0, 8)
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap,
+                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
+                            Margin = new Thickness(0, 0, 0, 12)
+                        },
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Children = { confirmButton, cancelButton }
+                        }
+                    }
+                },
+                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
+            };
+
+            confirmButton.Click += (s, e) =>
+            {
+                tcs.SetResult(true);
+                flyout.Hide();
+            };
+
+            cancelButton.Click += (s, e) =>
+            {
+                tcs.SetResult(false);
+                flyout.Hide();
+            };
+
+            flyout.ShowAt(anchor);
+            return await tcs.Task;
         }
     }
 }
