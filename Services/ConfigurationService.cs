@@ -433,6 +433,56 @@ namespace GitMC.Services
             set => SetString("PlatformEmail", value);
         }
 
+        // GitHub specific settings
+        public string GitHubAccessToken
+        {
+            get => GetString("GitHubAccessToken", "");
+            set => SetString("GitHubAccessToken", value);
+        }
+
+        public string GitHubUsername
+        {
+            get => GetString("GitHubUsername", "");
+            set => SetString("GitHubUsername", value);
+        }
+
+        public string GitHubRepository
+        {
+            get => GetString("GitHubRepository", "");
+            set => SetString("GitHubRepository", value);
+        }
+
+        public bool GitHubPrivateRepo
+        {
+            get => GetBool("GitHubPrivateRepo", true);
+            set => SetBool("GitHubPrivateRepo", value);
+        }
+
+        // Git server settings (for self-hosted)
+        public string GitServerUrl
+        {
+            get => GetString("GitServerUrl", "");
+            set => SetString("GitServerUrl", value);
+        }
+
+        public string GitUsername
+        {
+            get => GetString("GitUsername", "");
+            set => SetString("GitUsername", value);
+        }
+
+        public string GitAccessToken
+        {
+            get => GetString("GitAccessToken", "");
+            set => SetString("GitAccessToken", value);
+        }
+
+        public string GitServerType
+        {
+            get => GetString("GitServerType", "");
+            set => SetString("GitServerType", value);
+        }
+
         // Debug and development settings
         public bool DebugMode
         {
@@ -534,6 +584,18 @@ namespace GitMC.Services
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlatformUsername)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlatformEmail)));
             
+            // GitHub settings
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubAccessToken)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubUsername)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubRepository)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubPrivateRepo)));
+            
+            // Git server settings
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitServerUrl)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitUsername)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitAccessToken)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitServerType)));
+            
             // Debug settings
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DebugMode)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowPerformanceMetrics)));
@@ -582,6 +644,18 @@ namespace GitMC.Services
                 "PlatformToken" => nameof(PlatformToken),
                 "PlatformUsername" => nameof(PlatformUsername),
                 "PlatformEmail" => nameof(PlatformEmail),
+                
+                // GitHub settings
+                "GitHubAccessToken" => nameof(GitHubAccessToken),
+                "GitHubUsername" => nameof(GitHubUsername),
+                "GitHubRepository" => nameof(GitHubRepository),
+                "GitHubPrivateRepo" => nameof(GitHubPrivateRepo),
+                
+                // Git server settings
+                "GitServerUrl" => nameof(GitServerUrl),
+                "GitUsername" => nameof(GitUsername),
+                "GitAccessToken" => nameof(GitAccessToken),
+                "GitServerType" => nameof(GitServerType),
                 
                 // Debug settings
                 "DebugMode" => nameof(DebugMode),

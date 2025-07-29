@@ -50,6 +50,18 @@ namespace GitMC.Services
         string PlatformUsername { get; set; }
         string PlatformEmail { get; set; }
         
+        // GitHub specific settings
+        string GitHubAccessToken { get; set; }
+        string GitHubUsername { get; set; }
+        string GitHubRepository { get; set; }
+        bool GitHubPrivateRepo { get; set; }
+        
+        // Git server settings (for self-hosted)
+        string GitServerUrl { get; set; }
+        string GitUsername { get; set; }
+        string GitAccessToken { get; set; }
+        string GitServerType { get; set; } // "GitLab", "Gitea", "Custom", etc.
+        
         // Debug and development settings
         bool DebugMode { get; set; }
         bool ShowPerformanceMetrics { get; set; }

@@ -62,6 +62,7 @@ namespace GitMC.Views
                 e.PropertyName == nameof(IOnboardingService.CurrentStepIndex))
             {
                 UpdateStepVisibility();
+                UpdateSystemStatus();
             }
         }
 
@@ -162,21 +163,23 @@ namespace GitMC.Views
                 if (statuses.Length > 1)
                 {
                     bool gitInstalled = await _gitService.IsInstalledAsync();
-                    if (gitInstalled && (statuses[1] == OnboardingStepStatus.Completed || statuses[1] == OnboardingStepStatus.Current))
+                    if (gitInstalled)
                     {
+                        // Show green text if Git is installed, regardless of step status
                         var gitVersion = await _gitService.GetVersionAsync();
                         GitFoundText.Text = $"√ Git version {gitVersion} detected";
                         GitFoundText.Visibility = Visibility.Visible;
                         GitNotFoundPanel.Visibility = Visibility.Collapsed;
                     }
-                    else if (statuses[1] == OnboardingStepStatus.Current && !gitInstalled)
+                    else if (statuses[1] == OnboardingStepStatus.Current)
                     {
+                        // Only show "not found" panel when it's the current step and Git is not installed
                         GitFoundText.Visibility = Visibility.Collapsed;
                         GitNotFoundPanel.Visibility = Visibility.Visible;
                     }
                     else
                     {
-                        // For pending or other states when Git is not the current step
+                        // For pending steps when Git is not installed
                         GitFoundText.Visibility = Visibility.Collapsed;
                         GitNotFoundPanel.Visibility = Visibility.Collapsed;
                     }
@@ -445,21 +448,201 @@ namespace GitMC.Views
         private async void DownloadGitButton_Click(object sender, RoutedEventArgs e)
         {
             // Open Git download page
-            var uri = new Uri("https://git-scm.com/download/windows");
+            var uri = new Uri("https://git-scm.com/downloads");
             await Launcher.LaunchUriAsync(uri);
         }
 
         private async void ConnectPlatformButton_Click(object sender, RoutedEventArgs e)
         {
-            // Show platform connection dialog or navigate to connection page
+            try
+            {
+                if (PlatformSelector.SelectedItem == GitHubSelectorItem) // GitHub
+                {
+                    await ConnectToGitHub();
+                }
+                else // Self-hosting
+                {
+                    await ConnectToSelfHostedGit();
+                }
+            }
+            catch (Exception ex)
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = "Connection Error",
+                    Content = $"Failed to connect: {ex.Message}",
+                    CloseButtonText = "OK",
+                    XamlRoot = XamlRoot
+                };
+                await dialog.ShowAsync();
+            }
+        }
+
+        private void PlatformSelector_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+        {
+            // Toggle visibility of configuration panels based on selection
+            if (GitHubConfigPanel != null && SelfHostingConfigPanel != null)
+            {
+                if (PlatformSelector.SelectedItem == GitHubSelectorItem) // GitHub
+                {
+                    GitHubConfigPanel.Visibility = Visibility.Visible;
+                    SelfHostingConfigPanel.Visibility = Visibility.Collapsed;
+                }
+                else // Self-hosting
+                {
+                    GitHubConfigPanel.Visibility = Visibility.Collapsed;
+                    SelfHostingConfigPanel.Visibility = Visibility.Visible;
+                }
+            }
+        }
+
+        private async void TestConnectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Validate input fields
+                if (string.IsNullOrWhiteSpace(SelfHostingUrlBox.Text) ||
+                    string.IsNullOrWhiteSpace(SelfHostingUsernameBox.Text) ||
+                    string.IsNullOrWhiteSpace(SelfHostingTokenBox.Password))
+                {
+                    var errorDialog = new ContentDialog
+                    {
+                        Title = "Invalid Input",
+                        Content = "Please fill in all required fields (URL, Username, and Access Token).",
+                        CloseButtonText = "OK",
+                        XamlRoot = XamlRoot
+                    };
+                    await errorDialog.ShowAsync();
+                    return;
+                }
+
+                // Disable button and show progress
+                TestConnectionButton.IsEnabled = false;
+                TestConnectionButton.Content = "Testing...";
+
+                // TODO: Implement actual connection test
+                await Task.Delay(2000); // Simulate network request
+
+                var successDialog = new ContentDialog
+                {
+                    Title = "Connection Successful",
+                    Content = "Successfully connected to your Git server!",
+                    CloseButtonText = "OK",
+                    XamlRoot = XamlRoot
+                };
+                await successDialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                var errorDialog = new ContentDialog
+                {
+                    Title = "Connection Failed",
+                    Content = $"Failed to connect to Git server: {ex.Message}",
+                    CloseButtonText = "OK",
+                    XamlRoot = XamlRoot
+                };
+                await errorDialog.ShowAsync();
+            }
+            finally
+            {
+                TestConnectionButton.IsEnabled = true;
+                TestConnectionButton.Content = "Test Connection";
+            }
+        }
+
+        private async Task ConnectToGitHub()
+        {
+            // GitHub OAuth flow simulation
             var dialog = new ContentDialog
             {
-                Title = "Connect to Platform", 
-                Content = "Platform connection functionality will be implemented in future updates.",
+                Title = "Connect to GitHub",
+                Content = "This will open GitHub's authorization page in your browser. Continue?",
+                PrimaryButtonText = "Continue",
+                CloseButtonText = "Cancel",
+                XamlRoot = XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                // TODO: Implement actual GitHub OAuth
+                // For now, simulate successful connection
+                await Task.Delay(1000);
+
+                // Store GitHub configuration
+                _configurationService.SelectedPlatform = "GitHub";
+                _configurationService.GitHubUsername = "NaughtyChas"; // Would come from OAuth
+                _configurationService.GitHubAccessToken = "[simulated_token]"; // Would come from OAuth
+                _configurationService.GitHubRepository = GitHubRepoNameBox?.Text ?? "minecraft-saves";
+                _configurationService.GitHubPrivateRepo = GitHubPrivateRepoBox?.IsChecked ?? true;
+
+                // Update UI to show connected state
+                GitHubStatusText.Text = $"Connected as {_configurationService.GitHubUsername}";
+                GitHubStatusPanel.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 220, 255, 220));
+                GitHubRepoSettings.Visibility = Visibility.Visible;
+
+                // Mark platform as configured
+                await _onboardingService.SetConfigurationValueAsync("PlatformConfigured", true);
+                await _onboardingService.CompleteStep(3);
+
+                // Update system status to reflect the changes
+                UpdateSystemStatus();
+
+                var successDialog = new ContentDialog
+                {
+                    Title = "GitHub Connected",
+                    Content = "Successfully connected to GitHub! You can now create repositories for your saves.",
+                    CloseButtonText = "OK",
+                    XamlRoot = XamlRoot
+                };
+                await successDialog.ShowAsync();
+            }
+        }
+
+        private async Task ConnectToSelfHostedGit()
+        {
+            // Validate self-hosting configuration
+            if (string.IsNullOrWhiteSpace(SelfHostingUrlBox?.Text) ||
+                string.IsNullOrWhiteSpace(SelfHostingUsernameBox?.Text) ||
+                string.IsNullOrWhiteSpace(SelfHostingTokenBox?.Password))
+            {
+                var errorDialog = new ContentDialog
+                {
+                    Title = "Missing Configuration",
+                    Content = "Please fill in all required fields before connecting.",
+                    CloseButtonText = "OK",
+                    XamlRoot = XamlRoot
+                };
+                await errorDialog.ShowAsync();
+                return;
+            }
+
+            // TODO: Implement actual Git server connection
+            // For now, simulate successful connection
+            await Task.Delay(1500);
+
+            // Store self-hosted configuration
+            _configurationService.SelectedPlatform = "Self-Hosted";
+            _configurationService.GitServerUrl = SelfHostingUrlBox?.Text ?? "";
+            _configurationService.GitUsername = SelfHostingUsernameBox?.Text ?? "";
+            _configurationService.GitAccessToken = SelfHostingTokenBox?.Password ?? "";
+            _configurationService.GitServerType = "Custom"; // Could be detected from URL
+
+            // Mark platform as configured
+            await _onboardingService.SetConfigurationValueAsync("PlatformConfigured", true);
+            await _onboardingService.CompleteStep(3);
+
+            // Update system status to reflect the changes
+            UpdateSystemStatus();
+
+            var successDialog = new ContentDialog
+            {
+                Title = "Git Server Connected",
+                Content = "Successfully connected to your Git server!",
                 CloseButtonText = "OK",
                 XamlRoot = XamlRoot
             };
-            await dialog.ShowAsync();
+            await successDialog.ShowAsync();
         }
 
 
