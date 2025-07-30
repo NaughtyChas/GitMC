@@ -1,16 +1,104 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using GitMC.Services;
 using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace GitMC.Views
 {
     public partial class MainWindow : Window
     {
+        private readonly IDataStorageService _dataStorageService;
+        private readonly IOnboardingService _onboardingService;
+        private readonly IGitService _gitService;
+        private readonly IConfigurationService _configurationService;
+
         public MainWindow()
         {
             InitializeComponent();
+
+            // Initialize services
+            _dataStorageService = new DataStorageService();
+            _gitService = new GitService();
+            _configurationService = new ConfigurationService();
+            _onboardingService = new OnboardingService(_gitService, _configurationService);
+
             SetWindowProperties();
-            ContentFrame.Navigate(typeof(HomePage));
+            _ = LoadExistingSavesToNavigationAsync(); // Load saved entries on startup
+            NavigateToHomePage();
             ContentFrame.Navigated += ContentFrame_Navigated;
+        }
+
+        private async void NavigateToHomePage()
+        {
+            try
+            {
+                // Initialize services first
+                await _onboardingService.InitializeAsync();
+
+                // Determine target page and navigate directly
+                var targetPageType = GetHomeTargetPageType();
+                ContentFrame.Navigate(targetPageType);
+            }
+            catch
+            {
+                // Fallback to OnboardingPage if there's any error
+                ContentFrame.Navigate(typeof(OnboardingPage));
+            }
+        }
+
+        private Type GetHomeTargetPageType()
+        {
+            // Determine which page to show based on managed saves
+            if (HasManagedSaves())
+            {
+                return typeof(SaveManagementPage);
+            }
+            else
+            {
+                return typeof(OnboardingPage);
+            }
+        }
+
+        private bool HasManagedSaves()
+        {
+            return GetManagedSavesCount() > 0;
+        }
+
+        private int GetManagedSavesCount()
+        {
+            try
+            {
+                // Check for managed saves metadata files
+                var managedSavesPath = GetManagedSavesStoragePath();
+                if (!Directory.Exists(managedSavesPath))
+                {
+                    return 0;
+                }
+
+                // Count JSON metadata files that represent managed saves
+                var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+                return jsonFiles.Length;
+            }
+            catch
+            {
+                // If there's any error accessing the filesystem, fall back to onboarding check
+                var statuses = _onboardingService.StepStatuses;
+                if (statuses.Length > 4 && statuses[4] == OnboardingStepStatus.Completed)
+                {
+                    return 1; // At least one save exists based on onboarding
+                }
+                return 0;
+            }
+        }
+
+        private string GetManagedSavesStoragePath()
+        {
+            return _dataStorageService.GetManagedSavesDirectory();
         }
 
         private void SetWindowProperties()
@@ -37,6 +125,53 @@ namespace GitMC.Views
             });
         }
 
+        private async Task LoadExistingSavesToNavigationAsync()
+        {
+            try
+            {
+                var managedSaves = await GetManagedSavesAsync();
+                foreach (var save in managedSaves)
+                {
+                    AddSaveToNavigation(save.Name, save.OriginalPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load existing saves to navigation: {ex.Message}");
+            }
+        }
+
+        private async Task<List<ManagedSaveInfo>> GetManagedSavesAsync()
+        {
+            var saves = new List<ManagedSaveInfo>();
+            var managedSavesPath = GetManagedSavesStoragePath();
+
+            if (!Directory.Exists(managedSavesPath))
+            {
+                return saves;
+            }
+
+            var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+            foreach (var jsonFile in jsonFiles)
+            {
+                try
+                {
+                    var json = await File.ReadAllTextAsync(jsonFile);
+                    var saveInfo = System.Text.Json.JsonSerializer.Deserialize<ManagedSaveInfo>(json);
+                    if (saveInfo != null)
+                    {
+                        saves.Add(saveInfo);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to parse save info from {jsonFile}: {ex.Message}");
+                }
+            }
+
+            return saves.OrderByDescending(s => s.LastModified).ToList();
+        }
+
 
         private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
         {
@@ -55,9 +190,11 @@ namespace GitMC.Views
                     var tag = item.Tag?.ToString();
                     if (tag == "Home")
                     {
-                        if (ContentFrame.CurrentSourcePageType != typeof(HomePage))
+                        // Get the target home page type and only navigate if different
+                        var targetPageType = GetHomeTargetPageType();
+                        if (ContentFrame.CurrentSourcePageType != targetPageType)
                         {
-                            ContentFrame.Navigate(typeof(HomePage));
+                            ContentFrame.Navigate(targetPageType);
                         }
                     }
                     else if (tag == "Console")
@@ -96,9 +233,11 @@ namespace GitMC.Views
                     var tag = selectedItem.Tag?.ToString();
                     if (tag == "Home")
                     {
-                        if (ContentFrame.CurrentSourcePageType != typeof(HomePage))
+                        // Get the target home page type and only navigate if different
+                        var targetPageType = GetHomeTargetPageType();
+                        if (ContentFrame.CurrentSourcePageType != targetPageType)
                         {
-                            ContentFrame.Navigate(typeof(HomePage));
+                            ContentFrame.Navigate(targetPageType);
                         }
                     }
                     else if (tag == "Console")
