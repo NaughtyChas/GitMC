@@ -1,9 +1,13 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using GitMC.Constants;
+using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
 using Microsoft.UI;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
@@ -471,7 +475,7 @@ namespace GitMC.Views
         private void ShowSaveActions(ManagedSaveInfo saveInfo)
         {
             // TODO: Implement save actions menu (open folder, remove, etc.)
-            ShowSuccessFlyout(null, "Save Actions",
+            FlyoutHelper.ShowSuccessFlyout(null, "Save Actions",
                 $"Actions for '{saveInfo.Name}' will be available soon!");
         }
 
@@ -731,21 +735,21 @@ namespace GitMC.Views
         private async void CommitAllButton_Click(object sender, RoutedEventArgs e)
         {
             // TODO: Implement commit all changes functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Commit All Changes",
+            FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Commit All Changes",
                 "Commit all changes feature is coming soon!");
         }
 
         private async void PullAllButton_Click(object sender, RoutedEventArgs e)
         {
             // TODO: Implement pull all updates functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Pull All Updates",
+            FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Pull All Updates",
                 "Pull all updates feature is coming soon!");
         }
 
         private async void PushAllButton_Click(object sender, RoutedEventArgs e)
         {
             // TODO: Implement push all changes functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Push All Changes",
+            FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Push All Changes",
                 "Push all changes feature is coming soon!");
         }
 
@@ -792,7 +796,7 @@ namespace GitMC.Views
                     }
                     else
                     {
-                        ShowErrorFlyout(sender as FrameworkElement, "Invalid Minecraft Save",
+                        FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Invalid Minecraft Save",
                             "The selected folder doesn't appear to be a valid Minecraft save. A valid save should contain level.dat or level.dat_old.");
                     }
                 }
@@ -810,7 +814,7 @@ namespace GitMC.Views
         private async void InitializeGitButton_Click(object sender, RoutedEventArgs e)
         {
             // TODO: Implement Git initialization for selected saves
-            ShowSuccessFlyout(sender as FrameworkElement, "Git Initialization",
+            FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Git Initialization",
                 "Git initialization feature is coming soon!");
             await Task.CompletedTask;
         }
@@ -818,7 +822,7 @@ namespace GitMC.Views
         private async void SyncAllButton_Click(object sender, RoutedEventArgs e)
         {
             // TODO: Implement sync all functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Sync All",
+            FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Sync All",
                 "Sync all feature is coming soon!");
             await Task.CompletedTask;
         }
@@ -826,7 +830,7 @@ namespace GitMC.Views
         private async void FetchAllButton_Click(object sender, RoutedEventArgs e)
         {
             // TODO: Implement fetch all functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Fetch All",
+            FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Fetch All",
                 "Fetch all changes feature is coming soon!");
             await Task.CompletedTask;
         }
@@ -834,7 +838,7 @@ namespace GitMC.Views
         private async void BackupButton_Click(object sender, RoutedEventArgs e)
         {
             // TODO: Implement backup functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Create Backup",
+            FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Create Backup",
                 "Backup feature is coming soon!");
             await Task.CompletedTask;
         }
@@ -937,122 +941,7 @@ namespace GitMC.Views
             }
         }
 
-        // Flyout helper methods
-        private void ShowErrorFlyout(FrameworkElement? anchor, string title, string message)
-        {
-            if (anchor == null) return;
-
-            var okButton = new Button
-            {
-                Content = "OK",
-                HorizontalAlignment = HorizontalAlignment.Right,
-                MinWidth = 80
-            };
-
-            var flyout = new Flyout
-            {
-                Content = new StackPanel
-                {
-                    Width = 300,
-                    Children =
-                    {
-                        new StackPanel
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Margin = new Thickness(0, 0, 0, 8),
-                            Children =
-                            {
-                                new FontIcon
-                                {
-                                    Glyph = "\uE783", // Error icon
-                                    FontSize = 16,
-                                    Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 209, 52, 56)),
-                                    Margin = new Thickness(0, 0, 8, 0),
-                                    VerticalAlignment = VerticalAlignment.Center
-                                },
-                                new TextBlock
-                                {
-                                    Text = title,
-                                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                                    FontSize = 16,
-                                    VerticalAlignment = VerticalAlignment.Center
-                                }
-                            }
-                        },
-                        new TextBlock
-                        {
-                            Text = message,
-                            TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
-                            Margin = new Thickness(0, 0, 0, 12)
-                        },
-                        okButton
-                    }
-                },
-                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
-            };
-
-            okButton.Click += (s, e) => flyout.Hide();
-            flyout.ShowAt(anchor);
-        }
-
-        private void ShowSuccessFlyout(FrameworkElement? anchor, string title, string message)
-        {
-            if (anchor == null) return;
-
-            var okButton = new Button
-            {
-                Content = "OK",
-                HorizontalAlignment = HorizontalAlignment.Right,
-                MinWidth = 80
-            };
-
-            var flyout = new Flyout
-            {
-                Content = new StackPanel
-                {
-                    Width = 300,
-                    Children =
-                    {
-                        new StackPanel
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Margin = new Thickness(0, 0, 0, 8),
-                            Children =
-                            {
-                                new FontIcon
-                                {
-                                    Glyph = "\uE73E", // Checkmark icon
-                                    FontSize = 16,
-                                    Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)),
-                                    Margin = new Thickness(0, 0, 8, 0),
-                                    VerticalAlignment = VerticalAlignment.Center
-                                },
-                                new TextBlock
-                                {
-                                    Text = title,
-                                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                                    FontSize = 16,
-                                    VerticalAlignment = VerticalAlignment.Center
-                                }
-                            }
-                        },
-                        new TextBlock
-                        {
-                            Text = message,
-                            TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
-                            Margin = new Thickness(0, 0, 0, 12)
-                        },
-                        okButton
-                    }
-                },
-                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
-            };
-
-            okButton.Click += (s, e) => flyout.Hide();
-            flyout.ShowAt(anchor);
-        }
+        // Update all flyout calls to use the new FlyoutHelper
     }
 
     // Data model for managed save information

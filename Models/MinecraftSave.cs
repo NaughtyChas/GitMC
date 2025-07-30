@@ -88,32 +88,9 @@ namespace GitMC.Models
         public string LastPlayedFormatted => _lastPlayed == DateTime.MinValue ? "Never" : FormatRelativeTime(_lastPlayed);
         public string LastCommitFormatted => _lastCommit == DateTime.MinValue ? "No commits" : FormatRelativeTime(_lastCommit);
 
-        private static string FormatFileSize(long bytes)
-        {
-            if (bytes == 0) return "0 B";
-            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-            int order = 0;
-            double size = bytes;
-            while (size >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                size = size / 1024;
-            }
-            return $"{size:0.##} {sizes[order]}";
-        }
+        private static string FormatFileSize(long bytes) => GitMC.Utils.CommonHelpers.FormatFileSize(bytes);
 
-        private static string FormatRelativeTime(DateTime dateTime)
-        {
-            var timeSpan = DateTime.Now - dateTime;
-            return timeSpan.TotalDays switch
-            {
-                < 1 when timeSpan.TotalHours < 1 => $"{(int)timeSpan.TotalMinutes}m ago",
-                < 1 => $"{(int)timeSpan.TotalHours}h ago",
-                < 7 => $"{(int)timeSpan.TotalDays}d ago",
-                < 30 => $"{(int)(timeSpan.TotalDays / 7)}w ago",
-                _ => dateTime.ToString("MMM dd, yyyy")
-            };
-        }
+        private static string FormatRelativeTime(DateTime dateTime) => GitMC.Utils.CommonHelpers.FormatRelativeTime(dateTime);
 
         public event PropertyChangedEventHandler? PropertyChanged;
 

@@ -1,8 +1,12 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using GitMC.Constants;
+using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
 using Microsoft.UI;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -357,7 +361,7 @@ namespace GitMC.Views
                     else
                     {
                         // Show error message with flyout
-                        ShowErrorFlyout(sender as FrameworkElement, "Invalid Minecraft Save",
+                        FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Invalid Minecraft Save",
                             "The selected folder doesn't appear to be a valid Minecraft save. A valid save should contain level.dat or level.dat_old.");
                     }
                 }
@@ -419,7 +423,7 @@ namespace GitMC.Views
                     }
                     else
                     {
-                        ShowErrorFlyout(sender as FrameworkElement, "Invalid Folder",
+                        FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Invalid Folder",
                             "The selected folder doesn't appear to contain valid Minecraft data.");
                     }
                 }
@@ -583,7 +587,7 @@ namespace GitMC.Views
             }
             catch (Exception ex)
             {
-                ShowErrorFlyout(sender as FrameworkElement, "Connection Error", $"Failed to connect: {ex.Message}");
+                FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Connection Error", $"Failed to connect: {ex.Message}");
             }
         }
 
@@ -614,7 +618,7 @@ namespace GitMC.Views
                     string.IsNullOrWhiteSpace(SelfHostingUsernameBox.Text) ||
                     string.IsNullOrWhiteSpace(SelfHostingTokenBox.Password))
                 {
-                    ShowErrorFlyout(sender as FrameworkElement, "Invalid Input",
+                    FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Invalid Input",
                         "Please fill in all required fields (URL, Username, and Access Token).");
                     return;
                 }
@@ -626,12 +630,12 @@ namespace GitMC.Views
                 // TODO: Implement actual connection test
                 await Task.Delay(2000); // Simulate network request
 
-                ShowSuccessFlyout(sender as FrameworkElement, "Connection Successful",
+                FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Connection Successful",
                     "Successfully connected to your Git server!");
             }
             catch (Exception ex)
             {
-                ShowErrorFlyout(sender as FrameworkElement, "Connection Failed",
+                FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Connection Failed",
                     $"Failed to connect to Git server: {ex.Message}");
             }
             finally
@@ -644,7 +648,7 @@ namespace GitMC.Views
         private async Task ConnectToGitHub(FrameworkElement? anchor = null)
         {
             // GitHub OAuth flow simulation - use flyout with buttons for confirmation
-            var confirmed = await ShowConfirmationFlyoutWithResult(
+            var confirmed = await FlyoutHelper.ShowConfirmationFlyout(
                 anchor ?? this, // Use the anchor button or fallback to page
                 "Connect to GitHub",
                 "This will open GitHub's authorization page in your browser. Continue?",
@@ -677,7 +681,7 @@ namespace GitMC.Views
                 // Update system status to reflect the changes
                 UpdateSystemStatus();
 
-                ShowSuccessFlyout(anchor ?? this, "GitHub Connected",
+                FlyoutHelper.ShowSuccessFlyout(anchor ?? this, "GitHub Connected",
                     "Successfully connected to GitHub! You can now create repositories for your saves.");
             }
         }
@@ -689,7 +693,7 @@ namespace GitMC.Views
                 string.IsNullOrWhiteSpace(SelfHostingUsernameBox?.Text) ||
                 string.IsNullOrWhiteSpace(SelfHostingTokenBox?.Password))
             {
-                ShowErrorFlyout(anchor ?? this, "Missing Configuration",
+                FlyoutHelper.ShowErrorFlyout(anchor ?? this, "Missing Configuration",
                     "Please fill in all required fields before connecting.");
                 return;
             }
@@ -712,7 +716,7 @@ namespace GitMC.Views
             // Update system status to reflect the changes
             UpdateSystemStatus();
 
-            ShowSuccessFlyout(anchor ?? this, "Git Server Connected",
+            FlyoutHelper.ShowSuccessFlyout(anchor ?? this, "Git Server Connected",
                 "Successfully connected to your Git server!");
         }
 
@@ -867,188 +871,7 @@ namespace GitMC.Views
             return await tcs.Task;
         }
 
-        private void ShowErrorFlyout(FrameworkElement? anchor, string title, string message)
-        {
-            if (anchor == null) return;
-
-            var okButton = new Button
-            {
-                Content = "OK",
-                HorizontalAlignment = HorizontalAlignment.Right,
-                MinWidth = 80
-            };
-
-            var flyout = new Flyout
-            {
-                Content = new StackPanel
-                {
-                    Width = 300,
-                    Children =
-                    {
-                        new StackPanel
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Margin = new Thickness(0, 0, 0, 8),
-                            Children =
-                            {
-                                new FontIcon
-                                {
-                                    Glyph = "\uE783", // Error icon
-                                    FontSize = 16,
-                                    Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 209, 52, 56)),
-                                    Margin = new Thickness(0, 0, 8, 0),
-                                    VerticalAlignment = VerticalAlignment.Center
-                                },
-                                new TextBlock
-                                {
-                                    Text = title,
-                                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                                    FontSize = 16,
-                                    VerticalAlignment = VerticalAlignment.Center
-                                }
-                            }
-                        },
-                        new TextBlock
-                        {
-                            Text = message,
-                            TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
-                            Margin = new Thickness(0, 0, 0, 12)
-                        },
-                        okButton
-                    }
-                },
-                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
-            };
-
-            okButton.Click += (s, e) => flyout.Hide();
-            flyout.ShowAt(anchor);
-        }
-
-        private void ShowSuccessFlyout(FrameworkElement? anchor, string title, string message)
-        {
-            if (anchor == null) return;
-
-            var okButton = new Button
-            {
-                Content = "OK",
-                HorizontalAlignment = HorizontalAlignment.Right,
-                MinWidth = 80
-            };
-
-            var flyout = new Flyout
-            {
-                Content = new StackPanel
-                {
-                    Width = 300,
-                    Children =
-                    {
-                        new StackPanel
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Margin = new Thickness(0, 0, 0, 8),
-                            Children =
-                            {
-                                new FontIcon
-                                {
-                                    Glyph = "\uE73E", // Checkmark icon
-                                    FontSize = 16,
-                                    Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)),
-                                    Margin = new Thickness(0, 0, 8, 0),
-                                    VerticalAlignment = VerticalAlignment.Center
-                                },
-                                new TextBlock
-                                {
-                                    Text = title,
-                                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                                    FontSize = 16,
-                                    VerticalAlignment = VerticalAlignment.Center
-                                }
-                            }
-                        },
-                        new TextBlock
-                        {
-                            Text = message,
-                            TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
-                            Margin = new Thickness(0, 0, 0, 12)
-                        },
-                        okButton
-                    }
-                },
-                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
-            };
-
-            okButton.Click += (s, e) => flyout.Hide();
-            flyout.ShowAt(anchor);
-        }
-
-        private async Task<bool> ShowConfirmationFlyoutWithResult(FrameworkElement? anchor, string title, string message, string confirmText = "Continue", string cancelText = "Cancel")
-        {
-            if (anchor == null) return false;
-
-            var tcs = new TaskCompletionSource<bool>();
-
-            var confirmButton = new Button
-            {
-                Content = confirmText,
-                Style = Application.Current.Resources["AccentButtonStyle"] as Style,
-                Margin = new Thickness(0, 0, 8, 0),
-                HorizontalAlignment = HorizontalAlignment.Left
-            };
-
-            var cancelButton = new Button
-            {
-                Content = cancelText,
-                HorizontalAlignment = HorizontalAlignment.Left
-            };
-
-            var flyout = new Flyout
-            {
-                Content = new StackPanel
-                {
-                    Width = 300,
-                    Children =
-                    {
-                        new TextBlock
-                        {
-                            Text = title,
-                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                            FontSize = 16,
-                            Margin = new Thickness(0, 0, 0, 8)
-                        },
-                        new TextBlock
-                        {
-                            Text = message,
-                            TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
-                            Margin = new Thickness(0, 0, 0, 12)
-                        },
-                        new StackPanel
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Children = { confirmButton, cancelButton }
-                        }
-                    }
-                },
-                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
-            };
-
-            confirmButton.Click += (s, e) =>
-            {
-                tcs.SetResult(true);
-                flyout.Hide();
-            };
-
-            cancelButton.Click += (s, e) =>
-            {
-                tcs.SetResult(false);
-                flyout.Hide();
-            };
-
-            flyout.ShowAt(anchor);
-            return await tcs.Task;
-        }
+        // Methods updated to use FlyoutHelper
 
         // Helper method to register managed save
         private async Task RegisterManagedSave(MinecraftSave save)
