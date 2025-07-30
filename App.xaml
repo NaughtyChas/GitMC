@@ -50,12 +50,6 @@
                 <Setter Property="UseLayoutRounding" Value="True" />
             </Style>
 
-            <!--  Button font support  -->
-            <Style TargetType="Button">
-                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
-                <Setter Property="UseLayoutRounding" Value="True" />
-            </Style>
-
             <!--  FontIcon style for better rendering  -->
             <Style TargetType="FontIcon">
                 <Setter Property="UseLayoutRounding" Value="True" />

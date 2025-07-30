@@ -5,6 +5,7 @@ using GitMC.Models;
 using GitMC.Services;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
@@ -205,11 +206,13 @@ namespace GitMC.Views
             // Status badge
             var statusBadge = new Border
             {
-                Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 152, 0)),
+                Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 248, 197)),
                 CornerRadius = new CornerRadius(12),
+                BorderThickness = new Thickness(1),
+                BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(255, 238, 216, 136)),
                 Padding = new Thickness(8, 4, 8, 4),
                 Margin = new Thickness(8, 0, 8, 0),
-                VerticalAlignment = VerticalAlignment.Top,
+                VerticalAlignment = VerticalAlignment.Center,
                 UseLayoutRounding = true
             };
 
@@ -217,7 +220,7 @@ namespace GitMC.Views
             {
                 Text = "modified",
                 FontSize = 10,
-                Foreground = new SolidColorBrush(Colors.White),
+                Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 211, 149, 0)),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 UseLayoutRounding = true
             };
@@ -231,7 +234,7 @@ namespace GitMC.Views
                 Height = 32,
                 MinWidth = 60,
                 Style = Application.Current.Resources["AccentButtonStyle"] as Style,
-                VerticalAlignment = VerticalAlignment.Top,
+                VerticalAlignment = VerticalAlignment.Center,
                 UseLayoutRounding = true
             };
             openButton.Click += (s, e) => ShowSaveActions(saveInfo);
@@ -252,19 +255,19 @@ namespace GitMC.Views
             Grid.SetRow(infoGrid, 1);
 
             // Branch info
-            var branchInfoPanel = CreateInfoPanel("\uE8B5", "Branch", "main", ColorHelper.FromArgb(255, 128, 128, 128));
+            var branchInfoPanel = CreateInfoPanel(null, "Assets/Icons/branch_grey.svg", "Branch", "main", ColorHelper.FromArgb(255, 114, 114, 130));
             Grid.SetColumn(branchInfoPanel, 0);
 
             // Size info
-            var sizeInfoPanel = CreateInfoPanel("\uE8B5", "Size", "2.4 GB", ColorHelper.FromArgb(255, 128, 128, 128));
+            var sizeInfoPanel = CreateInfoPanel(null, "Assets/Icons/db_grey.svg", "Size", "2.4 GB", ColorHelper.FromArgb(255, 114, 114, 130));
             Grid.SetColumn(sizeInfoPanel, 1);
 
             // Commits info
-            var commitsInfoPanel = CreateInfoPanel("\uE8A7", "Commits", "45", ColorHelper.FromArgb(255, 128, 128, 128));
+            var commitsInfoPanel = CreateInfoPanel(null, "Assets/Icons/commit_grey.svg", "Commits", "45", ColorHelper.FromArgb(255, 114, 114, 130));
             Grid.SetColumn(commitsInfoPanel, 2);
 
             // Modified info
-            var modifiedInfoPanel = CreateInfoPanel("\uE823", "Modified", "2 hours ago", ColorHelper.FromArgb(255, 128, 128, 128));
+            var modifiedInfoPanel = CreateInfoPanel("\uE823", null, "Modified", "2 hours ago", ColorHelper.FromArgb(255, 114, 114, 130));
             Grid.SetColumn(modifiedInfoPanel, 3);
 
             infoGrid.Children.Add(branchInfoPanel);
@@ -289,12 +292,21 @@ namespace GitMC.Views
             };
             Grid.SetRow(gitStatusPanel, 3);
 
+            var gitStatusHeader = new TextBlock
+            {
+                Text = "Git Status:",
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                UseLayoutRounding = true
+            };
+            gitStatusPanel.Children.Add(gitStatusHeader);
+
             // Push badge
-            var pushBadge = CreateGitStatusBadge("\uE898", "1 to push", ColorHelper.FromArgb(255, 33, 150, 243));
+            var pushBadge = CreateGitStatusBadge("\uE898", "1 to push", ColorHelper.FromArgb(255, 78, 142, 246));
             gitStatusPanel.Children.Add(pushBadge);
 
             // Pull badge
-            var pullBadge = CreateGitStatusBadge("\uE896", "2 to pull", ColorHelper.FromArgb(255, 255, 152, 0));
+            var pullBadge = CreateGitStatusBadge("\uE896", "2 to pull", ColorHelper.FromArgb(255, 78, 142, 246));
             gitStatusPanel.Children.Add(pullBadge);
 
             mainGrid.Children.Add(headerGrid);
@@ -306,7 +318,7 @@ namespace GitMC.Views
             return saveCard;
         }
 
-        private StackPanel CreateInfoPanel(string iconGlyph, string title, string data, Windows.UI.Color iconColor)
+        private StackPanel CreateInfoPanel(string? iconGlyph, string? iconPath, string title, string data, Windows.UI.Color iconColor)
         {
             var panel = new StackPanel
             {
@@ -314,15 +326,56 @@ namespace GitMC.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            var icon = new FontIcon
+            // Add icon based on which parameter is provided
+            if (!string.IsNullOrEmpty(iconPath))
             {
-                FontSize = 12,
-                Glyph = iconGlyph,
-                Foreground = new SolidColorBrush(iconColor),
-                Margin = new Thickness(0, 0, 8, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-                UseLayoutRounding = true
-            };
+                // Use #727282 for greyed-out icon when fontIcon got rgb(114, 114, 130)
+                // I know it is not an elegant solution, but it works for now
+                if (iconPath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+                {
+                    var imageIcon = new ImageIcon
+                    {
+                        Source = new SvgImageSource(new Uri($"ms-appx:///{iconPath.TrimStart('/', '.')}")),
+                        Foreground = new SolidColorBrush(iconColor),
+                        Width = 16,
+                        Height = 16,
+                        Margin = new Thickness(0, 0, 8, 0),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        UseLayoutRounding = true
+                    };
+                    panel.Children.Add(imageIcon);
+                }
+                else
+                {
+                    // For PNG/other formats, use Image with potential color overlay
+                    var image = new Image
+                    {
+                        Source = new BitmapImage(new Uri($"ms-appx:///{iconPath.TrimStart('/', '.')}")),
+                        Width = 16,
+                        Height = 16,
+                        Margin = new Thickness(0, 0, 8, 0),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        UseLayoutRounding = true,
+                        // Note: For PNG images, Foreground won't change the color
+                        // Consider using a color overlay or different colored images
+                    };
+                    panel.Children.Add(image);
+                }
+            }
+            else if (!string.IsNullOrEmpty(iconGlyph))
+            {
+                // FontIcon supports Foreground color properly
+                var fontIcon = new FontIcon
+                {
+                    FontSize = 16,
+                    Glyph = iconGlyph,
+                    Foreground = new SolidColorBrush(iconColor),
+                    Margin = new Thickness(0, 0, 8, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    UseLayoutRounding = true
+                };
+                panel.Children.Add(fontIcon);
+            }
 
             var textPanel = new StackPanel
             {
@@ -331,7 +384,7 @@ namespace GitMC.Views
 
             var titleText = new TextBlock
             {
-                FontSize = 10,
+                FontSize = 11,
                 Text = title,
                 Foreground = new SolidColorBrush(Colors.Gray),
                 Margin = new Thickness(0, 0, 0, 2),
@@ -340,7 +393,7 @@ namespace GitMC.Views
 
             var dataText = new TextBlock
             {
-                FontSize = 12,
+                FontSize = 13,
                 Text = data,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.Black),
@@ -349,8 +402,6 @@ namespace GitMC.Views
 
             textPanel.Children.Add(titleText);
             textPanel.Children.Add(dataText);
-
-            panel.Children.Add(icon);
             panel.Children.Add(textPanel);
 
             return panel;
@@ -363,7 +414,7 @@ namespace GitMC.Views
                 Background = new SolidColorBrush(ColorHelper.FromArgb(50, color.R, color.G, color.B)), // Light background
                 BorderBrush = new SolidColorBrush(color),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
+                CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(8, 4, 8, 4),
                 UseLayoutRounding = true
             };

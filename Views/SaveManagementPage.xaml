@@ -306,11 +306,15 @@
 
             <!--  Right Sidebar - Quick Actions & Recent Activity  -->
             <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="16" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Disabled"
+                             Padding="0,0,8,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="16" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
                 <!--  Quick Actions Panel  -->
                 <Border
@@ -542,6 +546,8 @@
                         </ScrollViewer>
                     </StackPanel>
                 </Border>
+                    </Grid>
+                </ScrollViewer>
             </Grid>
         </Grid>
 

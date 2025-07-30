@@ -31,6 +31,9 @@ namespace GitMC.Views
             _ = LoadExistingSavesToNavigationAsync(); // Load saved entries on startup
             NavigateToHomePage();
             ContentFrame.Navigated += ContentFrame_Navigated;
+
+            // Only subscribe to window close event for saving configuration
+            Closed += MainWindow_Closed;
         }
 
         private async void NavigateToHomePage()
@@ -101,13 +104,67 @@ namespace GitMC.Views
             return _dataStorageService.GetManagedSavesDirectory();
         }
 
-        private void SetWindowProperties()
+        private async void SetWindowProperties()
         {
             Title = "GitMC";
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(TitleBar);
             AppWindow.SetIcon("Assets/Icons/mcIcon.png");
             AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
+
+            // Load configuration first
+            await _configurationService.LoadAsync();
+
+            // Define minimum window size (800x600)
+            const int MinWidth = 800;
+            const int MinHeight = 600;
+
+            // Default window size (1000x700) - used for first launch
+            const int DefaultWidth = 1000;
+            const int DefaultHeight = 700;
+
+            // Check if this is the first launch
+            bool isFirstLaunch = !_configurationService.IsFirstLaunchComplete;
+
+            if (isFirstLaunch)
+            {
+                // First launch: use default size and center the window
+                AppWindow.Resize(new Windows.Graphics.SizeInt32(DefaultWidth, DefaultHeight));
+
+                // Center the window on screen
+                var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
+                if (displayArea != null)
+                {
+                    var centerX = (displayArea.WorkArea.Width - DefaultWidth) / 2;
+                    var centerY = (displayArea.WorkArea.Height - DefaultHeight) / 2;
+                    AppWindow.Move(new Windows.Graphics.PointInt32(centerX, centerY));
+                }
+
+                // Mark first launch as complete
+                _configurationService.IsFirstLaunchComplete = true;
+                await _configurationService.SaveAsync();
+            }
+            else
+            {
+                // Restore saved window size and position
+                var savedWidth = (int)Math.Max(_configurationService.WindowWidth, MinWidth);
+                var savedHeight = (int)Math.Max(_configurationService.WindowHeight, MinHeight);
+                var savedX = (int)_configurationService.WindowX;
+                var savedY = (int)_configurationService.WindowY;
+
+                AppWindow.Resize(new Windows.Graphics.SizeInt32(savedWidth, savedHeight));
+                AppWindow.Move(new Windows.Graphics.PointInt32(savedX, savedY));
+
+                // Restore maximized state if needed
+                if (_configurationService.IsMaximized)
+                {
+                    var presenter = AppWindow.Presenter as Microsoft.UI.Windowing.OverlappedPresenter;
+                    presenter?.Maximize();
+                }
+            }
+
+            // Set up window size change monitoring to enforce minimum size
+            AppWindow.Changed += AppWindow_Changed;
         }
 
         public void NavigateToPage(Type pageType)
@@ -343,6 +400,69 @@ namespace GitMC.Views
             else
             {
                 NavView.SelectedItem = null;
+            }
+        }
+
+        // Window event handlers for size and position management
+        private void AppWindow_Changed(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowChangedEventArgs args)
+        {
+            // Enforce minimum window size
+            const int MinWidth = 1366;
+            const int MinHeight = 720;
+
+            if (args.DidSizeChange)
+            {
+                var currentSize = sender.Size;
+                bool needsResize = false;
+                int newWidth = currentSize.Width;
+                int newHeight = currentSize.Height;
+
+                if (currentSize.Width < MinWidth)
+                {
+                    newWidth = MinWidth;
+                    needsResize = true;
+                }
+
+                if (currentSize.Height < MinHeight)
+                {
+                    newHeight = MinHeight;
+                    needsResize = true;
+                }
+
+                if (needsResize)
+                {
+                    sender.Resize(new Windows.Graphics.SizeInt32(newWidth, newHeight));
+                }
+            }
+        }
+
+        private async void MainWindow_Closed(object sender, Microsoft.UI.Xaml.WindowEventArgs e)
+        {
+            // Save current window state when closing
+            try
+            {
+                var presenter = AppWindow.Presenter as Microsoft.UI.Windowing.OverlappedPresenter;
+                if (presenter != null)
+                {
+                    // Save maximized state
+                    _configurationService.IsMaximized = presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized;
+
+                    // Only save size and position if not maximized
+                    if (presenter.State != Microsoft.UI.Windowing.OverlappedPresenterState.Maximized)
+                    {
+                        _configurationService.WindowWidth = AppWindow.Size.Width;
+                        _configurationService.WindowHeight = AppWindow.Size.Height;
+                        _configurationService.WindowX = AppWindow.Position.X;
+                        _configurationService.WindowY = AppWindow.Position.Y;
+                    }
+                }
+
+                // Save configuration to file
+                await _configurationService.SaveAsync();
+            }
+            catch
+            {
+                // Ignore save errors on close
             }
         }
     }
