@@ -179,12 +179,12 @@
                             Height="32"
                             VerticalAlignment="Center"
                             Width="32">
-                            <FontIcon
-                                FontSize="16"
-                                Foreground="#C2185B"
-                                Glyph="&#xE8B5;"
+                            <ImageIcon
+                                Height="16"
                                 HorizontalAlignment="Center"
-                                VerticalAlignment="Center" />
+                                Source="../Assets/Icons/db.svg"
+                                VerticalAlignment="Center"
+                                Width="16" />
                         </Border>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock
@@ -306,9 +306,10 @@
 
             <!--  Right Sidebar - Quick Actions & Recent Activity  -->
             <Grid Grid.Column="2">
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                             HorizontalScrollBarVisibility="Disabled"
-                             Padding="0,0,8,0">
+                <ScrollViewer
+                    HorizontalScrollBarVisibility="Disabled"
+                    Padding="0,0,8,0"
+                    VerticalScrollBarVisibility="Auto">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -316,236 +317,236 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                <!--  Quick Actions Panel  -->
-                <Border
-                    Background="White"
-                    BorderBrush="#E1E1E1"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Grid.Row="0"
-                    Padding="20">
-                    <StackPanel>
-                        <!--  Quick Actions Header  -->
-                        <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
-                            <FontIcon
-                                FontSize="16"
-                                Glyph="&#xE945;"
-                                Margin="0,0,8,0"
-                                VerticalAlignment="Center" />
-                            <TextBlock
-                                FontSize="16"
-                                FontWeight="SemiBold"
-                                Text="Quick Actions"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
-
-                        <!--  Action Buttons  -->
-                        <StackPanel Spacing="8">
-                            <Button
-                                Click="CommitAllButton_Click"
-                                Height="60"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Padding="12,0,0,0"
-                                x:Name="CommitAllButton">
-                                <StackPanel
-                                    HorizontalAlignment="Left"
-                                    Margin="16,0,12,0"
-                                    Orientation="Horizontal"
-                                    VerticalAlignment="Center">
+                        <!--  Quick Actions Panel  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Grid.Row="0"
+                            Padding="20">
+                            <StackPanel>
+                                <!--  Quick Actions Header  -->
+                                <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
                                     <FontIcon
                                         FontSize="16"
-                                        Glyph="&#xE8A7;"
-                                        Margin="0,0,12,0"
+                                        Glyph="&#xE945;"
+                                        Margin="0,0,8,0"
                                         VerticalAlignment="Center" />
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock
-                                            FontSize="14"
-                                            FontWeight="SemiBold"
-                                            Text="Commit All Changes" />
-                                        <TextBlock
-                                            FontSize="11"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Margin="0,2,0,0"
-                                            Text="Save current changes to Git" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </Button>
-
-                            <Button
-                                Click="FetchAllButton_Click"
-                                Height="60"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Padding="12,0,0,0"
-                                x:Name="FetchAllButton">
-                                <StackPanel
-                                    HorizontalAlignment="Left"
-                                    Margin="16,0,12,0"
-                                    Orientation="Horizontal"
-                                    VerticalAlignment="Center">
-                                    <FontIcon
+                                    <TextBlock
                                         FontSize="16"
-                                        Glyph="&#xE895;"
-                                        Margin="0,0,12,0"
+                                        FontWeight="SemiBold"
+                                        Text="Quick Actions"
                                         VerticalAlignment="Center" />
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock
-                                            FontSize="14"
-                                            FontWeight="SemiBold"
-                                            Text="Fetch All Changes" />
-                                        <TextBlock
-                                            FontSize="11"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Margin="0,2,0,0"
-                                            Text="Check updates from remote repo" />
-                                    </StackPanel>
                                 </StackPanel>
-                            </Button>
 
-                            <Button
-                                Click="PullAllButton_Click"
-                                Height="60"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Padding="12,0,0,0"
-                                x:Name="PullAllButton">
-                                <Grid>
-                                    <StackPanel
-                                        HorizontalAlignment="Left"
-                                        Margin="16,0,12,0"
-                                        Orientation="Horizontal"
-                                        VerticalAlignment="Center">
-                                        <FontIcon
-                                            FontSize="16"
-                                            Glyph="&#xE896;"
-                                            Margin="0,0,12,0"
-                                            VerticalAlignment="Center" />
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock
-                                                FontSize="14"
-                                                FontWeight="SemiBold"
-                                                Text="Pull All Changes" />
-                                            <TextBlock
-                                                FontSize="11"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Margin="0,2,0,0"
-                                                Text="Apply updates from remote repo" />
+                                <!--  Action Buttons  -->
+                                <StackPanel Spacing="8">
+                                    <Button
+                                        Click="CommitAllButton_Click"
+                                        Height="60"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="12,0,0,0"
+                                        x:Name="CommitAllButton">
+                                        <StackPanel
+                                            HorizontalAlignment="Left"
+                                            Margin="16,0,12,0"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                            <FontIcon
+                                                FontSize="16"
+                                                Glyph="&#xE8A7;"
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Center" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    FontWeight="SemiBold"
+                                                    Text="Commit All Changes" />
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Margin="0,2,0,0"
+                                                    Text="Save current changes to Git" />
+                                            </StackPanel>
                                         </StackPanel>
-                                    </StackPanel>
-                                    <Border
-                                        Background="#FF6B6B"
-                                        CornerRadius="10"
-                                        Height="20"
-                                        HorizontalAlignment="Right"
-                                        Margin="0,0,16,0"
-                                        MinWidth="20"
-                                        VerticalAlignment="Center"
-                                        Visibility="Collapsed"
-                                        x:Name="PullBadge">
-                                        <TextBlock
-                                            FontSize="10"
-                                            Foreground="White"
-                                            HorizontalAlignment="Center"
-                                            Text="0"
-                                            VerticalAlignment="Center"
-                                            x:Name="PullBadgeText" />
-                                    </Border>
-                                </Grid>
-                            </Button>
+                                    </Button>
 
-                            <Button
-                                Click="PushAllButton_Click"
-                                Height="60"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Padding="12,0,0,0"
-                                x:Name="PushAllButtonSidebar">
-                                <Grid>
-                                    <StackPanel
-                                        HorizontalAlignment="Left"
-                                        Margin="16,0,12,0"
-                                        Orientation="Horizontal"
-                                        VerticalAlignment="Center">
-                                        <FontIcon
-                                            FontSize="16"
-                                            Glyph="&#xE898;"
-                                            Margin="0,0,12,0"
-                                            VerticalAlignment="Center" />
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock
-                                                FontSize="14"
-                                                FontWeight="SemiBold"
-                                                Text="Push All Changes" />
-                                            <TextBlock
-                                                FontSize="11"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Margin="0,2,0,0"
-                                                Text="Upload local commits to remote" />
+                                    <Button
+                                        Click="FetchAllButton_Click"
+                                        Height="60"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="12,0,0,0"
+                                        x:Name="FetchAllButton">
+                                        <StackPanel
+                                            HorizontalAlignment="Left"
+                                            Margin="16,0,12,0"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                            <FontIcon
+                                                FontSize="16"
+                                                Glyph="&#xE895;"
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Center" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    FontWeight="SemiBold"
+                                                    Text="Fetch All Changes" />
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Margin="0,2,0,0"
+                                                    Text="Check updates from remote repo" />
+                                            </StackPanel>
                                         </StackPanel>
-                                    </StackPanel>
-                                    <Border
-                                        Background="#4CAF50"
-                                        CornerRadius="10"
-                                        Height="20"
-                                        HorizontalAlignment="Right"
-                                        Margin="0,0,16,0"
-                                        MinWidth="20"
-                                        VerticalAlignment="Center"
-                                        Visibility="Collapsed"
-                                        x:Name="PushBadge">
-                                        <TextBlock
-                                            FontSize="10"
-                                            Foreground="White"
-                                            HorizontalAlignment="Center"
-                                            Text="0"
-                                            VerticalAlignment="Center"
-                                            x:Name="PushBadgeText" />
-                                    </Border>
-                                </Grid>
-                            </Button>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
+                                    </Button>
 
-                <!--  Recent Activity Panel  -->
-                <Border
-                    Background="White"
-                    BorderBrush="#E1E1E1"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Grid.Row="2"
-                    Padding="20">
-                    <StackPanel>
-                        <!--  Recent Activity Header  -->
-                        <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
-                            <FontIcon
-                                FontSize="16"
-                                Glyph="&#xE823;"
-                                Margin="0,0,8,0"
-                                VerticalAlignment="Center" />
-                            <TextBlock
-                                FontSize="16"
-                                FontWeight="SemiBold"
-                                Text="Recent Activity"
-                                VerticalAlignment="Center" />
-                        </StackPanel>
+                                    <Button
+                                        Click="PullAllButton_Click"
+                                        Height="60"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="12,0,0,0"
+                                        x:Name="PullAllButton">
+                                        <Grid>
+                                            <StackPanel
+                                                HorizontalAlignment="Left"
+                                                Margin="16,0,12,0"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    FontSize="16"
+                                                    Glyph="&#xE896;"
+                                                    Margin="0,0,12,0"
+                                                    VerticalAlignment="Center" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock
+                                                        FontSize="14"
+                                                        FontWeight="SemiBold"
+                                                        Text="Pull All Changes" />
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Margin="0,2,0,0"
+                                                        Text="Apply updates from remote repo" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <Border
+                                                Background="#FF6B6B"
+                                                CornerRadius="10"
+                                                Height="20"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,0,16,0"
+                                                MinWidth="20"
+                                                VerticalAlignment="Center"
+                                                Visibility="Collapsed"
+                                                x:Name="PullBadge">
+                                                <TextBlock
+                                                    FontSize="10"
+                                                    Foreground="White"
+                                                    HorizontalAlignment="Center"
+                                                    Text="0"
+                                                    VerticalAlignment="Center"
+                                                    x:Name="PullBadgeText" />
+                                            </Border>
+                                        </Grid>
+                                    </Button>
 
-                        <!--  Activity List  -->
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Spacing="10" x:Name="RecentActivityContainer">
-                                <!--  Activity items will be populated dynamically  -->
-                                <TextBlock
-                                    FontSize="13"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    HorizontalAlignment="Center"
-                                    Margin="0,20,0,0"
-                                    Text="No recent activity"
-                                    x:Name="NoActivityText" />
+                                    <Button
+                                        Click="PushAllButton_Click"
+                                        Height="60"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="12,0,0,0"
+                                        x:Name="PushAllButtonSidebar">
+                                        <Grid>
+                                            <StackPanel
+                                                HorizontalAlignment="Left"
+                                                Margin="16,0,12,0"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    FontSize="16"
+                                                    Glyph="&#xE898;"
+                                                    Margin="0,0,12,0"
+                                                    VerticalAlignment="Center" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock
+                                                        FontSize="14"
+                                                        FontWeight="SemiBold"
+                                                        Text="Push All Changes" />
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Margin="0,2,0,0"
+                                                        Text="Upload local commits to remote" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <Border
+                                                Background="#4CAF50"
+                                                CornerRadius="10"
+                                                Height="20"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,0,16,0"
+                                                MinWidth="20"
+                                                VerticalAlignment="Center"
+                                                Visibility="Collapsed"
+                                                x:Name="PushBadge">
+                                                <TextBlock
+                                                    FontSize="10"
+                                                    Foreground="White"
+                                                    HorizontalAlignment="Center"
+                                                    Text="0"
+                                                    VerticalAlignment="Center"
+                                                    x:Name="PushBadgeText" />
+                                            </Border>
+                                        </Grid>
+                                    </Button>
+                                </StackPanel>
                             </StackPanel>
-                        </ScrollViewer>
-                    </StackPanel>
-                </Border>
+                        </Border>
+
+                        <!--  Recent Activity Panel  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Grid.Row="2"
+                            Padding="20">
+                            <StackPanel>
+                                <!--  Recent Activity Header  -->
+                                <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
+                                    <FontIcon
+                                        FontSize="16"
+                                        Glyph="&#xE823;"
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center" />
+                                    <TextBlock
+                                        FontSize="16"
+                                        FontWeight="SemiBold"
+                                        Text="Recent Activity"
+                                        VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <!--  Activity List  -->
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="10" x:Name="RecentActivityContainer">
+                                        <!--  Activity items will be populated dynamically  -->
+                                        <TextBlock
+                                            FontSize="13"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            HorizontalAlignment="Center"
+                                            Margin="0,20,0,0"
+                                            Text="No recent activity"
+                                            x:Name="NoActivityText" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </ScrollViewer>
             </Grid>
