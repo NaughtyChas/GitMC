@@ -6,6 +6,7 @@ namespace GitMC.Services
     {
         private readonly IGitService _gitService;
         private readonly IConfigurationService _configurationService;
+        private readonly IDataStorageService _dataStorageService;
         private int _currentStepIndex;
         private OnboardingStepStatus[] _stepStatuses = Array.Empty<OnboardingStepStatus>();
         private OnboardingStep[] _steps = Array.Empty<OnboardingStep>();
@@ -16,8 +17,9 @@ namespace GitMC.Services
         {
             _gitService = gitService;
             _configurationService = configurationService;
+            _dataStorageService = new DataStorageService();
             InitializeSteps();
-            
+
             // Subscribe to configuration changes to update steps
             _configurationService.ConfigurationChanged += OnConfigurationChanged;
         }
@@ -50,10 +52,10 @@ namespace GitMC.Services
                     _configurationService.IsSaveAdded = value;
                     break;
             }
-            
+
             // Ensure configuration is immediately saved to file
             await _configurationService.SaveAsync();
-            
+
             // Refresh steps after configuration change
             await RefreshAllSteps();
         }
@@ -125,8 +127,8 @@ namespace GitMC.Services
             }
         }
 
-        public bool IsOnboardingComplete => 
-            _stepStatuses.Length > 0 && 
+        public bool IsOnboardingComplete =>
+            _stepStatuses.Length > 0 &&
             Array.TrueForAll(_stepStatuses, status => status == OnboardingStepStatus.Completed);
 
         public int CurrentStepIndex => _currentStepIndex;
@@ -167,7 +169,7 @@ namespace GitMC.Services
                 return;
 
             _stepStatuses[stepIndex] = OnboardingStepStatus.Completed;
-            
+
             // Refresh all steps to check actual conditions and update current step
             await RefreshAllSteps();
         }
@@ -204,7 +206,7 @@ namespace GitMC.Services
             for (int i = 0; i < _steps.Length; i++)
             {
                 bool isComplete = await CheckStepStatus(i);
-                
+
                 if (isComplete && _stepStatuses[i] != OnboardingStepStatus.Completed)
                 {
                     _stepStatuses[i] = OnboardingStepStatus.Completed;
@@ -233,11 +235,11 @@ namespace GitMC.Services
                     {
                         _stepStatuses[_currentStepIndex] = OnboardingStepStatus.NotStarted;
                     }
-                    
+
                     _currentStepIndex = newCurrentStep;
                     hasChanges = true;
                 }
-                
+
                 if (_stepStatuses[newCurrentStep] != OnboardingStepStatus.Current)
                 {
                     _stepStatuses[newCurrentStep] = OnboardingStepStatus.Current;
@@ -284,7 +286,32 @@ namespace GitMC.Services
 
         private Task<bool> CheckSaveAdded()
         {
-            return Task.FromResult(_configurationService.IsSaveAdded);
+            // Check actual managed saves existence instead of just config flag
+            return Task.FromResult(HasActualManagedSaves());
+        }
+
+        private bool HasActualManagedSaves()
+        {
+            try
+            {
+                var managedSavesPath = GetManagedSavesStoragePath();
+                if (!Directory.Exists(managedSavesPath))
+                {
+                    return false;
+                }
+
+                var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+                return jsonFiles.Length > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private string GetManagedSavesStoragePath()
+        {
+            return _dataStorageService.GetManagedSavesDirectory();
         }
 
         private void NotifyPropertyChanged(string propertyName)

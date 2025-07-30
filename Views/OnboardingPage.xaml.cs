@@ -17,6 +17,9 @@ namespace GitMC.Views
         private readonly IGitService _gitService;
         private readonly IConfigurationService _configurationService;
         private readonly IOnboardingService _onboardingService;
+        private readonly IDataStorageService _dataStorageService;
+
+        private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -26,6 +29,7 @@ namespace GitMC.Views
             _nbtService = new NbtService();
             _gitService = new GitService();
             _configurationService = new ConfigurationService();
+            _dataStorageService = new DataStorageService();
             _onboardingService = new OnboardingService(_gitService, _configurationService);
 
             // Subscribe to onboarding changes
@@ -338,8 +342,10 @@ namespace GitMC.Views
                             mainWindow.AddSaveToNavigation(save.Name, save.Path);
                         }
 
-                        // Mark save as added
-                        await _onboardingService.SetConfigurationValueAsync("SaveAdded", true);
+                        // Register this save in our managed saves system
+                        await RegisterManagedSave(save);
+
+                        // Complete step 4 (save will be detected by OnboardingService automatically)
                         await _onboardingService.CompleteStep(4);
 
                         // Navigate to save management page after adding save
@@ -402,8 +408,7 @@ namespace GitMC.Views
                             mainWindow.AddSaveToNavigation(save.Name, save.Path);
                         }
 
-                        // Mark save as added and complete onboarding
-                        await _onboardingService.SetConfigurationValueAsync("SaveAdded", true);
+                        // Complete step 4 (save will be detected by OnboardingService automatically)
                         await _onboardingService.CompleteStep(4);
 
                         // Navigate to save management page after adding save
@@ -1043,6 +1048,49 @@ namespace GitMC.Views
 
             flyout.ShowAt(anchor);
             return await tcs.Task;
+        }
+
+        // Helper method to register managed save
+        private async Task RegisterManagedSave(MinecraftSave save)
+        {
+            try
+            {
+                var managedSavesPath = _dataStorageService.GetManagedSavesDirectory();
+
+                if (!Directory.Exists(managedSavesPath))
+                {
+                    Directory.CreateDirectory(managedSavesPath);
+                }
+
+                var saveId = GenerateSaveId(save.Name);
+                var saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
+
+                var saveInfo = new ManagedSaveInfo
+                {
+                    Id = saveId,
+                    Name = save.Name,
+                    OriginalPath = save.Path,
+                    AddedDate = DateTime.UtcNow,
+                    LastModified = DateTime.UtcNow,
+                    GitRepository = "",
+                    IsGitInitialized = false
+                };
+
+                var json = System.Text.Json.JsonSerializer.Serialize(saveInfo, JsonOptions);
+                await File.WriteAllTextAsync(saveInfoPath, json);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to register managed save: {ex.Message}");
+            }
+        }
+
+        private string GenerateSaveId(string saveName)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+            return $"{safeName}_{timestamp}";
         }
     }
 }

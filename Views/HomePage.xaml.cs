@@ -12,6 +12,7 @@ namespace GitMC.Views
         private readonly IOnboardingService _onboardingService;
         private readonly IGitService _gitService;
         private readonly IConfigurationService _configurationService;
+        private readonly IDataStorageService _dataStorageService;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -20,6 +21,7 @@ namespace GitMC.Views
             InitializeComponent();
             _gitService = new GitService();
             _configurationService = new ConfigurationService();
+            _dataStorageService = new DataStorageService();
             _onboardingService = new OnboardingService(_gitService, _configurationService);
 
             DataContext = this;
@@ -94,9 +96,7 @@ namespace GitMC.Views
 
         private string GetManagedSavesStoragePath()
         {
-            // Get the application data path
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            return Path.Combine(appDataPath, "GitMC", "ManagedSaves");
+            return _dataStorageService.GetManagedSavesDirectory();
         }
 
         private void OnPropertyChanged(string propertyName)

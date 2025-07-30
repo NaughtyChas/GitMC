@@ -6,6 +6,7 @@ namespace GitMC.Services
     public class ConfigurationService : IConfigurationService
     {
         private readonly string _configFilePath;
+        private readonly IDataStorageService _dataStorageService;
         private Dictionary<string, object> _settings = new();
         private readonly object _lock = new object();
 
@@ -14,36 +15,22 @@ namespace GitMC.Services
 
         public ConfigurationService()
         {
-            // For portable deployment, store config in the same directory as the executable
-            var exeDirectory = Path.GetDirectoryName(Environment.ProcessPath) ?? 
-                              Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ??
-                              Environment.CurrentDirectory;
-            
-            // Fallback to LocalAppData for development/debug scenarios
-            if (string.IsNullOrEmpty(exeDirectory) || !Directory.Exists(exeDirectory))
-            {
-                var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                exeDirectory = Path.Combine(appDataPath, "GitMC");
-            }
-            
-            // Ensure directory exists
-            if (!Directory.Exists(exeDirectory))
-            {
-                Directory.CreateDirectory(exeDirectory);
-            }
-            
-            _configFilePath = Path.Combine(exeDirectory, "config.json");
+            _dataStorageService = new DataStorageService();
+            _configFilePath = _dataStorageService.GetConfigurationFilePath();
         }
 
         public async Task LoadAsync()
         {
             try
             {
+                // Ensure data directories exist first
+                await _dataStorageService.EnsureDirectoriesExistAsync().ConfigureAwait(false);
+
                 if (File.Exists(_configFilePath))
                 {
                     var json = await File.ReadAllTextAsync(_configFilePath);
                     var loaded = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
-                    
+
                     lock (_lock)
                     {
                         _settings.Clear();
@@ -55,7 +42,7 @@ namespace GitMC.Services
                             }
                         }
                     }
-                    
+
                     // Notify all properties changed after loading
                     NotifyAllPropertiesChanged();
                 }
@@ -77,12 +64,12 @@ namespace GitMC.Services
                 string json;
                 lock (_lock)
                 {
-                    json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions 
-                    { 
-                        WriteIndented = true 
+                    json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions
+                    {
+                        WriteIndented = true
                     });
                 }
-                await File.WriteAllTextAsync(_configFilePath, json);
+                await File.WriteAllTextAsync(_configFilePath, json).ConfigureAwait(false);
             }
             catch
             {
@@ -113,7 +100,7 @@ namespace GitMC.Services
                     changed = true;
                 }
             }
-            
+
             if (changed)
             {
                 // Auto-save on every change
@@ -146,7 +133,7 @@ namespace GitMC.Services
                     changed = true;
                 }
             }
-            
+
             if (changed)
             {
                 _ = Task.Run(SaveAsync);
@@ -183,7 +170,7 @@ namespace GitMC.Services
                     changed = true;
                 }
             }
-            
+
             if (changed)
             {
                 _ = Task.Run(SaveAsync);
@@ -236,7 +223,7 @@ namespace GitMC.Services
                     }
                 }
             }
-            
+
             if (changed)
             {
                 _ = Task.Run(SaveAsync);
@@ -273,7 +260,7 @@ namespace GitMC.Services
                     changed = true;
                 }
             }
-            
+
             if (changed)
             {
                 _ = Task.Run(SaveAsync);
@@ -287,7 +274,7 @@ namespace GitMC.Services
             if (array1 == null && array2 == null) return true;
             if (array1 == null || array2 == null) return false;
             if (array1.Length != array2.Length) return false;
-            
+
             for (int i = 0; i < array1.Length; i++)
             {
                 if (array1[i] != array2[i]) return false;
@@ -556,51 +543,51 @@ namespace GitMC.Services
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSaveAdded)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsFirstLaunchComplete)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentOnboardingStep)));
-            
+
             // Application preferences
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentLanguage)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Theme)));
-            
+
             // Window state
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WindowWidth)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WindowHeight)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WindowX)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WindowY)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsMaximized)));
-            
+
             // Git settings
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LastUsedGitPath)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DefaultGitUserName)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DefaultGitUserEmail)));
-            
+
             // Save management
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LastOpenedSavePath)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RecentSaves)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MaxRecentSaves)));
-            
+
             // Platform settings
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedPlatform)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlatformToken)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlatformUsername)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlatformEmail)));
-            
+
             // GitHub settings
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubAccessToken)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubUsername)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubRepository)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubPrivateRepo)));
-            
+
             // Git server settings
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitServerUrl)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitUsername)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitAccessToken)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitServerType)));
-            
+
             // Debug settings
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DebugMode)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowPerformanceMetrics)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LogLevel)));
-            
+
             // Backup settings
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AutoBackup)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BackupRetentionDays)));
@@ -617,56 +604,56 @@ namespace GitMC.Services
                 "SaveAdded" => nameof(IsSaveAdded),
                 "FirstLaunchComplete" => nameof(IsFirstLaunchComplete),
                 "CurrentOnboardingStep" => nameof(CurrentOnboardingStep),
-                
+
                 // Application preferences
                 "CurrentLanguage" => nameof(CurrentLanguage),
                 "Theme" => nameof(Theme),
-                
+
                 // Window state
                 "WindowWidth" => nameof(WindowWidth),
                 "WindowHeight" => nameof(WindowHeight),
                 "WindowX" => nameof(WindowX),
                 "WindowY" => nameof(WindowY),
                 "IsMaximized" => nameof(IsMaximized),
-                
+
                 // Git settings
                 "LastUsedGitPath" => nameof(LastUsedGitPath),
                 "DefaultGitUserName" => nameof(DefaultGitUserName),
                 "DefaultGitUserEmail" => nameof(DefaultGitUserEmail),
-                
+
                 // Save management
                 "LastOpenedSavePath" => nameof(LastOpenedSavePath),
                 "RecentSaves" => nameof(RecentSaves),
                 "MaxRecentSaves" => nameof(MaxRecentSaves),
-                
+
                 // Platform settings
                 "SelectedPlatform" => nameof(SelectedPlatform),
                 "PlatformToken" => nameof(PlatformToken),
                 "PlatformUsername" => nameof(PlatformUsername),
                 "PlatformEmail" => nameof(PlatformEmail),
-                
+
                 // GitHub settings
                 "GitHubAccessToken" => nameof(GitHubAccessToken),
                 "GitHubUsername" => nameof(GitHubUsername),
                 "GitHubRepository" => nameof(GitHubRepository),
                 "GitHubPrivateRepo" => nameof(GitHubPrivateRepo),
-                
+
                 // Git server settings
                 "GitServerUrl" => nameof(GitServerUrl),
                 "GitUsername" => nameof(GitUsername),
                 "GitAccessToken" => nameof(GitAccessToken),
                 "GitServerType" => nameof(GitServerType),
-                
+
                 // Debug settings
                 "DebugMode" => nameof(DebugMode),
                 "ShowPerformanceMetrics" => nameof(ShowPerformanceMetrics),
                 "LogLevel" => nameof(LogLevel),
-                
+
                 // Backup settings
                 "AutoBackup" => nameof(AutoBackup),
                 "BackupRetentionDays" => nameof(BackupRetentionDays),
                 "BackupPath" => nameof(BackupPath),
-                
+
                 _ => null
             };
 

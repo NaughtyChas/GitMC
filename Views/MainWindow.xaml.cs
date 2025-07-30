@@ -148,6 +148,19 @@ namespace GitMC.Views
                     }
                 }
             }
+            else if (pageType == typeof(OnboardingPage) || pageType == typeof(SaveManagementPage))
+            {
+                // When HomePage routes to OnboardingPage or SaveManagementPage,
+                // keep Home selected to maintain navigation state
+                foreach (var item in NavView.MenuItems)
+                {
+                    if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Home")
+                    {
+                        NavView.SelectedItem = navItem;
+                        break;
+                    }
+                }
+            }
             else if (pageType == typeof(ConsolePage))
             {
                 foreach (var item in NavView.FooterMenuItems)
