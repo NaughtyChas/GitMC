@@ -21,7 +21,7 @@ namespace GitMC.Views
             AppWindow.SetIcon("Assets/Icons/mcIcon.png");
             AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
         }
-        
+
         public void NavigateToPage(Type pageType)
         {
             ContentFrame.Navigate(pageType);
