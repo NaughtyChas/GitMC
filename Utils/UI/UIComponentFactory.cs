@@ -8,12 +8,12 @@ using Windows.UI;
 namespace GitMC.Utils.UI
 {
     /// <summary>
-    /// Factory for creating common UI components with consistent styling
+    /// UI component factory
     /// </summary>
     public static class UIComponentFactory
     {
         /// <summary>
-        /// Creates a standardized info panel with icon, title, and data
+        /// Creates info panel
         /// </summary>
         public static StackPanel CreateInfoPanel(string? iconGlyph, string? iconPath, string title, string data, Color iconColor)
         {
@@ -100,7 +100,7 @@ namespace GitMC.Utils.UI
         }
 
         /// <summary>
-        /// Creates a standardized Git status badge
+        /// Creates Git status badge
         /// </summary>
         public static Border CreateGitStatusBadge(string iconGlyph, string text, Color color)
         {
@@ -145,7 +145,7 @@ namespace GitMC.Utils.UI
         }
 
         /// <summary>
-        /// Creates a standardized save card container
+        /// Creates save card container
         /// </summary>
         public static Border CreateSaveCard()
         {
@@ -163,7 +163,7 @@ namespace GitMC.Utils.UI
         }
 
         /// <summary>
-        /// Creates a standardized button with accent style
+        /// Creates accent button
         /// </summary>
         public static Button CreateAccentButton(string content, double height = 32, double minWidth = 60)
         {

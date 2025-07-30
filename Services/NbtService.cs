@@ -24,7 +24,7 @@ namespace GitMC.Services
                     // Use fNbt to read the NBT file
                     var nbtFile = new NbtFile();
                     nbtFile.LoadFromFile(filePath);
-                    
+
                     // Convert to SNBT format using SnbtCmd's implementation
                     return nbtFile.RootTag.ToSnbt(SnbtOptions.DefaultExpanded);
                 }
@@ -46,7 +46,7 @@ namespace GitMC.Services
 
                 // Determine file type and handle accordingly
                 var extension = Path.GetExtension(inputPath).ToLowerInvariant();
-                
+
                 if (extension == ".mca" || extension == ".mcc")
                 {
                     // For region files, we need to handle them specially
@@ -67,7 +67,7 @@ namespace GitMC.Services
                 throw new InvalidOperationException($"Error converting {inputPath} to SNBT: {ex.Message}", ex);
             }
         }
-        
+
         /// <summary>
         /// To prevent UI blocking issue we use this async method of file conversion:
         /// </summary>
@@ -83,7 +83,7 @@ namespace GitMC.Services
 
                 // Check file type and their actions
                 var extension = Path.GetExtension(inputPath).ToLowerInvariant();
-                
+
                 if (extension == ".mca" || extension == ".mcc")
                 {
                     // Special handler for region files
@@ -101,7 +101,7 @@ namespace GitMC.Services
                 {
                     throw new NotSupportedException($"Extension is not supported: {extension}");
                 }
-                
+
                 progress?.Report($"Conversion complete! Saved to {Path.GetFileName(outputPath)}");
             }
             catch (Exception ex)
@@ -122,7 +122,7 @@ namespace GitMC.Services
 
                 // Determine target file type from output path
                 var extension = Path.GetExtension(outputPath).ToLowerInvariant();
-                
+
                 if (extension == ".mca" || extension == ".mcc")
                 {
                     // For region files, we need to handle them specially
@@ -143,7 +143,7 @@ namespace GitMC.Services
                 throw new InvalidOperationException($"Error converting {inputPath} from SNBT: {ex.Message}", ex);
             }
         }
-        
+
         /// <summary>
         /// Async snbt conversion method with progress returning
         /// </summary>
@@ -159,7 +159,7 @@ namespace GitMC.Services
 
                 // Check target file type
                 var extension = Path.GetExtension(outputPath).ToLowerInvariant();
-                
+
                 if (extension == ".mca" || extension == ".mcc")
                 {
                     progress?.Report("Converting to mca from snbt...");
@@ -175,7 +175,7 @@ namespace GitMC.Services
                 {
                     throw new NotSupportedException($"File extension not supported: {extension}");
                 }
-                
+
                 progress?.Report($"Conversion complete! Saved to {Path.GetFileName(outputPath)}");
             }
             catch (Exception ex)
@@ -201,13 +201,13 @@ namespace GitMC.Services
 
                     // Convert to SNBT format using SnbtCmd's implementation
                     var snbtContent = nbtFile.RootTag.ToSnbt(SnbtOptions.DefaultExpanded);
-                    
+
                     // Validate SNBT content before writing
                     if (string.IsNullOrEmpty(snbtContent))
                     {
                         throw new InvalidDataException($"Generated SNBT content is empty for file: {inputPath}");
                     }
-                    
+
                     // Prevent file corruption
                     WriteFileAtomically(outputPath, snbtContent);
                 }
@@ -223,13 +223,13 @@ namespace GitMC.Services
             lock (FileLock)
             {
                 var snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
-                
+
                 // Parse SNBT using SnbtCmd's parser
                 var rootTag = SnbtParser.Parse(snbtContent, false);
-                
+
                 // Fix empty lists before creating NBT file
                 FixEmptyLists(rootTag);
-                
+
                 // Create NBT file and save
                 var nbtFile = new NbtFile();
                 if (rootTag is NbtCompound compound)
@@ -247,7 +247,7 @@ namespace GitMC.Services
                     var wrapper = new NbtCompound("") { rootTag };
                     nbtFile.RootTag = wrapper;
                 }
-                
+
                 // Use atomic write operation to prevent file corruption
                 SaveNbtFileAtomically(nbtFile, outputPath);
             }
@@ -315,9 +315,9 @@ namespace GitMC.Services
                     snbtContent.AppendLine($"// Region coordinates: {mcaFile.RegionCoordinates.X}, {mcaFile.RegionCoordinates.Z}");
                     snbtContent.AppendLine($"// Total chunks: {existingChunks.Count}");
                     snbtContent.AppendLine();
-                    
+
                     int processedCount = 0;
-                    
+
                     foreach (var chunkCoord in existingChunks)
                     {
                         try
@@ -330,7 +330,7 @@ namespace GitMC.Services
                                 snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
                                 snbtContent.AppendLine(); // Just add a blank line between chunks
                             }
-                            
+
                             // Yield control to prevent UI freezing, but less frequently for better performance
                             if (processedCount % 50 == 0)
                             {
@@ -342,12 +342,12 @@ namespace GitMC.Services
                             snbtContent.AppendLine($"// ERROR in chunk {chunkCoord.X}, {chunkCoord.Z}: {ex.Message}");
                             snbtContent.AppendLine();
                         }
-                        
+
                         processedCount++;
                     }
                 }
 
-                // Use larger buffer size for better I/O performance  
+                // Use larger buffer size for better I/O performance
                 await using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 131072))
                 await using (var writer = new StreamWriter(fs, Encoding.UTF8, bufferSize: 131072))
                 {
@@ -375,7 +375,7 @@ namespace GitMC.Services
                 }
             }
         }
-        
+
         /// <summary>
         /// Async translate region file to snbt
         /// </summary>
@@ -384,7 +384,7 @@ namespace GitMC.Services
             try
             {
                 progress?.Report($"Loading region file: {Path.GetFileName(inputPath)}...");
-                
+
                 // Parse mca file using McaRegionFile
                 using var mcaFile = new McaRegionFile(inputPath);
                 await mcaFile.LoadAsync();
@@ -448,9 +448,9 @@ namespace GitMC.Services
                     snbtContent.AppendLine($"// Region coordinates: {mcaFile.RegionCoordinates.X}, {mcaFile.RegionCoordinates.Z}");
                     snbtContent.AppendLine($"// Total chunks: {existingChunks.Count}");
                     snbtContent.AppendLine();
-                    
+
                     int processedCount = 0;
-                    
+
                     foreach (var chunkCoord in existingChunks)
                     {
                         try
@@ -460,7 +460,7 @@ namespace GitMC.Services
                             {
                                 progress?.Report($"Converting chunk {processedCount + 1}/{existingChunks.Count}...");
                             }
-                            
+
                             var chunkData = await mcaFile.GetChunkAsync(chunkCoord);
                             if (chunkData?.NbtData != null)
                             {
@@ -469,7 +469,7 @@ namespace GitMC.Services
                                 snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
                                 snbtContent.AppendLine(); // Just add a blank line between chunks
                             }
-                            
+
                             // Yield control to prevent UI freezing, but less frequently
                             if (processedCount % 25 == 0)
                             {
@@ -481,7 +481,7 @@ namespace GitMC.Services
                             snbtContent.AppendLine($"// ERROR in chunk {chunkCoord.X}, {chunkCoord.Z}: {ex.Message}");
                             snbtContent.AppendLine();
                         }
-                        
+
                         processedCount++;
                     }
                 }
@@ -494,14 +494,14 @@ namespace GitMC.Services
                     await writer.WriteAsync(snbtContent.ToString());
                     await writer.FlushAsync();
                 }
-                
+
                 progress?.Report($"snbt conversion complete! Converted {existingChunks.Count} chunks");
             }
             catch (Exception ex)
             {
                 progress?.Report($"Error when translating region file: {ex.Message}");
-                
-                // If mca parsing error occur, use error message 
+
+                // If mca parsing error occur, use error message
                 var errorInfo = new NbtCompound("MCAParsingError");
                 errorInfo.Add(new NbtString("OriginalPath", inputPath));
                 errorInfo.Add(new NbtLong("FileSize", new FileInfo(inputPath).Length));
@@ -517,7 +517,7 @@ namespace GitMC.Services
                     await writer.WriteAsync(errorSnbtContent);
                     await writer.FlushAsync();
                 }
-                
+
                 throw;
             }
         }
@@ -527,10 +527,10 @@ namespace GitMC.Services
             try
             {
                 var snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
-                
+
                 // Parse SNBT with multiple chunks
                 var chunks = new Dictionary<Point2I, NbtCompound>();
-                
+
                 // Check if single or multiple chunks
                 // First, check for old format with separators
                 if (snbtContent.Contains("// SNBT for chunk") && snbtContent.Contains("// =========================================="))
@@ -538,23 +538,23 @@ namespace GitMC.Services
                     // Split it up using equals:
                     ReadOnlySpan<char> content = snbtContent.AsSpan();
                     const string separator = "// ==========================================";
-                    
+
                     int currentPos = 0;
                     while (currentPos < content.Length)
                     {
                         // Find next separator
                         int sepIndex = content.Slice(currentPos).IndexOf(separator.AsSpan());
                         int sectionEnd = sepIndex >= 0 ? currentPos + sepIndex : content.Length;
-                        
+
                         // Extract section without allocating substring
                         ReadOnlySpan<char> section = content.Slice(currentPos, sectionEnd - currentPos);
-                        
+
                         // Process section if it contains chunk header
                         if (section.IndexOf("// SNBT for chunk".AsSpan()) >= 0)
                         {
                             ProcessChunkSectionSpan(section, chunks);
                         }
-                        
+
                         // Move to next section
                         currentPos = sepIndex >= 0 ? sectionEnd + separator.Length : content.Length;
                     }
@@ -564,16 +564,16 @@ namespace GitMC.Services
                     // Check if this is multiple chunks without separators (new format)
                     // Count the number of chunk headers to determine if it's multi-chunk
                     int chunkCount = 0;
-                    
+
                     // Optimized: Use span-based line enumeration instead of Split
                     ReadOnlySpan<char> contentSpan = snbtContent.AsSpan();
                     ReadOnlySpan<char> remaining = contentSpan;
-                    
+
                     while (!remaining.IsEmpty)
                     {
                         int lineEnd = remaining.IndexOf('\n');
                         ReadOnlySpan<char> line;
-                        
+
                         if (lineEnd >= 0)
                         {
                             line = remaining[..lineEnd];
@@ -584,18 +584,18 @@ namespace GitMC.Services
                             line = remaining;
                             remaining = ReadOnlySpan<char>.Empty;
                         }
-                        
+
                         // Trim carriage return if present
                         if (!line.IsEmpty && line[^1] == '\r')
                             line = line[..^1];
-                        
-                        if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) || 
+
+                        if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) ||
                             line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal))
                         {
                             chunkCount++;
                         }
                     }
-                    
+
                     if (chunkCount > 1)
                     {
                         // Multiple chunks without separators - parse each chunk section
@@ -625,50 +625,50 @@ namespace GitMC.Services
                         chunks[new Point2I(xPos, zPos)] = rootNbt;
                     }
                 }
-                
+
                 if (chunks.Count == 0)
                 {
                     throw new InvalidOperationException("No valid chunk data found in SNBT file");
                 }
-                
+
                 // Calculate correct region coordinates from chunk coordinates based on first chunk
                 var firstChunk = chunks.First().Key;
                 int regionX = (int)Math.Floor(firstChunk.X / 32.0);
                 int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
                 var regionCoords = new Point2I(regionX, regionZ);
-                
+
                 // Verify all chunks belong to the same region
                 foreach (var chunk in chunks)
                 {
                     int chunkRegionX = (int)Math.Floor(chunk.Key.X / 32.0);
                     int chunkRegionZ = (int)Math.Floor(chunk.Key.Z / 32.0);
-                    
+
                     if (chunkRegionX != regionX || chunkRegionZ != regionZ)
                     {
                         throw new InvalidOperationException($"Chunk ({chunk.Key.X}, {chunk.Key.Z}) belongs to region ({chunkRegionX}, {chunkRegionZ}), not ({regionX}, {regionZ})");
                     }
                 }
-                
+
                 // Create MCA writer with correct region coordinates
                 using var mcaWriter = new McaRegionWriter(outputPath, regionCoords);
-                
+
                 // Add all chunks to the writer
                 foreach (var chunk in chunks)
                 {
                     // Fix any empty lists with Unknown type before writing
                     FixEmptyLists(chunk.Value);
-                    
+
                     mcaWriter.AddChunk(
-                        chunk.Key, 
-                        chunk.Value, 
+                        chunk.Key,
+                        chunk.Value,
                         CompressionType.Zlib, // Default to Zlib compression
                         (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     );
                 }
-                
+
                 // Write the MCA file
                 mcaWriter.WriteAsync();
-                
+
                 // Also create reconstruction info for debugging
                 var reconstructionInfo = new NbtCompound("McaReconstruction");
                 reconstructionInfo.Add(new NbtString("OriginalSnbtPath", inputPath));
@@ -678,7 +678,7 @@ namespace GitMC.Services
                 reconstructionInfo.Add(new NbtString("RegionX", regionCoords.X.ToString()));
                 reconstructionInfo.Add(new NbtString("RegionZ", regionCoords.Z.ToString()));
                 reconstructionInfo.Add(new NbtString("Status", "Successfully converted to MCA"));
-                
+
                 var chunksList = new NbtList("Chunks", NbtTagType.Compound);
                 foreach (var chunk in chunks)
                 {
@@ -686,17 +686,17 @@ namespace GitMC.Services
                     chunkInfo.Add(new NbtInt("X", chunk.Key.X));
                     chunkInfo.Add(new NbtInt("Z", chunk.Key.Z));
                     chunkInfo.Add(new NbtString("Status", "Written to MCA"));
-                    
+
                     // Add some basic chunk validation info
                     var xPos = chunk.Value.Get<NbtInt>("xPos")?.Value ?? -999;
                     var zPos = chunk.Value.Get<NbtInt>("zPos")?.Value ?? -999;
-                    chunkInfo.Add(new NbtString("ValidationStatus", 
+                    chunkInfo.Add(new NbtString("ValidationStatus",
                         (xPos == chunk.Key.X && zPos == chunk.Key.Z) ? "Coordinates match" : "Coordinate mismatch"));
-                    
+
                     chunksList.Add(chunkInfo);
                 }
                 reconstructionInfo.Add(chunksList);
-                
+
                 // Save reconstruction info
                 var infoSnbt = reconstructionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
                 var infoPath = Path.ChangeExtension(outputPath, ".reconstruction.snbt");
@@ -725,12 +725,12 @@ namespace GitMC.Services
                 // Create an empty MCA file
                 var emptyMcaData = new byte[8192];
                 File.WriteAllBytes(outputPath, emptyMcaData);
-                
+
                 // Gonna re-throw exception to let the exception be successfully intercepted by the caller
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Async snbt -> region
         /// </summary>
@@ -742,11 +742,11 @@ namespace GitMC.Services
                 {
                     progress?.Report($"Reading snbt file {Path.GetFileName(inputPath)}...");
                     var snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
-                    
+
                     progress?.Report("Parsing snbt content...");
                     // Parse SNBT with multiple chunks
                     var chunks = new Dictionary<Point2I, NbtCompound>();
-                    
+
                     // Check if single or multiple chunks
                     if (snbtContent.Contains("// SNBT for chunk") && snbtContent.Contains("// =========================================="))
                     {
@@ -754,23 +754,23 @@ namespace GitMC.Services
                         // Multiple chunks - use spans and string reading to avoid massive string splitting
                         ReadOnlySpan<char> content = snbtContent.AsSpan();
                         const string separator = "// ==========================================";
-                        
+
                         int currentPos = 0;
                         while (currentPos < content.Length)
                         {
                             // Find next separator
                             int sepIndex = content.Slice(currentPos).IndexOf(separator.AsSpan());
                             int sectionEnd = sepIndex >= 0 ? currentPos + sepIndex : content.Length;
-                            
+
                             // Extract section without allocating substring
                             ReadOnlySpan<char> section = content.Slice(currentPos, sectionEnd - currentPos);
-                            
+
                             // Process section if it contains chunk header
                             if (section.IndexOf("// SNBT for chunk".AsSpan()) >= 0)
                             {
                                 ProcessChunkSectionSpan(section, chunks);
                             }
-                            
+
                             // Move to next section
                             currentPos = sepIndex >= 0 ? sectionEnd + separator.Length : content.Length;
                         }
@@ -780,16 +780,16 @@ namespace GitMC.Services
                         // Check if this is multiple chunks without separators (new format)
                         // Count the number of chunk headers to determine if it's multi-chunk
                         int totalChunks = 0;
-                        
+
                         // Optimized: Use span-based line enumeration instead of Split
                         ReadOnlySpan<char> contentSpan = snbtContent.AsSpan();
                         ReadOnlySpan<char> remaining = contentSpan;
-                        
+
                         while (!remaining.IsEmpty)
                         {
                             int lineEnd = remaining.IndexOf('\n');
                             ReadOnlySpan<char> line;
-                            
+
                             if (lineEnd >= 0)
                             {
                                 line = remaining[..lineEnd];
@@ -800,18 +800,18 @@ namespace GitMC.Services
                                 line = remaining;
                                 remaining = ReadOnlySpan<char>.Empty;
                             }
-                            
+
                             // Trim carriage return if present
                             if (!line.IsEmpty && line[^1] == '\r')
                                 line = line[..^1];
-                            
-                            if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) || 
+
+                            if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) ||
                                 line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal))
                             {
                                 totalChunks++;
                             }
                         }
-                        
+
                         if (totalChunks > 1)
                         {
                             progress?.Report($"This snbt file contains {totalChunks} chunks, processing...");
@@ -844,37 +844,37 @@ namespace GitMC.Services
                             chunks[new Point2I(xPos, zPos)] = rootNbt;
                         }
                     }
-                    
+
                     if (chunks.Count == 0)
                     {
                         throw new InvalidOperationException("No valid chunk data found in SNBT file");
                     }
-                    
+
                     progress?.Report($"Parsing success! Found {chunks.Count} chunks");
-                    
+
                     // Calculate correct region coordinates from chunk coordinates based on first chunk
                     var firstChunk = chunks.First().Key;
                     int regionX = (int)Math.Floor(firstChunk.X / 32.0);
                     int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
                     var regionCoords = new Point2I(regionX, regionZ);
-                    
+
                     // Verify all chunks belong to the same region
                     foreach (var chunk in chunks)
                     {
                         int chunkRegionX = (int)Math.Floor(chunk.Key.X / 32.0);
                         int chunkRegionZ = (int)Math.Floor(chunk.Key.Z / 32.0);
-                        
+
                         if (chunkRegionX != regionX || chunkRegionZ != regionZ)
                         {
                             throw new InvalidOperationException($"Chunk ({chunk.Key.X}, {chunk.Key.Z}) belongs to region ({chunkRegionX}, {chunkRegionZ}), not ({regionX}, {regionZ})");
                         }
                     }
-                    
+
                     progress?.Report($"Creating region file：r.{regionCoords.X}.{regionCoords.Z}.mca...");
-                    
+
                     // Create MCA writer
                     using var mcaWriter = new McaRegionWriter(outputPath, regionCoords);
-                    
+
                     // Add all chunks to the writer
                     int chunkCount = 0;
                     foreach (var chunk in chunks)
@@ -884,22 +884,22 @@ namespace GitMC.Services
                         {
                             progress?.Report($"Adding chunk：{chunkCount}/{chunks.Count}");
                         }
-                        
+
                         // Fix any empty lists with Unknown type before writing
                         FixEmptyLists(chunk.Value);
-                        
+
                         mcaWriter.AddChunk(
-                            chunk.Key, 
-                            chunk.Value, 
+                            chunk.Key,
+                            chunk.Value,
                             CompressionType.Zlib, // Default to Zlib compression
                             (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                         );
                     }
-                    
+
                     // Write the MCA file
                     progress?.Report("Writing into mca file...");
                     mcaWriter.WriteAsync();
-                    
+
                     // Also create reconstruction info for debugging
                     progress?.Report("Generating reconstruction file info...");
                     var reconstructionInfo = new NbtCompound("McaReconstruction");
@@ -910,7 +910,7 @@ namespace GitMC.Services
                     reconstructionInfo.Add(new NbtString("RegionX", regionCoords.X.ToString()));
                     reconstructionInfo.Add(new NbtString("RegionZ", regionCoords.Z.ToString()));
                     reconstructionInfo.Add(new NbtString("Status", "Successfully converted to MCA"));
-                    
+
                     var chunksList = new NbtList("Chunks", NbtTagType.Compound);
                     foreach (var chunk in chunks)
                     {
@@ -918,17 +918,17 @@ namespace GitMC.Services
                         chunkInfo.Add(new NbtInt("X", chunk.Key.X));
                         chunkInfo.Add(new NbtInt("Z", chunk.Key.Z));
                         chunkInfo.Add(new NbtString("Status", "Written to MCA"));
-                        
+
                         // Add some basic chunk validation info
                         var xPos = chunk.Value.Get<NbtInt>("xPos")?.Value ?? -999;
                         var zPos = chunk.Value.Get<NbtInt>("zPos")?.Value ?? -999;
-                        chunkInfo.Add(new NbtString("ValidationStatus", 
+                        chunkInfo.Add(new NbtString("ValidationStatus",
                             (xPos == chunk.Key.X && zPos == chunk.Key.Z) ? "Coordinates match" : "Coordinate mismatch"));
-                        
+
                         chunksList.Add(chunkInfo);
                     }
                     reconstructionInfo.Add(chunksList);
-                    
+
                     // Save reconstruction info
                     var infoSnbt = reconstructionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
                     var infoPath = Path.ChangeExtension(outputPath, ".reconstruction.snbt");
@@ -940,13 +940,13 @@ namespace GitMC.Services
                             writer.Flush();
                         }
                     }
-                    
+
                     progress?.Report($"Conversion complete! mca file has been successfully created: {Path.GetFileName(outputPath)}");
                 }
                 catch (Exception ex)
                 {
                     progress?.Report($"Conversion failed: {ex.Message}");
-                    
+
                     // Create error log if conversion fails
                     var errorInfo = $"// Error converting SNBT to MCA: {ex.Message}\n// Original file: {inputPath}\n// Target file: {outputPath}\n// Time: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}";
                     using (var fs = new FileStream(outputPath + ".error.txt", FileMode.Create, FileAccess.Write, FileShare.None))
@@ -961,7 +961,7 @@ namespace GitMC.Services
                     // Create an empty MCA file
                     var emptyMcaData = new byte[8192];
                     File.WriteAllBytes(outputPath, emptyMcaData);
-                    
+
                     throw;
                 }
             });
@@ -973,10 +973,10 @@ namespace GitMC.Services
             {
                 // Parse SNBT using SnbtCmd's parser
                 var rootTag = SnbtParser.Parse(snbtContent, false);
-                
+
                 // Fix empty lists before creating NBT file
                 FixEmptyLists(rootTag);
-                
+
                 // Create NBT file and save
                 var nbtFile = new NbtFile();
                 if (rootTag is NbtCompound compound)
@@ -1034,7 +1034,7 @@ namespace GitMC.Services
                     }
 
                     var fileInfo = new FileInfo(filePath);
-                    
+
                     var info = new StringBuilder();
                     info.AppendLine($"File path: {filePath}");
                     info.AppendLine($"File size: {fileInfo.Length:N0} bytes");
@@ -1045,17 +1045,17 @@ namespace GitMC.Services
                     // Try parsing NBT file with fNbt
                     var nbtFile = new NbtFile();
                     nbtFile.LoadFromFile(filePath);
-                    
+
                     var rootTag = nbtFile.RootTag;
-                    
+
                     info.AppendLine($"NBT format: {nbtFile.FileCompression}");
                     info.AppendLine($"Root tag type: {rootTag.TagType}");
                     info.AppendLine($"Root tag name: {rootTag.Name ?? "(Unnamed)"}");
-                    
+
                     if (rootTag is NbtCompound compound)
                     {
                         info.AppendLine($"Child tag count: {compound.Count}");
-                        
+
                         if (compound.Count > 0)
                         {
                             info.AppendLine("\nChild tags:");
@@ -1094,7 +1094,7 @@ namespace GitMC.Services
             {
                 using var stream = File.OpenRead(filePath);
                 var firstByte = (byte)stream.ReadByte();
-                
+
                 return firstByte switch
                 {
                     0x78 => "ZLib compression",
@@ -1110,10 +1110,8 @@ namespace GitMC.Services
             }
         }
 
-        // Region file support methods remain similar but using fNbt types
-        
-        #region Anvil Region File Support
-        
+        // Anvil Region File Support
+
         public async Task<AnvilRegionInfo> GetRegionInfoAsync(string mcaFilePath)
         {
             try
@@ -1165,11 +1163,11 @@ namespace GitMC.Services
                     );
 
                     // Attempt to read detailed info from chunks
-                    var compressionType = AnvilCompressionType.Zlib; 
+                    var compressionType = AnvilCompressionType.Zlib;
                     // For Java saves default is Zlib compression
                     // I think wiki mentioned that server.config can determine the compression level
                     // Maybe we have to add support for that in late stage of development.
-                    
+
                     var isOversized = false;
                     var dataSize = 0L;
                     var isValid = true;
@@ -1184,11 +1182,11 @@ namespace GitMC.Services
                             dataSize = chunkData.DataLength;
                         }
                     }
-                    catch (Exception ex)  
-                    {  
+                    catch (Exception ex)
+                    {
                         Console.WriteLine($@"Error occurred while reading chunk data: {ex.Message}");
-                        isValid = false;  
-                    } 
+                        isValid = false;
+                    }
 
                     chunkInfos.Add(new AnvilChunkInfo
                     {
@@ -1292,19 +1290,15 @@ namespace GitMC.Services
             };
         }
 
-        #endregion
-
         /// <summary>
-        /// Fixes empty lists with Unknown type by replacing them with empty Compound lists
-        /// This prevents the "NbtList had no elements and an Unknown ListType" error
-        /// Enhanced to handle deeply nested structures
+        /// Fixes empty lists with Unknown type
         /// </summary>
         private void FixEmptyLists(NbtTag tag)
         {
             if (tag is NbtCompound compound)
             {
                 var childrenToReplace = new List<(string name, NbtTag newTag)>();
-                
+
                 foreach (var child in compound)
                 {
                     if (child is NbtList list && list.Count == 0 && list.ListType == NbtTagType.Unknown)
@@ -1322,7 +1316,7 @@ namespace GitMC.Services
                         FixEmptyLists(child);
                     }
                 }
-                
+
                 // Replace empty lists with fixed versions
                 foreach (var (name, newTag) in childrenToReplace)
                 {
@@ -1338,7 +1332,7 @@ namespace GitMC.Services
                     // Cannot modify in-place, this needs to be handled by parent
                     return;
                 }
-                
+
                 // Recursively fix child tags
                 foreach (var child in list.ToArray())
                 {
@@ -1363,13 +1357,13 @@ namespace GitMC.Services
                     writer.Flush();
                     fs.Flush();
                 }
-                
+
                 // Ensure to write is complete
                 using (var fs = File.OpenWrite(tempPath))
                 {
                     fs.Flush();
                 }
-                
+
                 // Atomic move to final location
                 if (File.Exists(filePath))
                 {
@@ -1395,7 +1389,7 @@ namespace GitMC.Services
             try
             {
                 nbtFile.SaveToFile(tempPath, NbtCompression.GZip);
-                
+
                 // Atomic move to final location
                 if (File.Exists(filePath))
                 {
@@ -1411,43 +1405,43 @@ namespace GitMC.Services
                 }
             }
         }
-        
+
         // Optimized: Process chunk section using spans to avoid string allocations
         private void ProcessChunkSectionSpan(ReadOnlySpan<char> section, Dictionary<Point2I, NbtCompound> chunks)
         {
             // Find the header line with chunk coordinates
             int lineStart = 0;
             string? headerLine = null;
-            
+
             while (lineStart < section.Length)
             {
                 int lineEnd = section.Slice(lineStart).IndexOf('\n');
                 if (lineEnd < 0) lineEnd = section.Length - lineStart;
-                
+
                 ReadOnlySpan<char> line = section.Slice(lineStart, lineEnd);
-                
+
                 // Check if this line contains chunk header - support both old and new format
                 if (line.IndexOf("// SNBT for chunk".AsSpan()) >= 0 || line.IndexOf("// Chunk(".AsSpan()) >= 0)
                 {
                     headerLine = line.ToString();
                     break;
                 }
-                
+
                 lineStart += lineEnd + 1;
             }
-            
+
             if (headerLine != null)
             {
                 int x = 0;
                 int z = 0;
                 bool coordinatesFound = false;
-                
+
                 // Extract chunk coordinates using regex for different formats
                 // Try old format: "// SNBT for chunk X, Z:"
                 var oldFormatMatch = Regex.Match(headerLine, @"chunk (-?\d+), (-?\d+):");
                 // Try new format: "// Chunk(X,Z)"
                 var newFormatMatch = Regex.Match(headerLine, @"Chunk\((-?\d+),(-?\d+)\)");
-                
+
                 if (oldFormatMatch.Success)
                 {
                     x = int.Parse(oldFormatMatch.Groups[1].Value);
@@ -1460,26 +1454,26 @@ namespace GitMC.Services
                     z = int.Parse(newFormatMatch.Groups[2].Value);
                     coordinatesFound = true;
                 }
-                
+
                 if (!coordinatesFound)
                 {
                     // Can't parse coordinates, skip this section
                     return;
                 }
-                
+
                 var chunkCoord = new Point2I(x, z);
-                
+
                 // Build SNBT content excluding comment lines
                 var snbtBuilder = new StringBuilder();
                 lineStart = 0;
-                
+
                 while (lineStart < section.Length)
                 {
                     int lineEnd = section.Slice(lineStart).IndexOf('\n');
                     if (lineEnd < 0) lineEnd = section.Length - lineStart;
-                    
+
                     ReadOnlySpan<char> line = section.Slice(lineStart, lineEnd);
-                    
+
                     // Skip comment lines and empty lines
                     ReadOnlySpan<char> trimmedLine = line.Trim();
                     if (!trimmedLine.IsEmpty && !trimmedLine.StartsWith("//".AsSpan()))
@@ -1488,10 +1482,10 @@ namespace GitMC.Services
                             snbtBuilder.AppendLine();
                         snbtBuilder.Append(line);
                     }
-                    
+
                     lineStart += lineEnd + 1;
                 }
-                
+
                 string chunkSnbt = snbtBuilder.ToString().Trim();
                 if (!string.IsNullOrWhiteSpace(chunkSnbt))
                 {
@@ -1543,15 +1537,15 @@ namespace GitMC.Services
             // Optimized: Use span-based line enumeration instead of Split to avoid massive string allocations
             var currentChunkLines = new StringBuilder();
             Point2I? currentChunkCoord = null;
-            
+
             ReadOnlySpan<char> contentSpan = snbtContent.AsSpan();
             ReadOnlySpan<char> remaining = contentSpan;
-            
+
             while (!remaining.IsEmpty)
             {
                 int lineEnd = remaining.IndexOf('\n');
                 ReadOnlySpan<char> line;
-                
+
                 if (lineEnd >= 0)
                 {
                     line = remaining[..lineEnd];
@@ -1562,13 +1556,13 @@ namespace GitMC.Services
                     line = remaining;
                     remaining = ReadOnlySpan<char>.Empty;
                 }
-                
+
                 // Trim carriage return if present
                 if (!line.IsEmpty && line[^1] == '\r')
                     line = line[..^1];
-                
+
                 // Check if this is a chunk header line
-                if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) || 
+                if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) ||
                     line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal))
                 {
                     // If we have a previous chunk, process it
@@ -1576,7 +1570,7 @@ namespace GitMC.Services
                     {
                         ProcessChunkFromStringBuilder(currentChunkLines, currentChunkCoord.Value, chunks);
                     }
-                    
+
                     // Start a new chunk
                     currentChunkCoord = ExtractChunkCoordinatesFromHeaderSpan(line);
                     currentChunkLines.Clear();
@@ -1592,14 +1586,14 @@ namespace GitMC.Services
                     }
                 }
             }
-            
+
             // Process the last chunk
             if (currentChunkCoord.HasValue && currentChunkLines.Length > 0)
             {
                 ProcessChunkFromStringBuilder(currentChunkLines, currentChunkCoord.Value, chunks);
             }
         }
-        
+
         /// <summary>
         /// Process chunk from StringBuilder with boundary parameters (ultra-optimized version)
         /// </summary>
@@ -1616,31 +1610,31 @@ namespace GitMC.Services
                 // Ultra-optimized: Find content boundaries without creating intermediate strings
                 int contentStart = startIdx;
                 int contentEnd = Math.Min(endIdx, allContent.Length - 1);
-                
+
                 // Find first non-whitespace character within bounds
                 while (contentStart <= contentEnd && char.IsWhiteSpace(allContent[contentStart]))
                     contentStart++;
-                    
+
                 // Find last non-whitespace character within bounds
                 while (contentEnd >= contentStart && char.IsWhiteSpace(allContent[contentEnd]))
                     contentEnd--;
-                
+
                 if (contentStart > contentEnd)
                 {
                     Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                     return;
                 }
-                
+
                 // Validate JSON structure without string creation
                 if (allContent[contentStart] != '{' || allContent[contentEnd] != '}')
                 {
                     Console.WriteLine($@"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
                     return;
                 }
-                
+
                 // Create minimal string only for parsing (final allocation)
                 var snbtContent = allContent.ToString(contentStart, contentEnd - contentStart + 1);
-                
+
                 var parseResult = SnbtParser.TryParse(snbtContent, false);
                 if (parseResult.IsSuccess && parseResult.Result is NbtCompound compound)
                 {
@@ -1662,7 +1656,7 @@ namespace GitMC.Services
                 Console.WriteLine($@"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
             }
         }
-        
+
         /// <summary>
         /// Process chunk from StringBuilder content (optimized version)
         /// </summary>
@@ -1681,32 +1675,32 @@ namespace GitMC.Services
                 // First, find the actual SNBT content boundaries (trim leading/trailing whitespace)
                 int startIndex = 0;
                 int endIndex = chunkContent.Length - 1;
-                
+
                 // Find first non-whitespace character
                 while (startIndex < chunkContent.Length && char.IsWhiteSpace(chunkContent[startIndex]))
                     startIndex++;
-                    
+
                 // Find last non-whitespace character
                 while (endIndex >= startIndex && char.IsWhiteSpace(chunkContent[endIndex]))
                     endIndex--;
-                
+
                 if (startIndex > endIndex)
                 {
                     Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                     return;
                 }
-                
+
                 // Check if content starts with '{' and ends with '}'
                 if (chunkContent[startIndex] != '{' || chunkContent[endIndex] != '}')
                 {
                     Console.WriteLine($@"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
                     return;
                 }
-                
+
                 // Only now create the minimal string needed for parsing
                 // Create substring from trimmed bounds to avoid full ToString()
                 var snbtContent = chunkContent.ToString(startIndex, endIndex - startIndex + 1);
-                
+
                 var parseResult = SnbtParser.TryParse(snbtContent, false);
                 if (parseResult.IsSuccess && parseResult.Result is NbtCompound compound)
                 {
@@ -1729,7 +1723,7 @@ namespace GitMC.Services
                 Console.WriteLine($@"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
             }
         }
-        
+
         /// <summary>
         /// Extract chunk coordinates from header line using span (optimized version)
         /// Supports both "// SNBT for chunk X, Z:" and "// Chunk(X,Z)" formats
@@ -1745,7 +1739,7 @@ namespace GitMC.Services
                 int z = int.Parse(oldFormatMatch.Groups[2].Value);
                 return new Point2I(x, z);
             }
-            
+
             // Try new format: "// Chunk(X,Z)"
             var newFormatMatch = Regex.Match(headerString, @"Chunk\((-?\d+),(-?\d+)\)");
             if (newFormatMatch.Success)
@@ -1754,10 +1748,10 @@ namespace GitMC.Services
                 int z = int.Parse(newFormatMatch.Groups[2].Value);
                 return new Point2I(x, z);
             }
-            
+
             return null;
         }
-        
+
         /// <summary>
         /// Process a chunk from a list of lines (fully optimized to eliminate massive string allocations)
         /// </summary>
@@ -1775,12 +1769,12 @@ namespace GitMC.Services
                 // Phase 1: Find actual content lines and calculate exact capacity needed
                 var contentLines = new List<string>();
                 int totalCapacity = 0;
-                
+
                 foreach (string line in lines)
                 {
                     // Use span to avoid trim allocation
                     ReadOnlySpan<char> trimmedSpan = line.AsSpan().Trim();
-                    
+
                     // Skip comment lines and empty lines
                     if (!trimmedSpan.IsEmpty && !trimmedSpan.StartsWith("//".AsSpan()))
                     {
@@ -1790,7 +1784,7 @@ namespace GitMC.Services
                             totalCapacity += Environment.NewLine.Length;
                     }
                 }
-                
+
                 if (contentLines.Count == 0)
                 {
                     Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
@@ -1799,43 +1793,43 @@ namespace GitMC.Services
 
                 // Phase 2: Build content with exact pre-allocation (eliminates StringBuilder expansion)
                 var snbtBuilder = new StringBuilder(totalCapacity + 100); // Small buffer for safety
-                
+
                 for (int i = 0; i < contentLines.Count; i++)
                 {
                     if (i > 0)
                         snbtBuilder.AppendLine();
                     snbtBuilder.Append(contentLines[i]);
                 }
-                
+
                 // Phase 3: Direct character-level validation without ToString() or Trim()
                 if (snbtBuilder.Length == 0)
                 {
                     Console.WriteLine($@"Warning: Empty SNBT content for chunk {chunkCoord.X},{chunkCoord.Z}");
                     return;
                 }
-                
+
                 // Find content bounds using StringBuilder indexer (no string allocations)
                 int startIndex = 0;
                 int endIndex = snbtBuilder.Length - 1;
-                
+
                 // Find first non-whitespace character
                 while (startIndex < snbtBuilder.Length && char.IsWhiteSpace(snbtBuilder[startIndex]))
                     startIndex++;
-                    
+
                 // Find last non-whitespace character
                 while (endIndex >= startIndex && char.IsWhiteSpace(snbtBuilder[endIndex]))
                     endIndex--;
-                
+
                 // Validate JSON structure without creating strings
                 if (startIndex > endIndex || snbtBuilder[startIndex] != '{' || snbtBuilder[endIndex] != '}')
                 {
                     Console.WriteLine($@"Warning: Invalid SNBT format for chunk {chunkCoord.X},{chunkCoord.Z} - must start with '{{' and end with '}}'");
                     return;
                 }
-                
+
                 // Phase 4: Create minimal string only when absolutely necessary for parsing
                 var chunkSnbt = snbtBuilder.ToString(startIndex, endIndex - startIndex + 1);
-                
+
                 // Phase 5: Parse and ensure proper root tag naming
                 var parseResult = SnbtParser.TryParse(chunkSnbt, false);
                 if (parseResult.IsSuccess && parseResult.Result is NbtCompound chunkNbt)
@@ -1874,18 +1868,18 @@ namespace GitMC.Services
                 if (nameSpan.Length > 2) // "r." + at least one char
                 {
                     var remaining = nameSpan[2..]; // Skip "r."
-                    
+
                     // Find first dot
                     int firstDot = remaining.IndexOf('.');
                     if (firstDot > 0)
                     {
                         var xSpan = remaining[..firstDot];
                         var afterFirstDot = remaining[(firstDot + 1)..];
-                        
+
                         // Find second dot (or end of string)
                         int secondDot = afterFirstDot.IndexOf('.');
                         var zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
-                        
+
                         if (int.TryParse(xSpan, out var x) && int.TryParse(zSpan, out var z))
                         {
                             return new Point2I(x, z);
@@ -1893,7 +1887,7 @@ namespace GitMC.Services
                     }
                 }
             }
-            
+
             // If we can't extract from filename, try to infer from chunks
             // For now, default to region 0,0
             return new Point2I(0, 0);

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using GitMC.Utils;
 
 namespace GitMC.Helpers
 {
@@ -22,60 +23,13 @@ namespace GitMC.Helpers
 
             try
             {
-                long size = 0;
-
-                // Calculate size of all files in current directory
-                var files = Directory.GetFiles(path);
-                foreach (string file in files)
-                {
-                    try
-                    {
-                        var fileInfo = new FileInfo(file);
-                        size += fileInfo.Length;
-                    }
-                    catch (Exception)
-                    {
-                        // Skip files that can't be accessed
-                        continue;
-                    }
-                }
-
-                // Recursively calculate size of subdirectories
-                var subdirectories = Directory.GetDirectories(path);
-                foreach (string subdirectory in subdirectories)
-                {
-                    size += CalculateFolderSize(subdirectory);
-                }
-
-                return size;
+                var directoryInfo = new DirectoryInfo(path);
+                return CommonHelpers.CalculateFolderSize(directoryInfo);
             }
             catch (Exception)
             {
-                // Return 0 if any error occurs during calculation
                 return 0;
             }
-        }
-
-        /// <summary>
-        /// Formats file size in human-readable format
-        /// </summary>
-        /// <param name="bytes">Size in bytes</param>
-        /// <returns>Formatted size string (e.g., "1.5 MB")</returns>
-        public static string FormatFileSize(long bytes)
-        {
-            if (bytes == 0) return "0 B";
-
-            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-            int order = 0;
-            double size = bytes;
-
-            while (size >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                size /= 1024;
-            }
-
-            return $"{size:0.##} {sizes[order]}";
         }
 
         /// <summary>
@@ -98,7 +52,7 @@ namespace GitMC.Helpers
             {
                 // Calculate total size
                 analysis.TotalSize = CalculateFolderSize(saveFolderPath);
-                analysis.FormattedSize = FormatFileSize(analysis.TotalSize);
+                analysis.FormattedSize = CommonHelpers.FormatFileSize(analysis.TotalSize);
 
                 // Count files and folders
                 analysis.FileCount = Directory.GetFiles(saveFolderPath, "*", SearchOption.AllDirectories).Length;

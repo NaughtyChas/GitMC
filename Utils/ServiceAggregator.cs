@@ -3,7 +3,7 @@ using GitMC.Services;
 namespace GitMC.Utils
 {
     /// <summary>
-    /// Service aggregator to reduce service dependency injection complexity
+    /// Service aggregator interface
     /// </summary>
     public interface IServiceAggregator
     {
@@ -16,7 +16,7 @@ namespace GitMC.Utils
     }
 
     /// <summary>
-    /// Implementation of service aggregator
+    /// Service aggregator implementation
     /// </summary>
     public class ServiceAggregator : IServiceAggregator
     {

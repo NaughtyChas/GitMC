@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using Windows.Storage.Pickers;
 using GitMC.Services;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Storage.Pickers;
 using WinRT.Interop;
 
 namespace GitMC.Views
@@ -31,11 +31,11 @@ namespace GitMC.Views
             try
             {
                 // Disable performance counters in debug mode to prevent UI freezing
-                #if !DEBUG
+#if !DEBUG
                 _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
                 _memoryCounter = new PerformanceCounter("Memory", "Available MBytes");
-                #endif
-                
+#endif
+
                 _performanceTimer = new DispatcherTimer();
                 _performanceTimer.Interval = TimeSpan.FromSeconds(2); // Reduced frequency
                 _performanceTimer.Tick += UpdatePerformanceMetrics;
@@ -81,7 +81,7 @@ namespace GitMC.Views
             {
                 _selectedSavePath = folder.Path;
                 SavePathTextBox.Text = _selectedSavePath;
-                
+
                 await ValidateSaveFolder(_selectedSavePath);
             }
         }
@@ -103,10 +103,10 @@ namespace GitMC.Views
                             SaveInfoTextBlock.Text = "✓ Detected valid Minecraft save";
                             SaveInfoTextBlock.Foreground = (Brush)Application.Current.Resources["SystemFillColorSuccessBrush"];
                             SaveInfoTextBlock.Visibility = Visibility.Visible;
-                            
+
                             StartTranslationButton.IsEnabled = true;
                             StartTranslationButton.IsEnabled = true;
-                            
+
                             LogMessage($"Select save: {path}");
                             LogMessage("Save validation successful");
                         }
@@ -115,10 +115,10 @@ namespace GitMC.Views
                             SaveInfoTextBlock.Text = "⚠ Detected invalid Minecraft save";
                             SaveInfoTextBlock.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
                             SaveInfoTextBlock.Visibility = Visibility.Visible;
-                            
+
                             StartTranslationButton.IsEnabled = false;
                             StartTranslationButton.IsEnabled = false;
-                            
+
                             LogMessage("Save validation failed: level.dat not found");
                         }
                     });
@@ -145,10 +145,10 @@ namespace GitMC.Views
             }
 
             _cancellationTokenSource = new CancellationTokenSource();
-            
+
             StartTranslationButton.IsEnabled = false;
             CancelButton.IsEnabled = true;
-            
+
             _performanceTimer?.Start();
 
             try
@@ -218,55 +218,55 @@ namespace GitMC.Views
             LogMessage("=== Starting save translation process ===");
 
             var verifyIntegrity = VerifyIntegrityCheckBox.IsChecked == true;
-            
+
             // Step 1: Create GitMC folder
             var gitMcPath = Path.Combine(_selectedSavePath, "GitMC");
             LogMessage($"Create GitMC folder: {gitMcPath}");
             Directory.CreateDirectory(gitMcPath);
-            
+
             UpdateProgress(5, "Analyzing file structure...");
-            
+
             // Step 2: Scan for files to process
             var filesToProcess = await ScanForFiles(_selectedSavePath, cancellationToken);
             LogMessage($"Found {filesToProcess.Count} files to process");
-            
+
             // Log file type breakdown
             var mcaFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mca").Count();
             var mccFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mcc").Count();
             var datFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".dat").Count();
             var nbtFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".nbt").Count();
-            
+
             LogMessage($"  📊 File breakdown: {mcaFiles} MCA, {mccFiles} MCC, {datFiles} DAT, {nbtFiles} NBT");
 
             UpdateProgress(10, "Copying files...");
-            
+
             // Step 3: Copy all files first
             await CopyAllFiles(_selectedSavePath, gitMcPath, cancellationToken);
-            
+
             UpdateProgress(30, "Starting NBT translation process...");
-            
+
             // Step 4: Process selected file types with enhanced tracking
             var processedCount = 0;
             var totalFiles = filesToProcess.Count;
             var multiChunkFiles = 0;
             var totalChunksProcessed = 0;
             var lastUiUpdate = DateTime.Now;
-            
+
             foreach (var fileInfo in filesToProcess)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                
+
                 try
                 {
                     var relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
                     var targetPath = Path.Combine(gitMcPath, relativePath);
-                    
+
                     // Significantly reduce logging frequency to improve performance
                     if (processedCount % 50 == 0 || processedCount == 0)
                     {
                         LogMessage($"Processing batch: {processedCount}-{Math.Min(processedCount + 49, totalFiles)} of {totalFiles}");
                     }
-                    
+
                     // Track multi-chunk processing
                     var isMultiChunk = await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
                     if (isMultiChunk.IsMultiChunk)
@@ -274,17 +274,17 @@ namespace GitMC.Views
                         multiChunkFiles++;
                         totalChunksProcessed += isMultiChunk.ChunkCount;
                     }
-                    
+
                     processedCount++;
                     var progress = 30 + (processedCount * 60 / totalFiles);
-                    
+
                     // Update UI much less frequently and with time-based throttling
                     var timeSinceLastUpdate = DateTime.Now - lastUiUpdate;
                     if (timeSinceLastUpdate.TotalMilliseconds > 3000 || processedCount == totalFiles) // Every 3 seconds or at completion
                     {
                         UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}...");
                         lastUiUpdate = DateTime.Now;
-                        
+
                         // Minimal yield to UI thread for responsiveness
                         if (processedCount % 25 == 0)
                         {
@@ -305,9 +305,9 @@ namespace GitMC.Views
             {
                 await VerifyTranslation(_selectedSavePath, gitMcPath, cancellationToken);
             }
-            
+
             UpdateProgress(100, "Translate complete!");
-            
+
             // Log final statistics
             LogMessage("=== Save translation process complete ===");
             LogMessage("\ud83d\udcc8 Processing Statistics:");
@@ -321,12 +321,12 @@ namespace GitMC.Views
         {
             var files = new List<FileInfo>();
             var directory = new DirectoryInfo(savePath);
-            
+
             var processRegionFiles = RegionFilesCheckBox.IsChecked == true;
             var processDataFiles = DataFilesCheckBox.IsChecked == true;
             var processNbtFiles = NbtFilesCheckBox.IsChecked == true;
             var processLevelData = LevelDataCheckBox.IsChecked == true;
-            
+
             await Task.Run(() =>
             {
                 if (processRegionFiles)
@@ -334,27 +334,27 @@ namespace GitMC.Views
                     ScanDirectory(directory, "*.mca", files, cancellationToken);
                     ScanDirectory(directory, "*.mcc", files, cancellationToken);
                 }
-                
+
                 if (processDataFiles)
                 {
                     ScanDirectory(directory, "*.dat", files, cancellationToken);
                 }
-                
+
                 if (processNbtFiles)
                 {
                     ScanDirectory(directory, "*.nbt", files, cancellationToken);
                 }
-                
+
                 if (processLevelData)
                 {
                     var levelDat = new FileInfo(Path.Combine(savePath, "level.dat"));
                     if (levelDat.Exists) files.Add(levelDat);
-                    
+
                     var levelDatOld = new FileInfo(Path.Combine(savePath, "level.dat_old"));
                     if (levelDatOld.Exists) files.Add(levelDatOld);
                 }
             }, cancellationToken);
-            
+
             return files;
         }
 
@@ -384,16 +384,16 @@ namespace GitMC.Views
         private void CopyDirectory(DirectoryInfo source, DirectoryInfo target, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             Directory.CreateDirectory(target.FullName);
-            
+
             // Copy files
             foreach (var file in source.GetFiles())
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 file.CopyTo(Path.Combine(target.FullName, file.Name), true);
             }
-            
+
             // Copy subdirectories
             foreach (var subDir in source.GetDirectories())
             {
@@ -415,14 +415,14 @@ namespace GitMC.Views
             {
                 var tempSnbtPath = filePath + ".snbt";
                 var backupPath = CreateBackupCheckBox.IsChecked == true ? filePath + ".backup" : null;
-                
+
                 // Check if file exists and is accessible
                 if (!File.Exists(filePath))
                 {
                     LogMessage($"  ⚠ File not found: {Path.GetFileName(filePath)}");
                     return;
                 }
-                
+
                 // Check file size and skip very large files that might cause issues
                 var fileInfo = new FileInfo(filePath);
                 if (fileInfo.Length > 50 * 1024 * 1024) // 50MB limit
@@ -430,10 +430,10 @@ namespace GitMC.Views
                     LogMessage($"  ⚠ Skipping large file: {Path.GetFileName(filePath)} ({fileInfo.Length / 1024 / 1024}MB)");
                     return;
                 }
-                
+
                 // Log file details for better tracking
                 LogMessage($"  Processing: {Path.GetFileName(filePath)} ({fileInfo.Length / 1024}KB, {extension.ToUpper()})");
-                
+
                 // Create backup if requested
                 if (backupPath != null)
                 {
@@ -447,21 +447,21 @@ namespace GitMC.Views
                         LogMessage($"  ⚠ Backup failed for {Path.GetFileName(filePath)}: {ex.Message}");
                     }
                 }
-                
+
                 // Convert to SNBT with timeout protection and enhanced logging
                 LogMessage($"  🔄 Converting to SNBT: {Path.GetFileName(filePath)}");
-                
+
                 using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5))) // 5-minute timeout per file
                 using (var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
                 {
                     await ConvertToSnbt(filePath, tempSnbtPath, extension, combinedCts.Token);
-                    
+
                     // Log SNBT file info for verification
                     if (File.Exists(tempSnbtPath))
                     {
                         var snbtSize = new FileInfo(tempSnbtPath).Length;
                         LogMessage($"  ✓ SNBT created: {snbtSize / 1024}KB");
-                        
+
                         // For MCA files, check if multi-chunk was detected
                         if (extension == ".mca" || extension == ".mcc")
                         {
@@ -477,16 +477,16 @@ namespace GitMC.Views
                             }
                         }
                     }
-                    
+
                     // Convert back from SNBT
                     LogMessage($"  🔄 Converting back from SNBT: {Path.GetFileName(filePath)}");
                     await ConvertFromSnbt(tempSnbtPath, filePath, extension, combinedCts.Token);
-                    
+
                     // Verify final result
                     var finalSize = new FileInfo(filePath).Length;
                     LogMessage($"  ✓ Final file: {finalSize / 1024}KB");
                 }
-                
+
                 // Clean up SNBT file if not preserving
                 if (PreserveSNBTCheckBox.IsChecked != true && File.Exists(tempSnbtPath))
                 {
@@ -503,7 +503,7 @@ namespace GitMC.Views
                 {
                     LogMessage($"  📁 SNBT preserved: {Path.GetFileName(tempSnbtPath)}");
                 }
-                
+
                 LogMessage($"  ✅ Complete: {Path.GetFileName(filePath)}");
             }
             catch (OperationCanceledException)
@@ -522,18 +522,18 @@ namespace GitMC.Views
         {
             var isMultiChunk = false;
             var chunkCount = 0;
-            
+
             try
             {
                 var tempSnbtPath = filePath + ".snbt";
                 var backupPath = CreateBackupCheckBox.IsChecked == true ? filePath + ".backup" : null;
-                
+
                 // Check if file exists and is accessible
                 if (!File.Exists(filePath))
                 {
                     return (false, 0);
                 }
-                
+
                 // Check file size and skip very large files that might cause issues
                 var fileInfo = new FileInfo(filePath);
                 if (fileInfo.Length > 50 * 1024 * 1024) // 50MB limit
@@ -541,7 +541,7 @@ namespace GitMC.Views
                     LogMessage($"  ⚠ Skipping large file: {Path.GetFileName(filePath)} ({fileInfo.Length / 1024 / 1024}MB)");
                     return (false, 0);
                 }
-                
+
                 // Create backup if requested
                 if (backupPath != null)
                 {
@@ -554,13 +554,13 @@ namespace GitMC.Views
                         LogMessage($"  ⚠ Backup failed for {Path.GetFileName(filePath)}: {ex.Message}");
                     }
                 }
-                
-                // Convert to SNBT with timeout protection 
+
+                // Convert to SNBT with timeout protection
                 using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(5))) // 5-minute timeout per file
                 using (var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
                 {
                     await ConvertToSnbt(filePath, tempSnbtPath, extension, combinedCts.Token);
-                    
+
                     // Optimized multi-chunk detection: only read file once and use efficient string operations
                     if (File.Exists(tempSnbtPath))
                     {
@@ -574,7 +574,7 @@ namespace GitMC.Views
                                 var firstKiloBytes = new char[1024];
                                 var charsRead = await reader.ReadAsync(firstKiloBytes, 0, 1024);
                                 var headerText = new string(firstKiloBytes, 0, charsRead);
-                                
+
                                 // Look for total chunks in header (much faster than parsing entire file)
                                 if (headerText.Contains("// Total chunks:"))
                                 {
@@ -587,11 +587,11 @@ namespace GitMC.Views
                             }
                         }
                     }
-                    
+
                     // Convert back from SNBT
                     await ConvertFromSnbt(tempSnbtPath, filePath, extension, combinedCts.Token);
                 }
-                
+
                 // Clean up SNBT file if not preserving
                 if (PreserveSNBTCheckBox.IsChecked != true && File.Exists(tempSnbtPath))
                 {
@@ -604,7 +604,7 @@ namespace GitMC.Views
                         // Silently ignore cleanup errors
                     }
                 }
-                
+
                 return (isMultiChunk, chunkCount);
             }
             catch (OperationCanceledException)
@@ -627,13 +627,13 @@ namespace GitMC.Views
                 {
                     throw new FileNotFoundException($"Input file not found: {inputPath}");
                 }
-                
+
                 var fileInfo = new FileInfo(inputPath);
                 if (fileInfo.Length == 0)
                 {
                     throw new InvalidDataException($"Input file is empty: {inputPath}");
                 }
-                
+
                 // Create minimal progress reporter to reduce UI overhead
                 var progress = new Progress<string>(message =>
                 {
@@ -643,10 +643,10 @@ namespace GitMC.Views
                         LogMessage($"    {message}");
                     }
                 });
-                
+
                 // Use the enhanced async NbtService with minimal progress reporting
                 await _nbtService.ConvertToSnbtAsync(inputPath, outputPath, progress);
-                
+
                 // Verify output was created
                 if (!File.Exists(outputPath))
                 {
@@ -674,13 +674,13 @@ namespace GitMC.Views
                 {
                     throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
                 }
-                
+
                 var fileInfo = new FileInfo(inputPath);
                 if (fileInfo.Length == 0)
                 {
                     throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
                 }
-                
+
                 // Create minimal progress reporter to reduce UI overhead
                 var progress = new Progress<string>(message =>
                 {
@@ -690,10 +690,10 @@ namespace GitMC.Views
                         LogMessage($"    {message}");
                     }
                 });
-                
+
                 // Use the enhanced async NbtService with minimal progress reporting
                 await _nbtService.ConvertFromSnbtAsync(inputPath, outputPath, progress);
-                
+
                 // Verify output was created
                 if (!File.Exists(outputPath))
                 {
@@ -715,27 +715,27 @@ namespace GitMC.Views
         private async Task VerifyTranslation(string originalPath, string translatedPath, CancellationToken cancellationToken)
         {
             LogMessage("Validating file integrity...");
-            
+
             await Task.Run(() =>
             {
                 var originalFiles = Directory.GetFiles(originalPath, "*", SearchOption.AllDirectories);
                 var verifiedCount = 0;
                 var totalCount = originalFiles.Length;
-                
+
                 foreach (var originalFile in originalFiles)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    
+
                     var relativePath = Path.GetRelativePath(originalPath, originalFile);
                     var translatedFile = Path.Combine(translatedPath, relativePath);
-                    
+
                     if (File.Exists(translatedFile))
                     {
                         // For NBT files, we can do more sophisticated comparison
                         // For now, just check file sizes are reasonable
                         var originalSize = new FileInfo(originalFile).Length;
                         var translatedSize = new FileInfo(translatedFile).Length;
-                        
+
                         var sizeDifference = Math.Abs(originalSize - translatedSize) / (double)originalSize;
                         if (sizeDifference > 0.1) // Allow 10% size difference
                         {
@@ -746,7 +746,7 @@ namespace GitMC.Views
                     {
                         LogMessage($"⚠ Missing translated file: {relativePath}");
                     }
-                    
+
                     verifiedCount++;
                     if (verifiedCount % 100 == 0)
                     {
@@ -785,25 +785,25 @@ namespace GitMC.Views
         {
             var timestamp = DateTime.Now.ToString("HH:mm:ss");
             var logEntry = $"[{timestamp}] {message}";
-            
+
             try
             {
                 // Add to queue instead of immediate UI update
                 lock (_logLock)
                 {
                     _logQueue.Enqueue(logEntry);
-                    
+
                     // Limit queue size to prevent memory buildup
                     while (_logQueue.Count > 1000)
                     {
                         _logQueue.Dequeue();
                     }
                 }
-                
+
                 // Schedule batch flush every 500ms or for critical messages
                 var isCritical = message.Contains("Error") || message.Contains("Failed") || message.Contains("❌") || message.Contains("===");
                 var timeSinceLastFlush = DateTime.Now - _lastLogFlush;
-                
+
                 if (isCritical || timeSinceLastFlush.TotalMilliseconds > 500)
                 {
                     FlushLogQueue();
@@ -823,9 +823,9 @@ namespace GitMC.Views
         private void ScheduleLogFlush()
         {
             if (_isLogFlushScheduled) return;
-            
+
             _isLogFlushScheduled = true;
-            
+
             _ = Task.Delay(500).ContinueWith(_ =>
             {
                 _isLogFlushScheduled = false;
@@ -841,11 +841,11 @@ namespace GitMC.Views
                 lock (_logLock)
                 {
                     if (_logQueue.Count == 0) return;
-                    
+
                     logsToFlush = new List<string>(_logQueue);
                     _logQueue.Clear();
                 }
-                
+
                 DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
                 {
                     try
@@ -853,26 +853,26 @@ namespace GitMC.Views
                         if (LogTextBox != null)
                         {
                             var sb = new StringBuilder();
-                            
+
                             // Check if we need to trim existing content
                             var currentLength = LogTextBox.Text.Length;
                             var newContentLength = logsToFlush.Sum(log => log.Length + 1); // +1 for newline
-                            
+
                             if (currentLength + newContentLength > 80000) // ~80KB limit
                             {
                                 // Keep only the last portion of current text
                                 // Optimized: Use span-based approach to avoid Split allocation
                                 var textContent = LogTextBox.Text;
                                 var lines = new List<string>();
-                                
+
                                 ReadOnlySpan<char> contentSpan = textContent.AsSpan();
                                 ReadOnlySpan<char> remaining = contentSpan;
-                                
+
                                 while (!remaining.IsEmpty)
                                 {
                                     int lineEnd = remaining.IndexOf('\n');
                                     ReadOnlySpan<char> line;
-                                    
+
                                     if (lineEnd >= 0)
                                     {
                                         line = remaining[..lineEnd];
@@ -883,10 +883,10 @@ namespace GitMC.Views
                                         line = remaining;
                                         remaining = ReadOnlySpan<char>.Empty;
                                     }
-                                    
+
                                     lines.Add(line.ToString());
                                 }
-                                
+
                                 var keepLines = lines.Skip(Math.Max(0, lines.Count - 200)); // Keep last 200 lines
                                 sb.AppendLine(string.Join('\n', keepLines));
                                 sb.AppendLine("... [Earlier logs truncated for performance] ...");
@@ -895,22 +895,22 @@ namespace GitMC.Views
                             {
                                 sb.Append(LogTextBox.Text);
                             }
-                            
+
                             // Add new logs
                             foreach (var log in logsToFlush)
                             {
                                 sb.AppendLine(log);
                             }
-                            
+
                             LogTextBox.Text = sb.ToString();
-                            
+
                             // Always auto-scroll to bottom for better UX
                             if (LogTextBox.Parent is ScrollViewer scrollViewer)
                             {
                                 scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null, false);
                             }
                         }
-                        
+
                         _lastLogFlush = DateTime.Now;
                     }
                     catch (Exception)
@@ -929,32 +929,32 @@ namespace GitMC.Views
         {
             _cancellationTokenSource?.Cancel();
             _performanceTimer?.Stop();
-            
+
             // Flush any remaining logs
             FlushLogQueue();
-            
+
             base.OnNavigatedFrom(e);
         }
 
         /// <summary>
-        /// Count occurrences of a pattern in a span without allocating strings
+        /// Count pattern occurrences in span
         /// </summary>
         private static int CountOccurrences(ReadOnlySpan<char> text, ReadOnlySpan<char> pattern)
         {
             if (pattern.IsEmpty) return 0;
-            
+
             int count = 0;
             int index = 0;
-            
+
             while (index <= text.Length - pattern.Length)
             {
                 int found = text[index..].IndexOf(pattern);
                 if (found == -1) break;
-                
+
                 count++;
                 index += found + pattern.Length;
             }
-            
+
             return count;
         }
     }

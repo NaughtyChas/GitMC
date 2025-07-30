@@ -1,9 +1,9 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
+using GitMC.Utils;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -739,21 +739,14 @@ namespace GitMC.Views
                     Name = directoryInfo.Name,
                     Path = savePath,
                     LastPlayed = directoryInfo.LastWriteTime,
-                    WorldSize = CalculateFolderSize(directoryInfo),
+                    WorldSize = CommonHelpers.CalculateFolderSize(directoryInfo),
                     IsGitInitialized = Directory.Exists(Path.Combine(savePath, "GitMC")),
                     WorldType = "Survival", // Default
                     GameVersion = "1.21" // Default
                 };
 
                 // Set appropriate world icon based on world type
-                save.WorldIcon = save.WorldType.ToLowerInvariant() switch
-                {
-                    "creative" => "🎨",
-                    "hardcore" => "💀",
-                    "spectator" => "👻",
-                    "adventure" => "🗺️",
-                    _ => "🌍"
-                };
+                save.WorldIcon = CommonHelpers.GetWorldIcon(save.WorldType);
 
                 return Task.FromResult<MinecraftSave?>(save);
             }
@@ -761,19 +754,6 @@ namespace GitMC.Views
             {
                 Debug.WriteLine($"Failed to analyze save folder: {ex.Message}");
                 return Task.FromResult<MinecraftSave?>(null);
-            }
-        }
-
-        private static long CalculateFolderSize(DirectoryInfo directoryInfo)
-        {
-            try
-            {
-                return directoryInfo.EnumerateFiles("*", SearchOption.AllDirectories)
-                    .Sum(file => file.Length);
-            }
-            catch
-            {
-                return 0;
             }
         }
 

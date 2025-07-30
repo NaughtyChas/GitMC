@@ -4,12 +4,12 @@ using System.Runtime.CompilerServices;
 namespace GitMC.Utils
 {
     /// <summary>
-    /// Common utility methods shared across the application
+    /// Common utility methods
     /// </summary>
     public static class CommonHelpers
     {
         /// <summary>
-        /// Formats file size from bytes to human-readable format
+        /// Formats file size to human-readable format
         /// </summary>
         public static string FormatFileSize(long bytes)
         {
@@ -26,7 +26,7 @@ namespace GitMC.Utils
         }
 
         /// <summary>
-        /// Formats relative time from DateTime to human-readable format
+        /// Formats relative time to human-readable format
         /// </summary>
         public static string FormatRelativeTime(DateTime dateTime)
         {
@@ -42,7 +42,7 @@ namespace GitMC.Utils
         }
 
         /// <summary>
-        /// Calculates folder size recursively
+        /// Calculates folder size
         /// </summary>
         public static long CalculateFolderSize(DirectoryInfo directoryInfo)
         {
@@ -58,7 +58,7 @@ namespace GitMC.Utils
         }
 
         /// <summary>
-        /// Generates a welcome message based on time of day
+        /// Gets welcome message
         /// </summary>
         public static string GetWelcomeMessage()
         {
@@ -72,7 +72,7 @@ namespace GitMC.Utils
         }
 
         /// <summary>
-        /// Determines world icon based on world type
+        /// Gets world icon based on world type
         /// </summary>
         public static string GetWorldIcon(string worldType)
         {
@@ -88,7 +88,7 @@ namespace GitMC.Utils
     }
 
     /// <summary>
-    /// Base class for ViewModels implementing INotifyPropertyChanged
+    /// Base ViewModel class
     /// </summary>
     public abstract class BaseViewModel : INotifyPropertyChanged
     {

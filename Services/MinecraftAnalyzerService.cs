@@ -5,7 +5,7 @@ using GitMC.Utils;
 namespace GitMC.Services
 {
     /// <summary>
-    /// Service for analyzing Minecraft save data
+    /// Minecraft save analyzer service
     /// </summary>
     public interface IMinecraftAnalyzerService
     {
@@ -16,7 +16,7 @@ namespace GitMC.Services
     }
 
     /// <summary>
-    /// Implementation of Minecraft analyzer service
+    /// Minecraft analyzer service implementation
     /// </summary>
     public class MinecraftAnalyzerService : IMinecraftAnalyzerService
     {

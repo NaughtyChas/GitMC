@@ -1,8 +1,8 @@
+using GitMC.Services;
+using GitMC.Tests;
 using Windows.ApplicationModel.Core;
 using Windows.Storage.Pickers;
 using Windows.UI.Core;
-using GitMC.Services;
-using GitMC.Tests;
 using WinRT.Interop;
 
 namespace GitMC.Views
@@ -31,7 +31,7 @@ namespace GitMC.Views
                 picker.FileTypeFilter.Add(".mcc");
                 picker.FileTypeFilter.Add(".mcstructure");
                 picker.FileTypeFilter.Add("*");
-                
+
                 // Get current window handle for the picker
                 var window = App.MainWindow;
                 var hWnd = WindowNative.GetWindowHandle(window);
@@ -52,14 +52,14 @@ namespace GitMC.Views
                     {
                         AnvilActionsPanel.Visibility = Visibility.Visible;
                         ChunkInputPanel.Visibility = Visibility.Visible;
-                        
+
                         // Enable Anvil buttons
                         ShowRegionInfoButton.IsEnabled = true;
                         ListChunksButton.IsEnabled = true;
                         ExtractChunkButton.IsEnabled = true;
                         ConvertMcaToSnbtButton.IsEnabled = true;
                         ConvertSnbtToMcaButton.IsEnabled = true;
-                        
+
                         // Disable NBT buttons for .mca files (but not .mcc)
                         var enableNbtActions = extension == ".mcc";
                         ConvertToSnbtButton.IsEnabled = enableNbtActions;
@@ -69,11 +69,11 @@ namespace GitMC.Views
                     {
                         AnvilActionsPanel.Visibility = Visibility.Collapsed;
                         ChunkInputPanel.Visibility = Visibility.Collapsed;
-                        
+
                         // Enable NBT buttons
                         ConvertToSnbtButton.IsEnabled = true;
                         ValidateFileButton.IsEnabled = true;
-                        
+
                         // Disable Anvil buttons
                         ShowRegionInfoButton.IsEnabled = false;
                         ListChunksButton.IsEnabled = false;
@@ -99,7 +99,7 @@ namespace GitMC.Views
                 {
                     var isValid = await _nbtService.IsValidAnvilFileAsync(_selectedFilePath!);
                     var fileInfo = new FileInfo(_selectedFilePath!);
-                    
+
                     if (Path.GetExtension(_selectedFilePath)?.ToLowerInvariant() == ".mca")
                     {
                         var regionInfo = await _nbtService.GetRegionInfoAsync(_selectedFilePath!);
@@ -149,7 +149,7 @@ namespace GitMC.Views
             {
                 OutputTextBox.Text = "Loading region information...";
                 var regionInfo = await _nbtService.GetRegionInfoAsync(_selectedFilePath);
-                
+
                 OutputTextBox.Text = $"🗺️ Region Information\n" +
                                    $"{new string('=', 50)}\n" +
                                    $"File: {Path.GetFileName(regionInfo.FilePath)}\n" +
@@ -181,7 +181,7 @@ namespace GitMC.Views
                 OutputTextBox.Text = "Listing chunks...";
                 var chunks = await _nbtService.ListChunksInRegionAsync(_selectedFilePath);
                 var validChunks = chunks.Where(c => c.IsValid).ToList();
-                
+
                 var output = $"📋 Chunk List ({validChunks.Count} valid chunks)\n" +
                            $"{new string('=', 80)}\n" +
                            $"{"Chunk Coords",-15} {"Local",-8} {"Offset",-8} {"Sectors",-8} {"Size",-10} {"Compression",-12} {"Last Modified",-20}\n" +
@@ -191,7 +191,7 @@ namespace GitMC.Views
                 {
                     var compressionStr = chunk.IsOversized ? "Oversized" : chunk.CompressionType.ToString();
                     var sizeStr = chunk.IsOversized ? "External" : $"{chunk.DataSize} B";
-                    
+
                     output += $"({chunk.ChunkX},{chunk.ChunkZ})"
                         .PadRight(15) +
                         $"({chunk.LocalX},{chunk.LocalZ})"
@@ -233,10 +233,10 @@ namespace GitMC.Views
             {
                 var chunkX = (int)ChunkXNumberBox.Value;
                 var chunkZ = (int)ChunkZNumberBox.Value;
-                
+
                 OutputTextBox.Text = $"Extracting chunk ({chunkX}, {chunkZ})...";
                 var chunkData = await _nbtService.ExtractChunkDataAsync(_selectedFilePath, chunkX, chunkZ);
-                
+
                 OutputTextBox.Text = $"🎯 Chunk Data ({chunkX}, {chunkZ})\n" +
                                    $"{new string('=', 50)}\n" +
                                    $"File: {Path.GetFileName(_selectedFilePath)}\n" +
@@ -244,7 +244,7 @@ namespace GitMC.Views
                                    $"SNBT Content:\n" +
                                    $"{new string('-', 50)}\n" +
                                    $"{chunkData}";
-                
+
                 // Enable conversion options for extracted chunk data
                 _currentSnbtContent = chunkData;
                 ConvertToNbtButton.IsEnabled = true;
@@ -305,7 +305,7 @@ namespace GitMC.Views
                 if (file != null)
                 {
                     OutputTextBox.Text = "Translating to NBT...";
-                    
+
                     await _nbtService.ConvertSnbtToNbtAsync(_currentSnbtContent, file.Path);
 
                     OutputTextBox.Text = $"✅ Success!\n\nFile saved to: {file.Path}\n\nOriginal SNBT Content:\n{new string('=', 50)}\n{_currentSnbtContent}";
@@ -328,10 +328,10 @@ namespace GitMC.Views
             try
             {
                 OutputTextBox.Text = "Validating file...";
-                
+
                 bool isValid;
                 string fileInfo;
-                
+
                 if (_isAnvilFile)
                 {
                     isValid = await _nbtService.IsValidAnvilFileAsync(_selectedFilePath);
@@ -350,7 +350,7 @@ namespace GitMC.Views
                     isValid = await _nbtService.IsValidNbtFileAsync(_selectedFilePath);
                     fileInfo = await _nbtService.GetNbtFileInfoAsync(_selectedFilePath);
                 }
-                
+
                 OutputTextBox.Text = $"🔍 Validation Result: {(isValid ? "✅ Valid File" : "❌ Invalid File")}\n\n{fileInfo}";
             }
             catch (Exception ex)
@@ -375,22 +375,22 @@ namespace GitMC.Views
                 {
                     button.IsEnabled = false;
                 }
-                
+
                 OutputTextBox.Text = "\ud83e\uddea Running Round-Trip Test on selected file...\n\n";
                 OutputTextBox.Text += $"File: {Path.GetFileName(_selectedFilePath)}\n";
 
                 if (_isAnvilFile)
                 {
                     // Use Progress<T> to report progress
-                    var progress = new Progress<string>(message => 
+                    var progress = new Progress<string>(message =>
                     {
                         // Append to existing text without clearing
                         OutputTextBox.Text += $"{message}\n";
                     });
-                    
+
                     // Create test instance and run with progress reporting
                     var test = new RoundtripConversionTest(progress);
-                    var success = await Task.Run(async () => 
+                    var success = await Task.Run(async () =>
                     {
                         try
                         {
@@ -399,12 +399,12 @@ namespace GitMC.Views
                         catch (Exception ex)
                         {
                             await CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
-                                CoreDispatcherPriority.Normal, 
+                                CoreDispatcherPriority.Normal,
                                 () => OutputTextBox.Text += $"\nError during test: {ex.Message}\n");
                             return false;
                         }
                     });
-                    
+
                     if (success)
                     {
                         OutputTextBox.Text += "\n✅ MCA Round-Trip Test PASSED!\n";
@@ -420,9 +420,9 @@ namespace GitMC.Views
                 {
                     // Test NBT file roundtrip conversion
                     OutputTextBox.Text += "\nRunning NBT round-trip test...\n";
-                    
+
                     var test = new NbtRoundTripTest();
-                    var success = await Task.Run(async () => 
+                    var success = await Task.Run(async () =>
                     {
                         try
                         {
@@ -431,12 +431,12 @@ namespace GitMC.Views
                         catch (Exception ex)
                         {
                             await CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
-                                CoreDispatcherPriority.Normal, 
+                                CoreDispatcherPriority.Normal,
                                 () => OutputTextBox.Text += $"\nError during test: {ex.Message}\n");
                             return false;
                         }
                     });
-                    
+
                     if (success)
                     {
                         OutputTextBox.Text += "\n✅ NBT Round-Trip Test PASSED!\n";
@@ -483,7 +483,7 @@ namespace GitMC.Views
             {
                 // Disable button to prevent multiple clicks
                 ConvertMcaToSnbtButton.IsEnabled = false;
-                
+
                 // Show initial status
                 OutputTextBox.Text = "Preparing to convert MCA file to SNBT...";
 
@@ -500,11 +500,11 @@ namespace GitMC.Views
                 if (file != null)
                 {
                     // Create progress reporter to update UI
-                    var progress = new Progress<string>(message => 
+                    var progress = new Progress<string>(message =>
                     {
                         OutputTextBox.Text = $"Conversion in progress...\n\n{message}";
                     });
-                    
+
                     // Execute conversion asynchronously
                     await _nbtService.ConvertToSnbtAsync(_selectedFilePath, file.Path, progress);
 
@@ -535,7 +535,7 @@ namespace GitMC.Views
             {
                 // Disable button to prevent multiple clicks
                 ConvertSnbtToMcaButton.IsEnabled = false;
-                
+
                 // First, let user select an SNBT file
                 var openPicker = new FileOpenPicker();
                 openPicker.FileTypeFilter.Add(".snbt");
@@ -566,11 +566,11 @@ namespace GitMC.Views
                 if (mcaFile != null)
                 {
                     // Create progress reporter to update UI
-                    var progress = new Progress<string>(message => 
+                    var progress = new Progress<string>(message =>
                     {
                         OutputTextBox.Text = $"Conversion in progress...\n\n{message}";
                     });
-                    
+
                     // Execute conversion asynchronously
                     await _nbtService.ConvertFromSnbtAsync(snbtFile.Path, mcaFile.Path, progress);
 
@@ -596,7 +596,7 @@ namespace GitMC.Views
         }
 
         /// <summary>
-        /// Determines if a file is Anvil-related (MCA or SNBT derived from MCA)
+        /// Checks if file is Anvil-related
         /// </summary>
         private async Task<bool> IsAnvilRelatedFile(string filePath, string extension)
         {
@@ -624,7 +624,7 @@ namespace GitMC.Views
         }
 
         /// <summary>
-        /// Checks if an SNBT file was derived from an MCA file by analyzing its content
+        /// Checks if SNBT file was derived from MCA
         /// </summary>
         private async Task<bool> IsSnbtFromMcaFile(string snbtPath)
         {
@@ -632,7 +632,7 @@ namespace GitMC.Views
             {
                 // Read the first part of the file to check for MCA-specific indicators
                 using var reader = new StreamReader(snbtPath);
-                
+
                 // Read first 10KB or entire file if smaller
                 var buffer = new char[10240];
                 int charsRead = await reader.ReadAsync(buffer, 0, buffer.Length);
@@ -640,7 +640,7 @@ namespace GitMC.Views
 
                 // Check for MCA-specific indicators:
                 // 1. Region file headers
-                if (content.Contains("// Region file:") || 
+                if (content.Contains("// Region file:") ||
                     content.Contains("// Region coordinates:"))
                 {
                     return true;
@@ -653,14 +653,14 @@ namespace GitMC.Views
                 }
 
                 // 3. Minecraft chunk structure indicators
-                if (content.Contains("xPos:") && content.Contains("zPos:") && 
+                if (content.Contains("xPos:") && content.Contains("zPos:") &&
                     (content.Contains("sections:") || content.Contains("block_states:")))
                 {
                     return true;
                 }
 
                 // 4. Level tag with chunk data (typical of MCA-derived SNBT)
-                if (content.Contains("Level:") && 
+                if (content.Contains("Level:") &&
                     (content.Contains("Heightmaps:") || content.Contains("Status:")))
                 {
                     return true;
@@ -671,12 +671,12 @@ namespace GitMC.Views
                 // Optimized: Use span-based line enumeration instead of Split
                 ReadOnlySpan<char> contentSpan = content.AsSpan();
                 ReadOnlySpan<char> remaining = contentSpan;
-                
+
                 while (!remaining.IsEmpty && chunkCount <= 1)
                 {
                     int lineEnd = remaining.IndexOf('\n');
                     ReadOnlySpan<char> line;
-                    
+
                     if (lineEnd >= 0)
                     {
                         line = remaining[..lineEnd];
@@ -687,8 +687,8 @@ namespace GitMC.Views
                         line = remaining;
                         remaining = ReadOnlySpan<char>.Empty;
                     }
-                    
-                    if (line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal) || 
+
+                    if (line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal) ||
                         line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal))
                     {
                         chunkCount++;

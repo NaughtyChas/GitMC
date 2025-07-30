@@ -115,13 +115,13 @@ namespace GitMC.Views
             // Load configuration first
             await _configurationService.LoadAsync();
 
-            // Define minimum window size (800x600)
-            const int MinWidth = 800;
-            const int MinHeight = 600;
+            // Define minimum window size (1366*720)
+            const int MinWidth = 1366;
+            const int MinHeight = 720;
 
-            // Default window size (1000x700) - used for first launch
-            const int DefaultWidth = 1000;
-            const int DefaultHeight = 700;
+            // Default window size (1520*800) - used for first launch
+            const int DefaultWidth = 1520;
+            const int DefaultHeight = 800;
 
             // Check if this is the first launch
             bool isFirstLaunch = !_configurationService.IsFirstLaunchComplete;

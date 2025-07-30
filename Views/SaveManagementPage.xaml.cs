@@ -1,10 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
+using GitMC.Utils;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -12,7 +12,6 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using Windows.System;
 using Windows.UI;
 using WinRT.Interop;
 
@@ -330,11 +329,8 @@ namespace GitMC.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            // Add icon based on which parameter is provided
             if (!string.IsNullOrEmpty(iconPath))
             {
-                // Use #727282 for greyed-out icon when fontIcon got rgb(114, 114, 130)
-                // I know it is not an elegant solution, but it works for now
                 if (iconPath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
                 {
                     var imageIcon = new ImageIcon
@@ -351,7 +347,6 @@ namespace GitMC.Views
                 }
                 else
                 {
-                    // For PNG/other formats, use Image with potential color overlay
                     var image = new Image
                     {
                         Source = new BitmapImage(new Uri($"ms-appx:///{iconPath.TrimStart('/', '.')}")),
@@ -359,16 +354,13 @@ namespace GitMC.Views
                         Height = 16,
                         Margin = new Thickness(0, 0, 8, 0),
                         VerticalAlignment = VerticalAlignment.Center,
-                        UseLayoutRounding = true,
-                        // Note: For PNG images, Foreground won't change the color
-                        // Consider using a color overlay or different colored images
+                        UseLayoutRounding = true
                     };
                     panel.Children.Add(image);
                 }
             }
             else if (!string.IsNullOrEmpty(iconGlyph))
             {
-                // FontIcon supports Foreground color properly
                 var fontIcon = new FontIcon
                 {
                     FontSize = 16,
@@ -456,25 +448,8 @@ namespace GitMC.Views
             return badge;
         }
 
-        private string GetWorldIcon(string saveName)
-        {
-            // Bro just wanna remove this in the future.
-            var lowerName = saveName.ToLower(System.Globalization.CultureInfo.InvariantCulture);
-            if (lowerName.Contains("creative", StringComparison.InvariantCultureIgnoreCase))
-                return "🎨";
-            else if (lowerName.Contains("hardcore", StringComparison.InvariantCultureIgnoreCase))
-                return "💀";
-            else if (lowerName.Contains("spectator", StringComparison.InvariantCultureIgnoreCase))
-                return "👻";
-            else if (lowerName.Contains("adventure", StringComparison.InvariantCultureIgnoreCase))
-                return "🗺️";
-            else
-                return "🌍";
-        }
-
         private void ShowSaveActions(ManagedSaveInfo saveInfo)
         {
-            // TODO: Implement save actions menu (open folder, remove, etc.)
             FlyoutHelper.ShowSuccessFlyout(null, "Save Actions",
                 $"Actions for '{saveInfo.Name}' will be available soon!");
         }
@@ -502,15 +477,13 @@ namespace GitMC.Views
 
                     if (savesWithChangesCount != null)
                     {
-                        // TODO: Implement actual Git status checking for changes
-                        var changesCount = 0; // Placeholder
+                        var changesCount = 0;
                         savesWithChangesCount.Text = changesCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     if (remoteUpdatesCount != null)
                     {
-                        // TODO: Implement actual Git status checking for remote updates
-                        var updatesCount = 0; // Placeholder
+                        var updatesCount = 0;
                         remoteUpdatesCount.Text = updatesCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     }
 
@@ -527,7 +500,7 @@ namespace GitMC.Views
                             var totalSize = await CalculateTotalSize(managedSaves).ConfigureAwait(false);
                             DispatcherQueue.TryEnqueue(() =>
                             {
-                                totalSizeText.Text = FormatFileSize(totalSize);
+                                totalSizeText.Text = CommonHelpers.FormatFileSize(totalSize);
                             });
                         });
                     }
@@ -567,9 +540,8 @@ namespace GitMC.Views
             if (pushAllButton != null)
                 pushAllButton.IsEnabled = hasGitSaves;
 
-            // Update badges (placeholder logic)
-            var pendingPulls = 0; // TODO: Get from Git status
-            var pendingPushes = 0; // TODO: Get from Git status
+            var pendingPulls = 0;
+            var pendingPushes = 0;
 
             if (pullBadge != null && pullBadgeText != null)
             {
@@ -670,7 +642,7 @@ namespace GitMC.Views
                         if (Directory.Exists(save.OriginalPath))
                         {
                             var directoryInfo = new DirectoryInfo(save.OriginalPath);
-                            totalSize += CalculateFolderSize(directoryInfo);
+                            totalSize += CommonHelpers.CalculateFolderSize(directoryInfo);
                         }
                     }
                     catch
@@ -680,23 +652,6 @@ namespace GitMC.Views
                 }
                 return totalSize;
             });
-        }
-
-        private string FormatFileSize(long bytes)
-        {
-            if (bytes == 0) return "0 B";
-
-            var units = new[] { "B", "KB", "MB", "GB", "TB" };
-            var unitIndex = 0;
-            var size = (double)bytes;
-
-            while (size >= 1024 && unitIndex < units.Length - 1)
-            {
-                size /= 1024;
-                unitIndex++;
-            }
-
-            return $"{size:F1} {units[unitIndex]}";
         }
 
         private int GetManagedSavesCount()
@@ -732,23 +687,20 @@ namespace GitMC.Views
             }
         }
 
-        private async void CommitAllButton_Click(object sender, RoutedEventArgs e)
+        private void CommitAllButton_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: Implement commit all changes functionality
             FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Commit All Changes",
                 "Commit all changes feature is coming soon!");
         }
 
-        private async void PullAllButton_Click(object sender, RoutedEventArgs e)
+        private void PullAllButton_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: Implement pull all updates functionality
             FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Pull All Updates",
                 "Pull all updates feature is coming soon!");
         }
 
-        private async void PushAllButton_Click(object sender, RoutedEventArgs e)
+        private void PushAllButton_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: Implement push all changes functionality
             FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Push All Changes",
                 "Push all changes feature is coming soon!");
         }
@@ -811,36 +763,28 @@ namespace GitMC.Views
             }
         }
 
-        private async void InitializeGitButton_Click(object sender, RoutedEventArgs e)
+        private void InitializeGitButton_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: Implement Git initialization for selected saves
             FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Git Initialization",
                 "Git initialization feature is coming soon!");
-            await Task.CompletedTask;
         }
 
-        private async void SyncAllButton_Click(object sender, RoutedEventArgs e)
+        private void SyncAllButton_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: Implement sync all functionality
             FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Sync All",
                 "Sync all feature is coming soon!");
-            await Task.CompletedTask;
         }
 
-        private async void FetchAllButton_Click(object sender, RoutedEventArgs e)
+        private void FetchAllButton_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: Implement fetch all functionality
             FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Fetch All",
                 "Fetch all changes feature is coming soon!");
-            await Task.CompletedTask;
         }
 
-        private async void BackupButton_Click(object sender, RoutedEventArgs e)
+        private void BackupButton_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: Implement backup functionality
             FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Create Backup",
                 "Backup feature is coming soon!");
-            await Task.CompletedTask;
         }
 
         // Helper methods
@@ -904,20 +848,13 @@ namespace GitMC.Views
                     Name = directoryInfo.Name,
                     Path = savePath,
                     LastPlayed = directoryInfo.LastWriteTime,
-                    WorldSize = CalculateFolderSize(directoryInfo),
+                    WorldSize = CommonHelpers.CalculateFolderSize(directoryInfo),
                     IsGitInitialized = Directory.Exists(Path.Combine(savePath, "GitMC")),
                     WorldType = "Survival",
                     GameVersion = "1.21"
                 };
 
-                save.WorldIcon = save.WorldType.ToLower() switch
-                {
-                    "creative" => "🎨",
-                    "hardcore" => "💀",
-                    "spectator" => "👻",
-                    "adventure" => "🗺️",
-                    _ => "🌍"
-                };
+                save.WorldIcon = CommonHelpers.GetWorldIcon(save.WorldType);
 
                 return Task.FromResult<MinecraftSave?>(save);
             }
@@ -928,23 +865,8 @@ namespace GitMC.Views
             }
         }
 
-        private static long CalculateFolderSize(DirectoryInfo directoryInfo)
-        {
-            try
-            {
-                return directoryInfo.EnumerateFiles("*", SearchOption.AllDirectories)
-                    .Sum(file => file.Length);
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        // Update all flyout calls to use the new FlyoutHelper
     }
 
-    // Data model for managed save information
     public class ManagedSaveInfo
     {
         public string Id { get; set; } = "";
