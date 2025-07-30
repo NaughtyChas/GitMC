@@ -1,6 +1,7 @@
 <Page
     Background="{ThemeResource LayerFillColorDefaultBrush}"
     FontFamily="{StaticResource AppFontFamily}"
+    UseLayoutRounding="True"
     mc:Ignorable="d"
     x:Class="GitMC.Views.SaveManagementPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -12,6 +13,13 @@
 
     <Page.Resources>
         <converters:LocalizationConverter x:Key="LocalizationConverter" />
+
+        <!--  Save Card GridView Item Style  -->
+        <Style TargetType="GridViewItem" x:Key="SaveCardGridViewItemStyle">
+            <Setter Property="Margin" Value="0,0,0,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
     </Page.Resources>
 
     <Grid>
@@ -20,7 +28,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!--  Status Bar  -->
+        <!--  Top Status Bar  -->
         <Border
             Background="White"
             BorderBrush="#E1E1E1"
@@ -38,83 +46,179 @@
 
                 <!--  Title  -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <FontIcon
-                        FontSize="20"
-                        Glyph="&#xE8FD;"
-                        Margin="0,0,12,0"
-                        VerticalAlignment="Center" />
                     <TextBlock
                         FontSize="20"
                         FontWeight="SemiBold"
-                        Text="Save Management Dashboard"
+                        Text="Dashboard"
                         VerticalAlignment="Center" />
                 </StackPanel>
 
-                <!--  Stats  -->
+                <!--  Project Status Stats  -->
                 <StackPanel
                     Grid.Column="1"
                     HorizontalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="32">
-                    <StackPanel>
-                        <TextBlock
-                            FontSize="18"
-                            FontWeight="SemiBold"
-                            HorizontalAlignment="Center"
-                            Text="3"
-                            x:Name="TotalSavesCount" />
-                        <TextBlock
-                            FontSize="12"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            HorizontalAlignment="Center"
-                            Text="Total Saves" />
+                    <!--  Total Saves  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border
+                            Background="#E3F2FD"
+                            CornerRadius="16"
+                            Height="32"
+                            VerticalAlignment="Center"
+                            Width="32">
+                            <FontIcon
+                                FontSize="16"
+                                Foreground="#1976D2"
+                                Glyph="&#xE8B7;"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="0"
+                                x:Name="TotalSavesCount" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Saves" />
+                        </StackPanel>
                     </StackPanel>
-                    <StackPanel>
-                        <TextBlock
-                            FontSize="18"
-                            FontWeight="SemiBold"
-                            HorizontalAlignment="Center"
-                            Text="2"
-                            x:Name="GitInitializedCount" />
-                        <TextBlock
-                            FontSize="12"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            HorizontalAlignment="Center"
-                            Text="Git Initialized" />
+
+                    <!--  Saves with Changes  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border
+                            Background="#FFF3E0"
+                            CornerRadius="16"
+                            Height="32"
+                            VerticalAlignment="Center"
+                            Width="32">
+                            <FontIcon
+                                FontSize="16"
+                                Foreground="#F57C00"
+                                Glyph="&#xE70F;"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="0"
+                                x:Name="SavesWithChangesCount" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Changed" />
+                        </StackPanel>
                     </StackPanel>
-                    <StackPanel>
-                        <TextBlock
-                            FontSize="18"
-                            FontWeight="SemiBold"
-                            HorizontalAlignment="Center"
-                            Text="1.2 GB"
-                            x:Name="TotalSizeText" />
-                        <TextBlock
-                            FontSize="12"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            HorizontalAlignment="Center"
-                            Text="Total Size" />
+
+                    <!--  Remote Updates  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border
+                            Background="#E8F5E8"
+                            CornerRadius="16"
+                            Height="32"
+                            VerticalAlignment="Center"
+                            Width="32">
+                            <FontIcon
+                                FontSize="16"
+                                Foreground="#388E3C"
+                                Glyph="&#xE896;"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="0"
+                                x:Name="RemoteUpdatesCount" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Updates" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--  Git Status  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border
+                            Background="#F3E5F5"
+                            CornerRadius="16"
+                            Height="32"
+                            VerticalAlignment="Center"
+                            Width="32">
+                            <FontIcon
+                                FontSize="16"
+                                Foreground="#7B1FA2"
+                                Glyph="&#xE774;"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="Ready"
+                                x:Name="GitStatusText" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Git Status" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--  Total Size  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border
+                            Background="#FCE4EC"
+                            CornerRadius="16"
+                            Height="32"
+                            VerticalAlignment="Center"
+                            Width="32">
+                            <FontIcon
+                                FontSize="16"
+                                Foreground="#C2185B"
+                                Glyph="&#xE8B5;"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="0 B"
+                                x:Name="TotalSizeText" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Total Size" />
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
 
-                <!--  Settings Button  -->
+                <!--  Add Save Button  -->
                 <Button
-                    Click="SettingsButton_Click"
+                    Click="AddSaveButton_Click"
                     Grid.Column="2"
-                    ToolTipService.ToolTip="Settings">
-                    <FontIcon
-                        FontSize="16"
-                        Glyph="&#xE713;" />
+                    Style="{StaticResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="14" Glyph="&#xE710;" />
+                        <TextBlock Text="Add Save" />
+                    </StackPanel>
                 </Button>
             </Grid>
         </Border>
 
-        <!--  Main Content  -->
+        <!--  Main Content Layout  -->
         <Grid Grid.Row="1" Margin="24,0,24,24">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1.5*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="320" />
             </Grid.ColumnDefinitions>
 
             <!--  Left Panel - Your Saves  -->
@@ -124,10 +228,16 @@
                 BorderThickness="1"
                 CornerRadius="12"
                 Grid.Column="0"
-                Padding="24">
-                <StackPanel>
-                    <!--  Header  -->
-                    <Grid Margin="0,0,0,20">
+                Padding="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!--  Header with Actions  -->
+                    <Grid Grid.Row="0" Margin="0,0,0,20">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -137,252 +247,302 @@
                             <FontIcon
                                 FontSize="18"
                                 Glyph="&#xE8B7;"
-                                Margin="0,0,12,0" />
+                                Margin="0,0,12,0"
+                                VerticalAlignment="Center" />
                             <TextBlock
                                 FontSize="18"
                                 FontWeight="SemiBold"
-                                Text="Your Saves" />
+                                Text="Your Saves"
+                                VerticalAlignment="Center" />
                         </StackPanel>
 
-                        <Button
-                            Click="AddSaveButton_Click"
+                        <StackPanel
                             Grid.Column="1"
-                            Style="{StaticResource AccentButtonStyle}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontSize="14" Glyph="&#xE710;" />
-                                <TextBlock Text="Add Save" />
-                            </StackPanel>
-                        </Button>
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button Click="SyncAllButton_Click" ToolTipService.ToolTip="Sync All Saves">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon FontSize="12" Glyph="&#xE895;" />
+                                    <TextBlock FontSize="12" Text="Sync All" />
+                                </StackPanel>
+                            </Button>
+                            <Button Click="PushAllButton_Click" ToolTipService.ToolTip="Push All Changes">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon FontSize="12" Glyph="&#xE898;" />
+                                    <TextBlock FontSize="12" Text="Push All" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </Grid>
 
-                    <!--  Saves List  -->
-                    <ScrollViewer>
-                        <StackPanel Spacing="12" x:Name="SavesContainer">
-                            <!--  Sample Save Cards  -->
-                            <Border
-                                Background="#FAFAFA"
-                                BorderBrush="#E1E1E1"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
+                    <!--  Save Count Info  -->
+                    <TextBlock
+                        FontSize="14"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Grid.Row="1"
+                        Margin="0,0,0,16"
+                        Text="No saves managed yet"
+                        x:Name="SaveCountInfo" />
 
-                                    <!--  World Icon  -->
-                                    <Border
-                                        Background="#4A90E2"
-                                        CornerRadius="6"
-                                        Grid.Column="0"
-                                        Height="40"
-                                        Width="40">
-                                        <TextBlock
-                                            FontSize="20"
-                                            HorizontalAlignment="Center"
-                                            Text="🌍"
-                                            VerticalAlignment="Center" />
-                                    </Border>
-
-                                    <!--  Save Info  -->
-                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                                        <TextBlock
-                                            FontSize="16"
-                                            FontWeight="SemiBold"
-                                            Text="My Survival World" />
-                                        <TextBlock
-                                            FontSize="12"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="Last played: 2 hours ago • 245 MB • Git initialized" />
-                                    </StackPanel>
-
-                                    <!--  Actions  -->
-                                    <Button
-                                        Grid.Column="2">
-                                        <FontIcon FontSize="14" Glyph="&#xE712;" />
-                                    </Button>
-                                </Grid>
-                            </Border>
-
-                            <!--  More sample saves...  -->
-                            <Border
-                                Background="#FAFAFA"
-                                BorderBrush="#E1E1E1"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Border
-                                        Background="#E2A04A"
-                                        CornerRadius="6"
-                                        Grid.Column="0"
-                                        Height="40"
-                                        Width="40">
-                                        <TextBlock
-                                            FontSize="20"
-                                            HorizontalAlignment="Center"
-                                            Text="🎨"
-                                            VerticalAlignment="Center" />
-                                    </Border>
-
-                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                                        <TextBlock
-                                            FontSize="16"
-                                            FontWeight="SemiBold"
-                                            Text="Creative Building" />
-                                        <TextBlock
-                                            FontSize="12"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="Last played: 1 day ago • 89 MB • Not synced" />
-                                    </StackPanel>
-
-                                    <Button
-                                        Grid.Column="2">
-                                        <FontIcon FontSize="14" Glyph="&#xE712;" />
-                                    </Button>
-                                </Grid>
-                            </Border>
-                        </StackPanel>
+                    <!--  Saves Grid  -->
+                    <ScrollViewer
+                        Grid.Row="2"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+                        <GridView
+                            HorizontalContentAlignment="Stretch"
+                            ItemContainerStyle="{StaticResource SaveCardGridViewItemStyle}"
+                            SelectionMode="None"
+                            x:Name="SavesGridView">
+                            <GridView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Vertical" />
+                                </ItemsPanelTemplate>
+                            </GridView.ItemsPanel>
+                        </GridView>
                     </ScrollViewer>
-                </StackPanel>
+                </Grid>
             </Border>
 
-            <!--  Right Panel - Quick Actions & Recent Activity  -->
-            <Border
-                Background="White"
-                BorderBrush="#E1E1E1"
-                BorderThickness="1"
-                CornerRadius="12"
-                Grid.Column="2"
-                Padding="24">
-                <StackPanel>
-                    <!--  Quick Actions Section  -->
-                    <StackPanel Margin="0,0,0,32">
-                        <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
-                            <FontIcon
-                                FontSize="18"
-                                Glyph="&#xE8B5;"
-                                Margin="0,0,12,0" />
-                            <TextBlock
-                                FontSize="18"
-                                FontWeight="SemiBold"
-                                Text="Quick Actions" />
-                        </StackPanel>
+            <!--  Right Sidebar - Quick Actions & Recent Activity  -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="16" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-                        <StackPanel Spacing="12">
-                            <Button
-                                Click="AddSaveButton_Click"
-                                HorizontalAlignment="Stretch"
-                                Style="{StaticResource AccentButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon FontSize="14" Glyph="&#xE710;" />
-                                    <TextBlock Text="Add New Save" />
-                                </StackPanel>
-                            </Button>
-
-                            <Button
-                                Click="InitializeGitButton_Click"
-                                HorizontalAlignment="Stretch">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon FontSize="14" Glyph="&#xE8A7;" />
-                                    <TextBlock Text="Initialize Git" />
-                                </StackPanel>
-                            </Button>
-
-                            <Button
-                                Click="SyncAllButton_Click"
-                                HorizontalAlignment="Stretch">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon FontSize="14" Glyph="&#xE895;" />
-                                    <TextBlock Text="Sync All Saves" />
-                                </StackPanel>
-                            </Button>
-
-                            <Button
-                                Click="BackupButton_Click"
-                                HorizontalAlignment="Stretch">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon FontSize="14" Glyph="&#xE7B8;" />
-                                    <TextBlock Text="Create Backup" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </StackPanel>
-
-                    <!--  Recent Activity Section  -->
+                <!--  Quick Actions Panel  -->
+                <Border
+                    Background="White"
+                    BorderBrush="#E1E1E1"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Grid.Row="0"
+                    Padding="20">
                     <StackPanel>
+                        <!--  Quick Actions Header  -->
                         <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
                             <FontIcon
-                                FontSize="18"
-                                Glyph="&#xE823;"
-                                Margin="0,0,12,0" />
+                                FontSize="16"
+                                Glyph="&#xE945;"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center" />
                             <TextBlock
-                                FontSize="18"
+                                FontSize="16"
                                 FontWeight="SemiBold"
-                                Text="Recent Activity" />
+                                Text="Quick Actions"
+                                VerticalAlignment="Center" />
                         </StackPanel>
 
-                        <StackPanel Spacing="12">
-                            <!--  Activity Items  -->
-                            <Border
-                                Background="#F3F3F3"
-                                CornerRadius="6"
-                                Padding="12">
-                                <StackPanel>
-                                    <TextBlock
-                                        FontSize="14"
-                                        FontWeight="SemiBold"
-                                        Text="My Survival World" />
-                                    <TextBlock
-                                        FontSize="12"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="Committed changes • 2 hours ago" />
+                        <!--  Action Buttons  -->
+                        <StackPanel Spacing="8">
+                            <Button
+                                Click="CommitAllButton_Click"
+                                Height="60"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Padding="12,0,0,0"
+                                x:Name="CommitAllButton">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    Margin="16,0,12,0"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                                    <FontIcon
+                                        FontSize="16"
+                                        Glyph="&#xE8A7;"
+                                        Margin="0,0,12,0"
+                                        VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Text="Commit All Changes" />
+                                        <TextBlock
+                                            FontSize="11"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Margin="0,2,0,0"
+                                            Text="Save current changes to Git" />
+                                    </StackPanel>
                                 </StackPanel>
-                            </Border>
+                            </Button>
 
-                            <Border
-                                Background="#F3F3F3"
-                                CornerRadius="6"
-                                Padding="12">
-                                <StackPanel>
-                                    <TextBlock
-                                        FontSize="14"
-                                        FontWeight="SemiBold"
-                                        Text="Creative Building" />
-                                    <TextBlock
-                                        FontSize="12"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="Added to GitMC • 1 day ago" />
+                            <Button
+                                Click="FetchAllButton_Click"
+                                Height="60"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Padding="12,0,0,0"
+                                x:Name="FetchAllButton">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    Margin="16,0,12,0"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                                    <FontIcon
+                                        FontSize="16"
+                                        Glyph="&#xE895;"
+                                        Margin="0,0,12,0"
+                                        VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Text="Fetch All Changes" />
+                                        <TextBlock
+                                            FontSize="11"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Margin="0,2,0,0"
+                                            Text="Check updates from remote repo" />
+                                    </StackPanel>
                                 </StackPanel>
-                            </Border>
+                            </Button>
 
-                            <Border
-                                Background="#F3F3F3"
-                                CornerRadius="6"
-                                Padding="12">
-                                <StackPanel>
-                                    <TextBlock
-                                        FontSize="14"
-                                        FontWeight="SemiBold"
-                                        Text="System" />
-                                    <TextBlock
-                                        FontSize="12"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="Git configured • 2 days ago" />
-                                </StackPanel>
-                            </Border>
+                            <Button
+                                Click="PullAllButton_Click"
+                                Height="60"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Padding="12,0,0,0"
+                                x:Name="PullAllButton">
+                                <Grid>
+                                    <StackPanel
+                                        HorizontalAlignment="Left"
+                                        Margin="16,0,12,0"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                        <FontIcon
+                                            FontSize="16"
+                                            Glyph="&#xE896;"
+                                            Margin="0,0,12,0"
+                                            VerticalAlignment="Center" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Pull All Changes" />
+                                            <TextBlock
+                                                FontSize="11"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Margin="0,2,0,0"
+                                                Text="Apply updates from remote repo" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border
+                                        Background="#FF6B6B"
+                                        CornerRadius="10"
+                                        Height="20"
+                                        HorizontalAlignment="Right"
+                                        Margin="0,0,16,0"
+                                        MinWidth="20"
+                                        VerticalAlignment="Center"
+                                        Visibility="Collapsed"
+                                        x:Name="PullBadge">
+                                        <TextBlock
+                                            FontSize="10"
+                                            Foreground="White"
+                                            HorizontalAlignment="Center"
+                                            Text="0"
+                                            VerticalAlignment="Center"
+                                            x:Name="PullBadgeText" />
+                                    </Border>
+                                </Grid>
+                            </Button>
+
+                            <Button
+                                Click="PushAllButton_Click"
+                                Height="60"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Padding="12,0,0,0"
+                                x:Name="PushAllButtonSidebar">
+                                <Grid>
+                                    <StackPanel
+                                        HorizontalAlignment="Left"
+                                        Margin="16,0,12,0"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                        <FontIcon
+                                            FontSize="16"
+                                            Glyph="&#xE898;"
+                                            Margin="0,0,12,0"
+                                            VerticalAlignment="Center" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Push All Changes" />
+                                            <TextBlock
+                                                FontSize="11"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Margin="0,2,0,0"
+                                                Text="Upload local commits to remote" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Border
+                                        Background="#4CAF50"
+                                        CornerRadius="10"
+                                        Height="20"
+                                        HorizontalAlignment="Right"
+                                        Margin="0,0,16,0"
+                                        MinWidth="20"
+                                        VerticalAlignment="Center"
+                                        Visibility="Collapsed"
+                                        x:Name="PushBadge">
+                                        <TextBlock
+                                            FontSize="10"
+                                            Foreground="White"
+                                            HorizontalAlignment="Center"
+                                            Text="0"
+                                            VerticalAlignment="Center"
+                                            x:Name="PushBadgeText" />
+                                    </Border>
+                                </Grid>
+                            </Button>
                         </StackPanel>
                     </StackPanel>
-                </StackPanel>
-            </Border>
+                </Border>
+
+                <!--  Recent Activity Panel  -->
+                <Border
+                    Background="White"
+                    BorderBrush="#E1E1E1"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Grid.Row="2"
+                    Padding="20">
+                    <StackPanel>
+                        <!--  Recent Activity Header  -->
+                        <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
+                            <FontIcon
+                                FontSize="16"
+                                Glyph="&#xE823;"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center" />
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="Recent Activity"
+                                VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <!--  Activity List  -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="10" x:Name="RecentActivityContainer">
+                                <!--  Activity items will be populated dynamically  -->
+                                <TextBlock
+                                    FontSize="13"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,20,0,0"
+                                    Text="No recent activity"
+                                    x:Name="NoActivityText" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Grid>
 
         <!--  Loading Panel  -->

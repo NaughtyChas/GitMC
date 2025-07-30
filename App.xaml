@@ -25,36 +25,53 @@
 
             <x:Double x:Key="AppFontSize">14</x:Double>
 
-            <!--  Global Text Style with better Chinese font support  -->
+            <!--  Global Text Style with better Chinese font support and text rendering  -->
             <Style TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="UseLayoutRounding" Value="True" />
             </Style>
 
             <!--  Chinese-specific TextBlock style  -->
             <Style TargetType="TextBlock" x:Key="ChineseTextStyle">
                 <Setter Property="FontFamily" Value="{StaticResource ChineseFontFamily}" />
                 <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="UseLayoutRounding" Value="True" />
             </Style>
 
             <!--  ComboBox font support  -->
             <Style TargetType="ComboBox">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="UseLayoutRounding" Value="True" />
             </Style>
 
             <!--  TextBox font support  -->
             <Style TargetType="TextBox">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="UseLayoutRounding" Value="True" />
+            </Style>
+
+            <!--  Button font support  -->
+            <Style TargetType="Button">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="UseLayoutRounding" Value="True" />
+            </Style>
+
+            <!--  FontIcon style for better rendering  -->
+            <Style TargetType="FontIcon">
+                <Setter Property="UseLayoutRounding" Value="True" />
             </Style>
 
             <Style TargetType="TextBlock" x:Key="MyLabel">
                 <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="UseLayoutRounding" Value="True" />
             </Style>
 
             <Style TargetType="Button" x:Key="Action">
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="Padding" Value="14,10" />
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="UseLayoutRounding" Value="True" />
             </Style>
 
             <Style
