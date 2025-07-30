@@ -354,11 +354,12 @@
                                             Margin="16,0,12,0"
                                             Orientation="Horizontal"
                                             VerticalAlignment="Center">
-                                            <FontIcon
-                                                FontSize="16"
-                                                Glyph="&#xE8A7;"
+                                            <ImageIcon
+                                                Height="16"
                                                 Margin="0,0,12,0"
-                                                VerticalAlignment="Center" />
+                                                Source="../Assets/Icons/commit.svg"
+                                                VerticalAlignment="Center"
+                                                Width="16" />
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock
                                                     FontSize="14"
