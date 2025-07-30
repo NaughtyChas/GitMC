@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
@@ -14,6 +15,7 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.UI;
 using WinRT.Interop;
+using static GitMC.Constants.ColorConstants;
 
 namespace GitMC.Views
 {
@@ -125,8 +127,8 @@ namespace GitMC.Views
         {
             var saveCard = new Border
             {
-                Background = new SolidColorBrush(Colors.White),
-                BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(255, 225, 225, 225)),
+                Background = (SolidColorBrush)Application.Current.Resources["SystemControlBackgroundAltHighBrush"],
+                BorderBrush = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseLowBrush"],
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(12),
                 Padding = new Thickness(16),
@@ -153,8 +155,8 @@ namespace GitMC.Views
             // Folder icon with rounded background
             var iconContainer = new Border
             {
-                Background = new SolidColorBrush(ColorHelper.FromArgb(255, 227, 242, 253)),
-                BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(255, 200, 230, 250)),
+                Background = new SolidColorBrush(ColorConstants.IconColors.FolderBackground),
+                BorderBrush = new SolidColorBrush(ColorConstants.IconColors.FolderBorder),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Width = 40,
@@ -167,7 +169,7 @@ namespace GitMC.Views
             {
                 FontSize = 18,
                 Glyph = "\uE8B7", // Folder icon
-                Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 33, 150, 243)),
+                Foreground = new SolidColorBrush(ColorConstants.IconColors.FolderIcon),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 UseLayoutRounding = true
@@ -195,7 +197,7 @@ namespace GitMC.Views
             var pathText = new TextBlock
             {
                 FontSize = 11,
-                Foreground = new SolidColorBrush(Colors.Gray),
+                Foreground = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseMediumBrush"],
                 Text = saveInfo.OriginalPath ?? "Unknown path",
                 TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis,
@@ -207,27 +209,8 @@ namespace GitMC.Views
             Grid.SetColumn(titlePathPanel, 1);
 
             // Status badge
-            var statusBadge = new Border
-            {
-                Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 248, 197)),
-                CornerRadius = new CornerRadius(12),
-                BorderThickness = new Thickness(1),
-                BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(255, 238, 216, 136)),
-                Padding = new Thickness(8, 4, 8, 4),
-                Margin = new Thickness(8, 0, 8, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-                UseLayoutRounding = true
-            };
-
-            var statusText = new TextBlock
-            {
-                Text = "modified",
-                FontSize = 10,
-                Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 211, 149, 0)),
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                UseLayoutRounding = true
-            };
-            statusBadge.Child = statusText;
+            var statusBadge = CreateWarningBadge("modified");
+            statusBadge.Margin = new Thickness(8, 0, 8, 0);
             Grid.SetColumn(statusBadge, 2);
 
             // Open button
@@ -258,19 +241,19 @@ namespace GitMC.Views
             Grid.SetRow(infoGrid, 1);
 
             // Branch info
-            var branchInfoPanel = CreateInfoPanel(null, "Assets/Icons/branch_grey.svg", "Branch", "main", ColorHelper.FromArgb(255, 114, 114, 130));
+            var branchInfoPanel = CreateInfoPanel(null, "Assets/Icons/branch_grey.svg", "Branch", "main", ColorConstants.InfoPanelColors.SecondaryIconText);
             Grid.SetColumn(branchInfoPanel, 0);
 
             // Size info
-            var sizeInfoPanel = CreateInfoPanel(null, "Assets/Icons/db_grey.svg", "Size", "2.4 GB", ColorHelper.FromArgb(255, 114, 114, 130));
+            var sizeInfoPanel = CreateInfoPanel(null, "Assets/Icons/db_grey.svg", "Size", "2.4 GB", ColorConstants.InfoPanelColors.SecondaryIconText);
             Grid.SetColumn(sizeInfoPanel, 1);
 
             // Commits info
-            var commitsInfoPanel = CreateInfoPanel(null, "Assets/Icons/commit_grey.svg", "Commits", "45", ColorHelper.FromArgb(255, 114, 114, 130));
+            var commitsInfoPanel = CreateInfoPanel(null, "Assets/Icons/commit_grey.svg", "Commits", "45", ColorConstants.InfoPanelColors.SecondaryIconText);
             Grid.SetColumn(commitsInfoPanel, 2);
 
             // Modified info
-            var modifiedInfoPanel = CreateInfoPanel("\uE823", null, "Modified", "2 hours ago", ColorHelper.FromArgb(255, 114, 114, 130));
+            var modifiedInfoPanel = CreateInfoPanel("\uE823", null, "Modified", "2 hours ago", ColorConstants.InfoPanelColors.SecondaryIconText);
             Grid.SetColumn(modifiedInfoPanel, 3);
 
             infoGrid.Children.Add(branchInfoPanel);
@@ -282,7 +265,7 @@ namespace GitMC.Views
             var separator = new Border
             {
                 Height = 1,
-                Background = new SolidColorBrush(ColorHelper.FromArgb(255, 225, 225, 225)),
+                Background = new SolidColorBrush(ColorConstants.InfoPanelColors.SeparatorBackground),
                 Margin = new Thickness(0, 0, 0, 16)
             };
             Grid.SetRow(separator, 2);
@@ -305,11 +288,11 @@ namespace GitMC.Views
             gitStatusPanel.Children.Add(gitStatusHeader);
 
             // Push badge
-            var pushBadge = CreateGitStatusBadge("\uE898", "1 to push", ColorHelper.FromArgb(255, 78, 142, 246));
+            var pushBadge = CreateGitStatusBadge("\uE898", "1 to push", ColorConstants.BadgeColors.GitText);
             gitStatusPanel.Children.Add(pushBadge);
 
             // Pull badge
-            var pullBadge = CreateGitStatusBadge("\uE896", "2 to pull", ColorHelper.FromArgb(255, 78, 142, 246));
+            var pullBadge = CreateGitStatusBadge("\uE896", "2 to pull", ColorConstants.BadgeColors.GitText);
             gitStatusPanel.Children.Add(pullBadge);
 
             mainGrid.Children.Add(headerGrid);
@@ -382,7 +365,7 @@ namespace GitMC.Views
             {
                 FontSize = 11,
                 Text = title,
-                Foreground = new SolidColorBrush(Colors.Gray),
+                Foreground = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseMediumBrush"],
                 Margin = new Thickness(0, 0, 0, 2),
                 UseLayoutRounding = true
             };
@@ -392,7 +375,7 @@ namespace GitMC.Views
                 FontSize = 13,
                 Text = data,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.Black),
+                Foreground = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseHighBrush"],
                 UseLayoutRounding = true
             };
 
@@ -407,8 +390,8 @@ namespace GitMC.Views
         {
             var badge = new Border
             {
-                Background = new SolidColorBrush(ColorHelper.FromArgb(50, color.R, color.G, color.B)), // Light background
-                BorderBrush = new SolidColorBrush(color),
+                Background = new SolidColorBrush(ColorConstants.BadgeColors.GitBackground),
+                BorderBrush = new SolidColorBrush(ColorConstants.BadgeColors.GitBorder),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(8, 4, 8, 4),
@@ -425,7 +408,7 @@ namespace GitMC.Views
             {
                 FontSize = 10,
                 Glyph = iconGlyph,
-                Foreground = new SolidColorBrush(color),
+                Foreground = new SolidColorBrush(ColorConstants.BadgeColors.GitText),
                 Margin = new Thickness(0, 0, 4, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 UseLayoutRounding = true
@@ -435,7 +418,7 @@ namespace GitMC.Views
             {
                 FontSize = 10,
                 Text = text,
-                Foreground = new SolidColorBrush(color),
+                Foreground = new SolidColorBrush(ColorConstants.BadgeColors.GitText),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 UseLayoutRounding = true
@@ -445,6 +428,76 @@ namespace GitMC.Views
             panel.Children.Add(textBlock);
             badge.Child = panel;
 
+            return badge;
+        }
+
+        // Helper methods for creating different types of badges
+        private Border CreateTypedBadge(string text, BadgeType type)
+        {
+            return type switch
+            {
+                BadgeType.Info => CreateBadge(text, ColorConstants.BadgeColors.InfoBackground,
+                                            ColorConstants.BadgeColors.InfoBorder, ColorConstants.BadgeColors.InfoText),
+                BadgeType.Warning => CreateBadge(text, ColorConstants.BadgeColors.WarningBackground,
+                                                ColorConstants.BadgeColors.WarningBorder, ColorConstants.BadgeColors.WarningText),
+                BadgeType.Success => CreateBadge(text, ColorConstants.BadgeColors.SuccessBackground,
+                                                ColorConstants.BadgeColors.SuccessBorder, ColorConstants.BadgeColors.SuccessText),
+                BadgeType.Error => CreateBadge(text, ColorConstants.BadgeColors.ErrorBackground,
+                                              ColorConstants.BadgeColors.ErrorBorder, ColorConstants.BadgeColors.ErrorText),
+                BadgeType.Git => CreateBadge(text, ColorConstants.BadgeColors.GitBackground,
+                                           ColorConstants.BadgeColors.GitBorder, ColorConstants.BadgeColors.GitText),
+                _ => CreateBadge(text, ColorConstants.BadgeColors.InfoBackground,
+                               ColorConstants.BadgeColors.InfoBorder, ColorConstants.BadgeColors.InfoText)
+            };
+        }
+
+        private Border CreateInfoBadge(string text)
+        {
+            return CreateBadge(text, ColorConstants.BadgeColors.InfoBackground,
+                              ColorConstants.BadgeColors.InfoBorder, ColorConstants.BadgeColors.InfoText);
+        }
+
+        private Border CreateWarningBadge(string text)
+        {
+            return CreateBadge(text, ColorConstants.BadgeColors.WarningBackground,
+                              ColorConstants.BadgeColors.WarningBorder, ColorConstants.BadgeColors.WarningText);
+        }
+
+        private Border CreateSuccessBadge(string text)
+        {
+            return CreateBadge(text, ColorConstants.BadgeColors.SuccessBackground,
+                              ColorConstants.BadgeColors.SuccessBorder, ColorConstants.BadgeColors.SuccessText);
+        }
+
+        private Border CreateErrorBadge(string text)
+        {
+            return CreateBadge(text, ColorConstants.BadgeColors.ErrorBackground,
+                              ColorConstants.BadgeColors.ErrorBorder, ColorConstants.BadgeColors.ErrorText);
+        }
+
+        private Border CreateBadge(string text, Color backgroundColor, Color borderColor, Color textColor)
+        {
+            var badge = new Border
+            {
+                Background = new SolidColorBrush(backgroundColor),
+                BorderBrush = new SolidColorBrush(borderColor),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(8, 4, 8, 4),
+                VerticalAlignment = VerticalAlignment.Center,
+                UseLayoutRounding = true
+            };
+
+            var textBlock = new TextBlock
+            {
+                Text = text,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(textColor),
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                UseLayoutRounding = true
+            };
+
+            badge.Child = textBlock;
             return badge;
         }
 
@@ -621,7 +674,7 @@ namespace GitMC.Views
             var detailText = new TextBlock
             {
                 FontSize = 11,
-                Foreground = new SolidColorBrush(Colors.Gray),
+                Foreground = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseMediumBrush"],
                 Text = $"Added to GitMC • {timeText}"
             };
             panel.Children.Add(detailText);

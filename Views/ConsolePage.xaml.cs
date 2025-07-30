@@ -1,12 +1,12 @@
-using Windows.ApplicationModel.DataTransfer;
-using Windows.System;
-using Windows.UI.Core;
 using GitMC.Services;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.System;
+using Windows.UI.Core;
 
 namespace GitMC.Views
 {
@@ -80,7 +80,7 @@ namespace GitMC.Views
                 e.Handled = true;
                 NavigateHistory(1);
             }
-            else if (e.Key == VirtualKey.C && 
+            else if (e.Key == VirtualKey.C &&
                      (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control) & CoreVirtualKeyStates.Down) != 0)
             {
                 e.Handled = true;
@@ -95,7 +95,7 @@ namespace GitMC.Views
             if (_commandHistory.Count == 0) return;
 
             _historyIndex += direction;
-            
+
             if (_historyIndex < 0)
                 _historyIndex = 0;
             else if (_historyIndex >= _commandHistory.Count)
@@ -130,10 +130,10 @@ namespace GitMC.Views
             var directoryName = Path.GetFileName(currentDirectory);
             if (string.IsNullOrEmpty(directoryName))
                 directoryName = currentDirectory;
-            
+
             AddOutputLine($"{directoryName}$ {command}", "#00FF00");
             CommandInput.Text = string.Empty;
-            
+
             try
             {
                 // Handle special commands
@@ -257,12 +257,12 @@ namespace GitMC.Views
             catch
             {
                 // Use default color if parsing fails
-                run.Foreground = new SolidColorBrush(Colors.White);
+                run.Foreground = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseHighBrush"];
             }
 
             paragraph.Inlines.Add(run);
             ConsoleOutput.Blocks.Add(paragraph);
-            
+
             // Auto-scroll to bottom
             OutputScrollViewer.UpdateLayout();
             OutputScrollViewer.ScrollToVerticalOffset(OutputScrollViewer.ScrollableHeight);

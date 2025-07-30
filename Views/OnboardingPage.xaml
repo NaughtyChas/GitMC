@@ -184,8 +184,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE774;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock
-                                                Text="{local:Localize Key=Setup_Step1_Button}" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step1_Button}" />
                                         </StackPanel>
                                     </Button>
                                     <Button
@@ -301,8 +300,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE896;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock
-                                                Text="{local:Localize Key=Setup_Step2_Button}" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step2_Button}" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -462,7 +460,7 @@
                             <StackPanel
                                 Grid.Column="2"
                                 Grid.Row="3"
-                                Margin="0,0,0,32"
+                                Margin="0,0,0,16"
                                 VerticalAlignment="Top"
                                 Visibility="Collapsed"
                                 x:Name="Step4Content">
@@ -485,48 +483,35 @@
                                     Margin="0,0,0,12"
                                     Padding="16,4,16,16">
                                     <StackPanel>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <SelectorBar
-                                                SelectionChanged="PlatformSelector_SelectionChanged"
-                                                x:Name="PlatformSelector">
-                                                <SelectorBarItem
-                                                    IsSelected="True"
-                                                    Text="{local:Localize Key=Setup_GitHub}"
-                                                    x:Name="GitHubSelectorItem">
-                                                    <SelectorBarItem.Icon>
-                                                        <ImageIcon
-                                                            HorizontalAlignment="Center"
-                                                            MaxHeight="22"
-                                                            MaxWidth="22"
-                                                            Source="../Assets/Icons/github.png" />
-                                                    </SelectorBarItem.Icon>
-                                                </SelectorBarItem>
-                                                <SelectorBarItem
-                                                    Text="{local:Localize Key=Setup_SelfHosting}"
-                                                    x:Name="SelfHostingSelectorItem">
-                                                    <SelectorBarItem.Icon>
-                                                        <FontIcon Glyph="&#xEC27;" />
-                                                    </SelectorBarItem.Icon>
-                                                </SelectorBarItem>
-                                            </SelectorBar>
-                                        </Grid>
+                                        <SelectorBar SelectionChanged="PlatformSelector_SelectionChanged" x:Name="PlatformSelector">
+                                            <SelectorBarItem
+                                                IsSelected="True"
+                                                Text="{local:Localize Key=Setup_GitHub}"
+                                                x:Name="GitHubSelectorItem">
+                                                <SelectorBarItem.Icon>
+                                                    <ImageIcon
+                                                        HorizontalAlignment="Center"
+                                                        MaxHeight="22"
+                                                        MaxWidth="22"
+                                                        Source="../Assets/Icons/github.png" />
+                                                </SelectorBarItem.Icon>
+                                            </SelectorBarItem>
+                                            <SelectorBarItem Text="{local:Localize Key=Setup_SelfHosting}" x:Name="SelfHostingSelectorItem">
+                                                <SelectorBarItem.Icon>
+                                                    <FontIcon Glyph="&#xEC27;" />
+                                                </SelectorBarItem.Icon>
+                                            </SelectorBarItem>
+                                        </SelectorBar>
 
                                         <Rectangle
                                             Fill="#e1e1e1"
                                             Height="1"
                                             Margin="4,4,4,8" />
 
-                                        <!--  Platform Configuration Content with Additional
-                                        Indentation  -->
+                                        <!--  Platform Configuration Content with Additional Indentation  -->
                                         <StackPanel Margin="16,16,0,0">
                                             <!--  GitHub Configuration  -->
-                                            <StackPanel Visibility="Visible"
-                                                x:Name="GitHubConfigPanel">
+                                            <StackPanel Visibility="Visible" x:Name="GitHubConfigPanel">
                                                 <TextBlock
                                                     FontWeight="SemiBold"
                                                     Margin="0,0,0,8"
@@ -558,8 +543,7 @@
                                                 </Border>
 
                                                 <!--  Repository Settings  -->
-                                                <StackPanel Visibility="Collapsed"
-                                                    x:Name="GitHubRepoSettings">
+                                                <StackPanel Visibility="Collapsed" x:Name="GitHubRepoSettings">
                                                     <TextBlock
                                                         FontWeight="SemiBold"
                                                         Margin="0,0,0,8"
@@ -588,69 +572,76 @@
                                             </StackPanel>
 
                                             <!--  Self-Hosting Configuration  -->
-                                            <StackPanel Visibility="Collapsed"
+                                            <StackPanel
+                                                Spacing="8"
+                                                Visibility="Collapsed"
                                                 x:Name="SelfHostingConfigPanel">
-                                                <TextBlock
-                                                    FontWeight="SemiBold"
-                                                    Margin="0,0,0,8"
-                                                    Text="Self-Hosted Git Server" />
+                                                <TextBlock FontWeight="SemiBold" Text="Self-Hosted Git Server" />
                                                 <TextBlock
                                                     Foreground="#6B6B6B"
-                                                    Margin="0,0,0,12"
                                                     Text="Configure your own Git server (GitLab, Gitea, etc.) for managing your Minecraft saves."
                                                     TextWrapping="Wrap" />
 
-                                                <Grid Margin="0,0,0,8">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
                                                         <ColumnDefinition Width="*" />
                                                     </Grid.ColumnDefinitions>
+
                                                     <TextBlock
+                                                        Grid.Column="0"
+                                                        Grid.Row="0"
                                                         Margin="0,0,8,0"
                                                         Text="Server URL:"
                                                         VerticalAlignment="Center" />
                                                     <TextBox
                                                         Grid.Column="1"
+                                                        Grid.Row="0"
                                                         PlaceholderText="https://git.example.com"
                                                         x:Name="SelfHostingUrlBox" />
-                                                </Grid>
 
-                                                <Grid Margin="0,0,0,8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock
-                                                        Margin="0,0,8,0"
+                                                        Grid.Column="0"
+                                                        Grid.Row="1"
+                                                        Margin="0,8,8,0"
                                                         Text="Username:"
                                                         VerticalAlignment="Center" />
                                                     <TextBox
                                                         Grid.Column="1"
+                                                        Grid.Row="1"
+                                                        Margin="0,8,0,0"
                                                         PlaceholderText="Your username"
                                                         x:Name="SelfHostingUsernameBox" />
-                                                </Grid>
 
-                                                <Grid Margin="0,0,0,12">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock
-                                                        Margin="0,0,8,0"
+                                                        Grid.Column="0"
+                                                        Grid.Row="2"
+                                                        Margin="0,8,8,0"
                                                         Text="Access Token:"
                                                         VerticalAlignment="Center" />
                                                     <PasswordBox
                                                         Grid.Column="1"
+                                                        Grid.Row="2"
+                                                        Margin="0,8,0,0"
                                                         PlaceholderText="Personal access token"
                                                         x:Name="SelfHostingTokenBox" />
-                                                </Grid>
 
-                                                <Button
-                                                    Click="TestConnectionButton_Click"
-                                                    Content="Test Connection"
-                                                    HorizontalAlignment="Left"
-                                                    Margin="0,0,0,12"
-                                                    x:Name="TestConnectionButton" />
+                                                    <Button
+                                                        Click="TestConnectionButton_Click"
+                                                        Content="Test Connection"
+                                                        Grid.Column="0"
+                                                        Grid.ColumnSpan="2"
+                                                        Grid.Row="3"
+                                                        HorizontalAlignment="Left"
+                                                        Margin="0,12,0,0"
+                                                        x:Name="TestConnectionButton" />
+                                                </Grid>
                                             </StackPanel>
                                         </StackPanel>
 
@@ -668,8 +659,7 @@
                                                         FontSize="12"
                                                         Glyph="&#xE8A7;"
                                                         Margin="0,0,6,0" />
-                                                    <TextBlock
-                                                        Text="{local:Localize Key=Setup_Step4_Connect}" />
+                                                    <TextBlock Text="{local:Localize Key=Setup_Step4_Connect}" />
                                                 </StackPanel>
                                             </Button>
                                             <Button
@@ -682,8 +672,7 @@
                                                         FontSize="12"
                                                         Glyph="&#xE8B7;"
                                                         Margin="0,0,6,0" />
-                                                    <TextBlock
-                                                        Text="{local:Localize Key=Setup_Step4_UseLocally}" />
+                                                    <TextBlock Text="{local:Localize Key=Setup_Step4_UseLocally}" />
                                                 </StackPanel>
                                             </Button>
                                         </StackPanel>
@@ -784,8 +773,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE710;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock
-                                                Text="{local:Localize Key=Setup_Step5_AddSave}" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step5_AddSave}" />
                                         </StackPanel>
                                     </Button>
                                     <Button
@@ -798,8 +786,7 @@
                                                 FontSize="12"
                                                 Glyph="&#xE8B7;"
                                                 Margin="0,0,6,0" />
-                                            <TextBlock
-                                                Text="{local:Localize Key=Setup_Step5_AddVersionFolder}" />
+                                            <TextBlock Text="{local:Localize Key=Setup_Step5_AddVersionFolder}" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -1019,8 +1006,7 @@
                             Margin="0,0,0,16"
                             Width="200"
                             x:Name="LoadingProgressRing" />
-                        <TextBlock HorizontalAlignment="Center"
-                            Text="{local:Localize Key=Error_AnalyzingSave}" />
+                        <TextBlock HorizontalAlignment="Center" Text="{local:Localize Key=Error_AnalyzingSave}" />
                     </StackPanel>
                 </Border>
             </Grid>

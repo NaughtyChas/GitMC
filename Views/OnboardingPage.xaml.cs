@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
@@ -151,7 +152,7 @@ namespace GitMC.Views
             switch (status)
             {
                 case OnboardingStepStatus.Completed:
-                    circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                    circleBorder.Background = new SolidColorBrush(ColorConstants.SuccessGreen); // Green
                     if (checkIcon != null) checkIcon.Visibility = Visibility.Visible;
                     if (numberText != null) numberText.Visibility = Visibility.Collapsed;
                     break;
@@ -159,14 +160,14 @@ namespace GitMC.Views
                 case OnboardingStepStatus.Current:
                     if (canBeActive)
                     {
-                        circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 0, 120, 212)); // Blue
+                        circleBorder.Background = new SolidColorBrush(ColorConstants.InfoBlue); // Blue
                         if (checkIcon != null) checkIcon.Visibility = Visibility.Collapsed;
                         if (numberText != null) numberText.Visibility = Visibility.Visible;
                     }
                     else
                     {
                         // Show as not started if previous steps aren't completed
-                        circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 209, 209, 209)); // Grey
+                        circleBorder.Background = new SolidColorBrush(ColorConstants.DisabledText); // Grey
                         if (checkIcon != null) checkIcon.Visibility = Visibility.Collapsed;
                         if (numberText != null) numberText.Visibility = Visibility.Visible;
                     }
@@ -174,7 +175,7 @@ namespace GitMC.Views
 
                 case OnboardingStepStatus.NotStarted:
                 default:
-                    circleBorder.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 209, 209, 209)); // Grey
+                    circleBorder.Background = new SolidColorBrush(ColorConstants.DisabledText); // Grey
                     if (checkIcon != null) checkIcon.Visibility = Visibility.Collapsed;
                     if (numberText != null) numberText.Visibility = Visibility.Visible;
                     break;
@@ -231,7 +232,7 @@ namespace GitMC.Views
                         if (gitConfigText != null)
                         {
                             gitConfigText.Text = $"✓ Configured as {userName} ({userEmail})";
-                            gitConfigText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                            gitConfigText.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen); // Green
                             gitConfigText.Visibility = Visibility.Visible;
                         }
                     }
@@ -244,7 +245,7 @@ namespace GitMC.Views
                     if (repoStatusText != null)
                     {
                         repoStatusText.Text = "✓ Repository configured successfully";
-                        repoStatusText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                        repoStatusText.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen); // Green
                         repoStatusText.Visibility = Visibility.Visible;
                     }
                 }
@@ -256,7 +257,7 @@ namespace GitMC.Views
                     if (usageModeText != null)
                     {
                         usageModeText.Text = "✓ Usage mode configured";
-                        usageModeText.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)); // Green
+                        usageModeText.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen); // Green
                         usageModeText.Visibility = Visibility.Visible;
                     }
                 }
@@ -455,7 +456,7 @@ namespace GitMC.Views
                     if (gitInstalled)
                     {
                         var gitVersion = await _gitService.GetVersionAsync();
-                        gitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
+                        gitStatusIcon.Background = new SolidColorBrush(ColorConstants.SuccessGreen);
                         gitStatusText.Text = $"Git v{gitVersion} installed and ready";
 
                         // Change icon to checkmark when completed
@@ -470,7 +471,7 @@ namespace GitMC.Views
                     }
                     else
                     {
-                        gitStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
+                        gitStatusIcon.Background = new SolidColorBrush(ColorConstants.WarningOrangeBright);
                         gitStatusText.Text = "Git is not installed. Please install Git to continue.";
 
                         // Keep original icon when not completed
@@ -491,7 +492,7 @@ namespace GitMC.Views
                     var (userName, userEmail) = await _gitService.GetIdentityAsync();
                     if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
                     {
-                        gitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
+                        gitIdentityStatusIcon.Background = new SolidColorBrush(ColorConstants.SuccessGreen);
                         gitIdentityStatusText.Text = $"Configured as {userName} ({userEmail})";
 
                         // Change icon to checkmark when completed
@@ -506,7 +507,7 @@ namespace GitMC.Views
                     }
                     else
                     {
-                        gitIdentityStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
+                        gitIdentityStatusIcon.Background = new SolidColorBrush(ColorConstants.WarningOrangeBright);
                         gitIdentityStatusText.Text = "Git identity not configured. Set your name and email.";
 
                         // Keep original icon when not completed
@@ -526,7 +527,7 @@ namespace GitMC.Views
                 {
                     if (statuses.Length > 3 && statuses[3] == OnboardingStepStatus.Completed)
                     {
-                        platformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16));
+                        platformStatusIcon.Background = new SolidColorBrush(ColorConstants.SuccessGreen);
                         platformStatusText.Text = "Platform connected";
 
                         var platformIconControl = platformStatusIcon.Child as FontIcon;
@@ -537,7 +538,7 @@ namespace GitMC.Views
                     }
                     else
                     {
-                        platformStatusIcon.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 140, 0));
+                        platformStatusIcon.Background = new SolidColorBrush(ColorConstants.WarningOrangeBright);
                         platformStatusText.Text = "Not connected";
 
                         var platformIconControl = platformStatusIcon.Child as FontIcon;
@@ -671,7 +672,7 @@ namespace GitMC.Views
 
                 // Update UI to show connected state
                 GitHubStatusText.Text = $"Connected as {_configurationService.GitHubUsername}";
-                GitHubStatusPanel.Background = new SolidColorBrush(ColorHelper.FromArgb(255, 220, 255, 220));
+                GitHubStatusPanel.Background = new SolidColorBrush(ColorConstants.SuccessBackgroundLight);
                 GitHubRepoSettings.Visibility = Visibility.Visible;
 
                 // Mark platform as configured
@@ -787,7 +788,7 @@ namespace GitMC.Views
                         {
                             Text = message,
                             TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
+                            Foreground = new SolidColorBrush(ColorConstants.SecondaryText),
                             Margin = new Thickness(0, 0, 0, 12)
                         },
                         okButton
@@ -832,7 +833,7 @@ namespace GitMC.Views
                         {
                             Text = message,
                             TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
+                            Foreground = new SolidColorBrush(ColorConstants.SecondaryText),
                             Margin = new Thickness(0, 0, 0, 12)
                         },
                         okButton
