@@ -239,7 +239,8 @@ public class GitService : IGitService
             if (recordToStack && _directoryStack.LastOrDefault() != _currentDirectory)
                 _directoryStack.Add(_currentDirectory);
 
-            _currentDirectory = targetPath;
+            // Get directory again for a precise and unified path expression.
+            _currentDirectory = Directory.GetCurrentDirectory();
             return true;
         }
 
