@@ -198,17 +198,17 @@ public class GitService : IGitService
 
     public string GetCurrentDirectory() => _currentDirectory;
 
-    public string? GetLastDirectory() => _directoryStack.Count > 0 ? _directoryStack.Last() : null;
+    public string? GetPreviousDirectory() => _directoryStack.Count > 0 ? _directoryStack.Last() : null;
 
     public void PopDirectory()
     {
         if (_directoryStack.Count > 0)
-            _directoryStack.Remove(_directoryStack.Last());
+            _directoryStack.RemoveAt(_directoryStack.Count - 1);
     }
 
     public bool ChangeToInitialDirectory() => ChangeDirectory(_initialDirectory);
 
-    public bool ChangeDirectory(string path)
+    public bool ChangeDirectory(string path, bool recordToStack = true)
     {
         if (string.IsNullOrEmpty(path))
             return false;
@@ -234,11 +234,12 @@ public class GitService : IGitService
         {
             // Try setting directory using system method first for possible exceptions
             Directory.SetCurrentDirectory(targetPath);
+
+            // Only when we managed to change to the new directory should we add the last to the stack.
+            if (recordToStack && _directoryStack.LastOrDefault() != _currentDirectory)
+                _directoryStack.Add(_currentDirectory);
+
             _currentDirectory = targetPath;
-
-            if (_directoryStack.LastOrDefault() != targetPath)
-                _directoryStack.Add(targetPath);
-
             return true;
         }
 

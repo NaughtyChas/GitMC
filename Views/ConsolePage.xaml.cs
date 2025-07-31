@@ -154,23 +154,6 @@ public sealed partial class ConsolePage : Page
                 return;
             }
 
-            if (command.ToLower() == "cd -")
-            {
-                string? target = _gitService.GetLastDirectory();
-
-                if (string.IsNullOrEmpty(target))
-                {
-                    succeeded = false;
-                    AddOutputLine("There is no location history left to navigate backwards.", "#FF6B6B");
-                    return;
-                }
-
-                succeeded = HandleChangeDirectory($"cd {target}");
-                if (succeeded)
-                    _gitService.PopDirectory();
-                return;
-            }
-
             if (command.ToLower().StartsWith("cd "))
             {
                 succeeded = HandleChangeDirectory(command);
@@ -213,21 +196,38 @@ public sealed partial class ConsolePage : Page
         try
         {
             string path = command.Substring(3).Trim().Trim('"');
+            bool popDirectory = path == "-";
 
             if (string.IsNullOrEmpty(path))
             {
                 // Show current directory
                 AddOutputLine(_gitService.GetCurrentDirectory(), "#CCCCCC");
+                return true;
+            }
+
+            if (popDirectory)
+            {
+                string? target = _gitService.GetPreviousDirectory();
+
+                if (string.IsNullOrEmpty(target))
+                {
+                    AddOutputLine("There is no location history left to navigate backwards.", "#FF6B6B");
+                    return false;
+                }
+
+                path = target;
+            }
+
+            if (_gitService.ChangeDirectory(path, !popDirectory))
+            {
+                AddOutputLine($"Changed to: {_gitService.GetCurrentDirectory()}", "#CCCCCC");
+                if (popDirectory)
+                    _gitService.PopDirectory();
             }
             else
             {
-                if (_gitService.ChangeDirectory(path))
-                    AddOutputLine($"Changed to: {_gitService.GetCurrentDirectory()}", "#CCCCCC");
-                else
-                {
-                    AddOutputLine($"Directory not found: {path}", "#FF6B6B");
-                    return false;
-                }
+                AddOutputLine($"Directory not found: {path}", "#FF6B6B");
+                return false;
             }
 
             return true;

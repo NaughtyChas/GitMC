@@ -23,10 +23,15 @@ public interface IGitService
 
     // Working Directory
     string GetCurrentDirectory();
-    string? GetLastDirectory();
+
+    /// <summary>
+    /// Get the previous directory in the directory stack.
+    /// </summary>
+    /// <returns>The previous directory if existing, otherwise null.</returns>
+    string? GetPreviousDirectory();
     void PopDirectory();
     bool ChangeToInitialDirectory();
-    bool ChangeDirectory(string path);
+    bool ChangeDirectory(string path, bool recordToStack = true);
 }
 
 public class GitCommandResult
