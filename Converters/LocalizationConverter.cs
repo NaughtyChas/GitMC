@@ -14,7 +14,7 @@ namespace GitMC.Converters
                 }
             }
 
-            return value.ToString() ?? string.Empty;
+            return value?.ToString() ?? string.Empty;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language)

@@ -175,7 +175,7 @@ namespace GitMC.Utils.Nbt
         {
             if (shouldQuote(str))
                 return QuoteAndEscape(str, mode, newlines);
-            return str.Replace("\n", newlines.Handle()) ?? "";
+            return str?.Replace("\n", newlines.Handle()) ?? "";
         }
 
         public static string GetName(NbtTag tag, SnbtOptions options)

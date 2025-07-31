@@ -1,3 +1,4 @@
+using GitMC.Constants;
 using Microsoft.UI;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
@@ -24,7 +25,7 @@ namespace GitMC.Helpers
                 title,
                 message,
                 "\uE783", // Error icon
-                ColorHelper.FromArgb(255, 209, 52, 56), // Red
+                ColorConstants.ErrorRed, // Red
                 "OK"
             );
 
@@ -45,7 +46,7 @@ namespace GitMC.Helpers
                 title,
                 message,
                 "\uE73E", // Checkmark icon
-                ColorHelper.FromArgb(255, 16, 124, 16), // Green
+                ColorConstants.SuccessGreen, // Green
                 "OK"
             );
 
@@ -100,12 +101,12 @@ namespace GitMC.Helpers
                     Width = 300,
                     Children =
                     {
-                        CreateFlyoutHeader(title, "\uE7BA", ColorHelper.FromArgb(255, 0, 120, 212)), // Info icon, blue
+                        CreateFlyoutHeader(title, "\uE7BA", ColorConstants.InfoBlue), // Info icon, blue
                         new TextBlock
                         {
                             Text = message,
                             TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
+                            Foreground = new SolidColorBrush(ColorConstants.SecondaryText),
                             Margin = new Thickness(0, 0, 0, 12)
                         },
                         buttonPanel
