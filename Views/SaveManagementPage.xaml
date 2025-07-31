@@ -27,8 +27,8 @@
 
         <!--  Top Status Bar  -->
         <Border
-            Background="White"
-            BorderBrush="#E1E1E1"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="8"
             Grid.Row="0"
@@ -220,8 +220,8 @@
 
             <!--  Left Panel - Your Saves  -->
             <Border
-                Background="White"
-                BorderBrush="#E1E1E1"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="12"
                 Grid.Column="0"
@@ -316,8 +316,8 @@
 
                         <!--  Quick Actions Panel  -->
                         <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="12"
                             Grid.Row="0"
@@ -509,8 +509,8 @@
 
                         <!--  Recent Activity Panel  -->
                         <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="12"
                             Grid.Row="2"
@@ -552,12 +552,12 @@
 
         <!--  Loading Panel  -->
         <Grid
-            Background="#80000000"
+            Background="{ThemeResource SystemFillColorSolidNeutralBackgroundBrush}"
             Grid.RowSpan="2"
             Visibility="Collapsed"
             x:Name="LoadingPanel">
             <Border
-                Background="White"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 CornerRadius="8"
                 Height="120"
                 HorizontalAlignment="Center"
