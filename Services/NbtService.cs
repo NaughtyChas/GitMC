@@ -295,7 +295,7 @@ public class NbtService : INbtService
             }
 
             // Write the MCA file
-            mcaWriter.WriteAsync();
+            mcaWriter.Write();
 
             // Also create reconstruction info for debugging
             var reconstructionInfo = new NbtCompound("McaReconstruction");
@@ -369,231 +369,232 @@ public class NbtService : INbtService
     public async Task ConvertSnbtToRegionFileAsync(string inputPath, string outputPath,
         IProgress<string>? progress = null)
     {
-        await Task.Run(() =>
+        try
         {
-            try
+            progress?.Report($"Reading snbt file {Path.GetFileName(inputPath)}...");
+            string snbtContent = await File.ReadAllTextAsync(inputPath, Encoding.UTF8);
+
+            progress?.Report("Parsing snbt content...");
+            // Parse SNBT with multiple chunks
+            var chunks = new Dictionary<Point2I, NbtCompound>();
+
+            // Check if single or multiple chunks
+            if (snbtContent.Contains("// SNBT for chunk") &&
+                snbtContent.Contains("// =========================================="))
             {
-                progress?.Report($"Reading snbt file {Path.GetFileName(inputPath)}...");
-                string snbtContent = File.ReadAllText(inputPath, Encoding.UTF8);
+                progress?.Report("This snbt file contain multiple chunks, processing...");
+                // Multiple chunks - use spans and string reading to avoid massive string splitting
+                ReadOnlySpan<char> content = snbtContent.AsSpan();
+                const string separator = "// ==========================================";
 
-                progress?.Report("Parsing snbt content...");
-                // Parse SNBT with multiple chunks
-                var chunks = new Dictionary<Point2I, NbtCompound>();
-
-                // Check if single or multiple chunks
-                if (snbtContent.Contains("// SNBT for chunk") &&
-                    snbtContent.Contains("// =========================================="))
+                int currentPos = 0;
+                while (currentPos < content.Length)
                 {
-                    progress?.Report("This snbt file contain multiple chunks, processing...");
-                    // Multiple chunks - use spans and string reading to avoid massive string splitting
-                    ReadOnlySpan<char> content = snbtContent.AsSpan();
-                    const string separator = "// ==========================================";
+                    // Find next separator
+                    int sepIndex = content.Slice(currentPos).IndexOf(separator.AsSpan());
+                    int sectionEnd = sepIndex >= 0 ? currentPos + sepIndex : content.Length;
 
-                    int currentPos = 0;
-                    while (currentPos < content.Length)
-                    {
-                        // Find next separator
-                        int sepIndex = content.Slice(currentPos).IndexOf(separator.AsSpan());
-                        int sectionEnd = sepIndex >= 0 ? currentPos + sepIndex : content.Length;
+                    // Extract section without allocating substring
+                    ReadOnlySpan<char> section = content.Slice(currentPos, sectionEnd - currentPos);
 
-                        // Extract section without allocating substring
-                        ReadOnlySpan<char> section = content.Slice(currentPos, sectionEnd - currentPos);
+                    // Process section if it contains chunk header
+                    if (section.IndexOf("// SNBT for chunk".AsSpan()) >= 0)
+                        ProcessChunkSectionSpan(section, chunks);
 
-                        // Process section if it contains chunk header
-                        if (section.IndexOf("// SNBT for chunk".AsSpan()) >= 0)
-                            ProcessChunkSectionSpan(section, chunks);
-
-                        // Move to next section
-                        currentPos = sepIndex >= 0 ? sectionEnd + separator.Length : content.Length;
-                    }
+                    // Move to next section
+                    currentPos = sepIndex >= 0 ? sectionEnd + separator.Length : content.Length;
                 }
-                else if (snbtContent.Contains("// SNBT for chunk") || snbtContent.Contains("// Chunk("))
+            }
+            else if (snbtContent.Contains("// SNBT for chunk") || snbtContent.Contains("// Chunk("))
+            {
+                // Check if this is multiple chunks without separators (new format)
+                // Count the number of chunk headers to determine if it's multi-chunk
+                int totalChunks = 0;
+
+                // Optimized: Use span-based line enumeration instead of Split
+                ReadOnlySpan<char> contentSpan = snbtContent.AsSpan();
+                ReadOnlySpan<char> remaining = contentSpan;
+
+                while (!remaining.IsEmpty)
                 {
-                    // Check if this is multiple chunks without separators (new format)
-                    // Count the number of chunk headers to determine if it's multi-chunk
-                    int totalChunks = 0;
+                    int lineEnd = remaining.IndexOf('\n');
+                    ReadOnlySpan<char> line;
 
-                    // Optimized: Use span-based line enumeration instead of Split
-                    ReadOnlySpan<char> contentSpan = snbtContent.AsSpan();
-                    ReadOnlySpan<char> remaining = contentSpan;
-
-                    while (!remaining.IsEmpty)
+                    if (lineEnd >= 0)
                     {
-                        int lineEnd = remaining.IndexOf('\n');
-                        ReadOnlySpan<char> line;
-
-                        if (lineEnd >= 0)
-                        {
-                            line = remaining[..lineEnd];
-                            remaining = remaining[(lineEnd + 1)..];
-                        }
-                        else
-                        {
-                            line = remaining;
-                            remaining = ReadOnlySpan<char>.Empty;
-                        }
-
-                        // Trim carriage return if present
-                        if (!line.IsEmpty && line[^1] == '\r')
-                            line = line[..^1];
-
-                        if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) ||
-                            line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal))
-                            totalChunks++;
-                    }
-
-                    if (totalChunks > 1)
-                    {
-                        progress?.Report($"This snbt file contains {totalChunks} chunks, processing...");
-                        // Multiple chunks without separators - parse each chunk section
-                        ProcessMultipleChunksWithoutSeparator(snbtContent, chunks);
+                        line = remaining[..lineEnd];
+                        remaining = remaining[(lineEnd + 1)..];
                     }
                     else
                     {
-                        progress?.Report("This snbt file contain single chunk，processing...");
-                        // Single chunk - process with span to avoid String.Split
-                        ReadOnlySpan<char> content = snbtContent.AsSpan();
-                        ProcessChunkSectionSpan(content, chunks);
+                        line = remaining;
+                        remaining = ReadOnlySpan<char>.Empty;
                     }
+
+                    // Trim carriage return if present
+                    if (!line.IsEmpty && line[^1] == '\r')
+                        line = line[..^1];
+
+                    if (line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal) ||
+                        line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal))
+                        totalChunks++;
+                }
+
+                if (totalChunks > 1)
+                {
+                    progress?.Report($"This snbt file contains {totalChunks} chunks, processing...");
+                    // Multiple chunks without separators - parse each chunk section
+                    ProcessMultipleChunksWithoutSeparator(snbtContent, chunks);
                 }
                 else
                 {
-                    progress?.Report("Expecting a standard format，read as a single chunk file instead...");
-                    // If not in standard format, try to read entire info as single chunk
-                    var rootNbt = SnbtParser.Parse(snbtContent, false) as NbtCompound;
-                    if (rootNbt != null)
-                    {
-                        // Make sure NBT compound has a name
-                        if (string.IsNullOrEmpty(rootNbt.Name)) rootNbt.Name = "";
-
-                        // Extract cords from NBT tag
-                        int xPos = rootNbt.Get<NbtInt>("xPos")?.Value ?? 0;
-                        int zPos = rootNbt.Get<NbtInt>("zPos")?.Value ?? 0;
-                        chunks[new Point2I(xPos, zPos)] = rootNbt;
-                    }
+                    progress?.Report("This snbt file contain single chunk，processing...");
+                    // Single chunk - process with span to avoid String.Split
+                    ReadOnlySpan<char> content = snbtContent.AsSpan();
+                    ProcessChunkSectionSpan(content, chunks);
                 }
-
-                if (chunks.Count == 0) throw new InvalidOperationException("No valid chunk data found in SNBT file");
-
-                progress?.Report($"Parsing success! Found {chunks.Count} chunks");
-
-                // Calculate correct region coordinates from chunk coordinates based on first chunk
-                Point2I firstChunk = chunks.First().Key;
-                int regionX = (int)Math.Floor(firstChunk.X / 32.0);
-                int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
-                var regionCoords = new Point2I(regionX, regionZ);
-
-                // Verify all chunks belong to the same region
-                foreach (KeyValuePair<Point2I, NbtCompound> chunk in chunks)
-                {
-                    int chunkRegionX = (int)Math.Floor(chunk.Key.X / 32.0);
-                    int chunkRegionZ = (int)Math.Floor(chunk.Key.Z / 32.0);
-
-                    if (chunkRegionX != regionX || chunkRegionZ != regionZ)
-                        throw new InvalidOperationException(
-                            $"Chunk ({chunk.Key.X}, {chunk.Key.Z}) belongs to region ({chunkRegionX}, {chunkRegionZ}), not ({regionX}, {regionZ})");
-                }
-
-                progress?.Report($"Creating region file：r.{regionCoords.X}.{regionCoords.Z}.mca...");
-
-                // Create MCA writer
-                using var mcaWriter = new McaRegionWriter(outputPath, regionCoords);
-
-                // Add all chunks to the writer
-                int chunkCount = 0;
-                foreach (KeyValuePair<Point2I, NbtCompound> chunk in chunks)
-                {
-                    chunkCount++;
-                    if (chunkCount % 10 == 0 || chunkCount == chunks.Count)
-                        progress?.Report($"Adding chunk：{chunkCount}/{chunks.Count}");
-
-                    // Fix any empty lists with Unknown type before writing
-                    FixEmptyLists(chunk.Value);
-
-                    mcaWriter.AddChunk(
-                        chunk.Key,
-                        chunk.Value,
-                        CompressionType.Zlib, // Default to Zlib compression
-                        (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-                    );
-                }
-
-                // Write the MCA file
-                progress?.Report("Writing into mca file...");
-                mcaWriter.WriteAsync();
-
-                // Also create reconstruction info for debugging
-                progress?.Report("Generating reconstruction file info...");
-                var reconstructionInfo = new NbtCompound("McaReconstruction");
-                reconstructionInfo.Add(new NbtString("OriginalSnbtPath", inputPath));
-                reconstructionInfo.Add(new NbtString("TargetMcaPath", outputPath));
-                reconstructionInfo.Add(new NbtInt("ChunksFound", chunks.Count));
-                reconstructionInfo.Add(new NbtString("ConversionTime",
-                    DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")));
-                reconstructionInfo.Add(new NbtString("RegionX", regionCoords.X.ToString()));
-                reconstructionInfo.Add(new NbtString("RegionZ", regionCoords.Z.ToString()));
-                reconstructionInfo.Add(new NbtString("Status", "Successfully converted to MCA"));
-
-                var chunksList = new NbtList("Chunks", NbtTagType.Compound);
-                foreach (KeyValuePair<Point2I, NbtCompound> chunk in chunks)
-                {
-                    var chunkInfo = new NbtCompound();
-                    chunkInfo.Add(new NbtInt("X", chunk.Key.X));
-                    chunkInfo.Add(new NbtInt("Z", chunk.Key.Z));
-                    chunkInfo.Add(new NbtString("Status", "Written to MCA"));
-
-                    // Add some basic chunk validation info
-                    int xPos = chunk.Value.Get<NbtInt>("xPos")?.Value ?? -999;
-                    int zPos = chunk.Value.Get<NbtInt>("zPos")?.Value ?? -999;
-                    chunkInfo.Add(new NbtString("ValidationStatus",
-                        xPos == chunk.Key.X && zPos == chunk.Key.Z
-                            ? "Coordinates match"
-                            : "Coordinate mismatch"));
-
-                    chunksList.Add(chunkInfo);
-                }
-
-                reconstructionInfo.Add(chunksList);
-
-                // Save reconstruction info
-                string infoSnbt = reconstructionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
-                string infoPath = Path.ChangeExtension(outputPath, ".reconstruction.snbt");
-                using (var fs = new FileStream(infoPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                {
-                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
-                    {
-                        writer.Write(infoSnbt);
-                        writer.Flush();
-                    }
-                }
-
-                progress?.Report(
-                    $"Conversion complete! mca file has been successfully created: {Path.GetFileName(outputPath)}");
             }
-            catch (Exception ex)
+            else
             {
-                progress?.Report($"Conversion failed: {ex.Message}");
-
-                // Create error log if conversion fails
-                string errorInfo =
-                    $"// Error converting SNBT to MCA: {ex.Message}\n// Original file: {inputPath}\n// Target file: {outputPath}\n// Time: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}";
-                using (var fs = new FileStream(outputPath + ".error.txt", FileMode.Create, FileAccess.Write,
-                           FileShare.None))
+                progress?.Report("Expecting a standard format，read as a single chunk file instead...");
+                // If not in standard format, try to read entire info as single chunk
+                var rootNbt = SnbtParser.Parse(snbtContent, false) as NbtCompound;
+                if (rootNbt != null)
                 {
-                    using (var writer = new StreamWriter(fs, Encoding.UTF8))
-                    {
-                        writer.Write(errorInfo);
-                        writer.Flush();
-                    }
+                    // Make sure NBT compound has a name
+                    if (string.IsNullOrEmpty(rootNbt.Name)) rootNbt.Name = "";
+
+                    // Extract cords from NBT tag
+                    int xPos = rootNbt.Get<NbtInt>("xPos")?.Value ?? 0;
+                    int zPos = rootNbt.Get<NbtInt>("zPos")?.Value ?? 0;
+                    chunks[new Point2I(xPos, zPos)] = rootNbt;
                 }
-
-                // Create an empty MCA file
-                byte[] emptyMcaData = new byte[8192];
-                File.WriteAllBytes(outputPath, emptyMcaData);
-
-                throw;
             }
-        });
+
+            if (chunks.Count == 0) throw new InvalidOperationException("No valid chunk data found in SNBT file");
+
+            progress?.Report($"Parsing success! Found {chunks.Count} chunks");
+
+            // Calculate correct region coordinates from chunk coordinates based on first chunk
+            Point2I firstChunk = chunks.First().Key;
+            int regionX = (int)Math.Floor(firstChunk.X / 32.0);
+            int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
+            var regionCoords = new Point2I(regionX, regionZ);
+
+            // Verify all chunks belong to the same region
+            foreach (KeyValuePair<Point2I, NbtCompound> chunk in chunks)
+            {
+                int chunkRegionX = (int)Math.Floor(chunk.Key.X / 32.0);
+                int chunkRegionZ = (int)Math.Floor(chunk.Key.Z / 32.0);
+
+                if (chunkRegionX != regionX || chunkRegionZ != regionZ)
+                    throw new InvalidOperationException(
+                        $"Chunk ({chunk.Key.X}, {chunk.Key.Z}) belongs to region ({chunkRegionX}, {chunkRegionZ}), not ({regionX}, {regionZ})");
+            }
+
+            progress?.Report($"Creating region file：r.{regionCoords.X}.{regionCoords.Z}.mca...");
+
+            // Create MCA writer
+            using var mcaWriter = new McaRegionWriter(outputPath, regionCoords);
+
+            // Add all chunks to the writer
+            int chunkCount = 0;
+            foreach (KeyValuePair<Point2I, NbtCompound> chunk in chunks)
+            {
+                chunkCount++;
+                if (chunkCount % 10 == 0 || chunkCount == chunks.Count)
+                    progress?.Report($"Adding chunk：{chunkCount}/{chunks.Count}");
+
+                // Fix any empty lists with Unknown type before writing
+                FixEmptyLists(chunk.Value);
+
+                mcaWriter.AddChunk(
+                    chunk.Key,
+                    chunk.Value,
+                    CompressionType.Zlib, // Default to Zlib compression
+                    (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                );
+
+                // Yield control occasionally to prevent UI freezing
+                if (chunkCount % 25 == 0)
+                    await Task.Yield();
+            }
+
+            // Write the MCA file
+            progress?.Report("Writing into mca file...");
+            await mcaWriter.WriteAsync();
+
+            // Also create reconstruction info for debugging
+            progress?.Report("Generating reconstruction file info...");
+            var reconstructionInfo = new NbtCompound("McaReconstruction");
+            reconstructionInfo.Add(new NbtString("OriginalSnbtPath", inputPath));
+            reconstructionInfo.Add(new NbtString("TargetMcaPath", outputPath));
+            reconstructionInfo.Add(new NbtInt("ChunksFound", chunks.Count));
+            reconstructionInfo.Add(new NbtString("ConversionTime",
+                DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")));
+            reconstructionInfo.Add(new NbtString("RegionX", regionCoords.X.ToString()));
+            reconstructionInfo.Add(new NbtString("RegionZ", regionCoords.Z.ToString()));
+            reconstructionInfo.Add(new NbtString("Status", "Successfully converted to MCA"));
+
+            var chunksList = new NbtList("Chunks", NbtTagType.Compound);
+            foreach (KeyValuePair<Point2I, NbtCompound> chunk in chunks)
+            {
+                var chunkInfo = new NbtCompound();
+                chunkInfo.Add(new NbtInt("X", chunk.Key.X));
+                chunkInfo.Add(new NbtInt("Z", chunk.Key.Z));
+                chunkInfo.Add(new NbtString("Status", "Written to MCA"));
+
+                // Add some basic chunk validation info
+                int xPos = chunk.Value.Get<NbtInt>("xPos")?.Value ?? -999;
+                int zPos = chunk.Value.Get<NbtInt>("zPos")?.Value ?? -999;
+                chunkInfo.Add(new NbtString("ValidationStatus",
+                    xPos == chunk.Key.X && zPos == chunk.Key.Z
+                        ? "Coordinates match"
+                        : "Coordinate mismatch"));
+
+                chunksList.Add(chunkInfo);
+            }
+
+            reconstructionInfo.Add(chunksList);
+
+            // Save reconstruction info
+            string infoSnbt = reconstructionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
+            string infoPath = Path.ChangeExtension(outputPath, ".reconstruction.snbt");
+            await using (var fs = new FileStream(infoPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+            {
+                await using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                {
+                    await writer.WriteAsync(infoSnbt);
+                    await writer.FlushAsync();
+                }
+            }
+
+            progress?.Report(
+                $"Conversion complete! mca file has been successfully created: {Path.GetFileName(outputPath)}");
+        }
+        catch (Exception ex)
+        {
+            progress?.Report($"Conversion failed: {ex.Message}");
+
+            // Create error log if conversion fails
+            string errorInfo =
+                $"// Error converting SNBT to MCA: {ex.Message}\n// Original file: {inputPath}\n// Target file: {outputPath}\n// Time: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}";
+            await using (var fs = new FileStream(outputPath + ".error.txt", FileMode.Create, FileAccess.Write,
+                       FileShare.None, bufferSize: 4096, useAsync: true))
+            {
+                await using (var writer = new StreamWriter(fs, Encoding.UTF8))
+                {
+                    await writer.WriteAsync(errorInfo);
+                    await writer.FlushAsync();
+                }
+            }
+
+            // Create an empty MCA file
+            byte[] emptyMcaData = new byte[8192];
+            await File.WriteAllBytesAsync(outputPath, emptyMcaData);
+
+            throw;
+        }
     }
 
     public async Task ConvertSnbtToNbtAsync(string snbtContent, string outputPath)
@@ -1832,9 +1833,9 @@ public class NbtService : INbtService
                         chunkIndex.Add(chunkMeta);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Skip chunks that can't be read
+                    progress?.Report($"Warning: Could not read chunk ({chunkCoord.X}, {chunkCoord.Z}): {ex.Message}");
                 }
             }
             regionInfo.Add(chunkIndex);
@@ -2049,7 +2050,7 @@ public class NbtService : INbtService
 
             // Write the MCA file
             progress?.Report("Writing MCA file...");
-            mcaWriter.WriteAsync();
+            await mcaWriter.WriteAsync();
 
             progress?.Report($"Successfully created MCA file: {Path.GetFileName(outputMcaPath)} with {chunks.Count} chunks");
         }

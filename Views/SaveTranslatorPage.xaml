@@ -74,7 +74,7 @@
                     Margin="0,8,0,0"
                     Padding="12">
                     <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="MCA Processing Mode" />
+                        <TextBlock FontWeight="SemiBold" Text="{ext:Localize Key=SaveTranslator_McaProcessingMode}" />
                         <RadioButton
                             Content="Standard MCA → SNBT (Single file per region)"
                             GroupName="McaProcessingMode"
