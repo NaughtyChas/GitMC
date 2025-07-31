@@ -1805,7 +1805,7 @@ public class NbtService : INbtService
             // Create output directory if it doesn't exist
             Directory.CreateDirectory(outputFolderPath);
 
-            // Create region info file
+            // Create region info file with comprehensive metadata
             var regionInfo = new NbtCompound("RegionInfo");
             regionInfo.Add(new NbtString("OriginalMcaPath", mcaFilePath));
             regionInfo.Add(new NbtInt("RegionX", mcaFile.RegionCoordinates.X));
@@ -1813,6 +1813,31 @@ public class NbtService : INbtService
             regionInfo.Add(new NbtInt("TotalChunks", existingChunks.Count));
             regionInfo.Add(new NbtString("ConversionTime", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")));
             regionInfo.Add(new NbtString("ConversionType", "MCA to individual chunk files"));
+
+            // Add chunk index with metadata to avoid per-file headers
+            var chunkIndex = new NbtList("ChunkIndex", NbtTagType.Compound);
+            foreach (Point2I chunkCoord in existingChunks)
+            {
+                try
+                {
+                    ChunkData? chunkData = await mcaFile.GetChunkAsync(chunkCoord);
+                    if (chunkData?.NbtData != null)
+                    {
+                        var chunkMeta = new NbtCompound();
+                        chunkMeta.Add(new NbtInt("X", chunkCoord.X));
+                        chunkMeta.Add(new NbtInt("Z", chunkCoord.Z));
+                        chunkMeta.Add(new NbtString("Compression", chunkData.CompressionType.ToString()));
+                        chunkMeta.Add(new NbtInt("DataLength", chunkData.DataLength));
+                        chunkMeta.Add(new NbtString("FileName", $"chunk_{chunkCoord.X}_{chunkCoord.Z}.snbt"));
+                        chunkIndex.Add(chunkMeta);
+                    }
+                }
+                catch
+                {
+                    // Skip chunks that can't be read
+                }
+            }
+            regionInfo.Add(chunkIndex);
 
             string regionInfoPath = Path.Combine(outputFolderPath, "region_info.snbt");
             string regionInfoSnbt = regionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
@@ -1834,17 +1859,11 @@ public class NbtService : INbtService
                         string chunkFileName = $"chunk_{chunkCoord.X}_{chunkCoord.Z}.snbt";
                         string chunkFilePath = Path.Combine(outputFolderPath, chunkFileName);
 
-                        // Convert to SNBT with header comments
-                        var snbtContent = new StringBuilder();
-                        snbtContent.AppendLine($"// Chunk coordinates: ({chunkCoord.X}, {chunkCoord.Z})");
-                        snbtContent.AppendLine($"// Region: ({mcaFile.RegionCoordinates.X}, {mcaFile.RegionCoordinates.Z})");
-                        snbtContent.AppendLine($"// Compression: {chunkData.CompressionType}");
-                        snbtContent.AppendLine($"// Data size: {chunkData.DataLength} bytes");
-                        snbtContent.AppendLine($"// Extracted: {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}");
-                        snbtContent.AppendLine();
-                        snbtContent.AppendLine(chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded));
+                        // Use standard SNBT format without verbose headers to minimize file size
+                        // Metadata is stored in region_info.snbt instead of per-chunk headers
+                        string chunkSnbt = chunkData.NbtData.ToSnbt(SnbtOptions.Default);
 
-                        await File.WriteAllTextAsync(chunkFilePath, snbtContent.ToString(), Encoding.UTF8);
+                        await File.WriteAllTextAsync(chunkFilePath, chunkSnbt, Encoding.UTF8);
                     }
 
                     processedCount++;
