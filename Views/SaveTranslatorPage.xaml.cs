@@ -459,7 +459,7 @@ public sealed partial class SaveTranslatorPage : Page
                     // For MCA files, check if multi-chunk was detected
                     if (extension == ".mca" || extension == ".mcc")
                     {
-                        string snbtContent = await File.ReadAllTextAsync(tempSnbtPath, cancellationToken);
+                        string snbtContent = File.ReadAllText(tempSnbtPath);
                         if (snbtContent.Contains("# Chunk"))
                         {
                             // Optimized: Count occurrences without Split to avoid massive memory allocations
@@ -613,30 +613,12 @@ public sealed partial class SaveTranslatorPage : Page
                     LogMessage($"    {message}");
             });
 
-            // Check if this is an MCA file and chunk-based mode is enabled
-            bool isChunkBasedMode = ChunkBasedMcaRadioButton?.IsChecked == true;
+            // Use the enhanced async NbtService with minimal progress reporting
+            await _nbtService.ConvertToSnbtAsync(inputPath, outputPath, progress);
 
-            if ((extension == ".mca" || extension == ".mcc") && isChunkBasedMode)
-            {
-                // Use chunk-based processing
-                string chunkFolderPath = Path.ChangeExtension(outputPath, ".chunks");
-                await _nbtService.ConvertMcaToChunkFilesAsync(inputPath, chunkFolderPath, progress);
-
-                // Create a marker file to indicate this is chunk-based output
-                string markerPath = outputPath + ".chunk_mode";
-                await File.WriteAllTextAsync(markerPath, chunkFolderPath, Encoding.UTF8, cancellationToken);
-
-                LogMessage($"    ✓ Created {Directory.GetFiles(chunkFolderPath, "chunk_*.snbt").Length} chunk files");
-            }
-            else
-            {
-                // Use standard single-file conversion
-                await _nbtService.ConvertToSnbtAsync(inputPath, outputPath, progress);
-
-                // Verify output was created
-                if (!File.Exists(outputPath))
-                    throw new InvalidOperationException($"SNBT output file was not created: {outputPath}");
-            }
+            // Verify output was created
+            if (!File.Exists(outputPath))
+                throw new InvalidOperationException($"SNBT output file was not created: {outputPath}");
         }
         catch (Exception ex)
         {
@@ -652,6 +634,12 @@ public sealed partial class SaveTranslatorPage : Page
     {
         try
         {
+            // Add file validation before conversion
+            if (!File.Exists(inputPath)) throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
+
+            var fileInfo = new FileInfo(inputPath);
+            if (fileInfo.Length == 0) throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
+
             // Create minimal progress reporter to reduce UI overhead
             var progress = new Progress<string>(message =>
             {
@@ -660,44 +648,12 @@ public sealed partial class SaveTranslatorPage : Page
                     LogMessage($"    {message}");
             });
 
-            // Check if this was processed in chunk-based mode
-            string markerPath = inputPath + ".chunk_mode";
-            if (File.Exists(markerPath) && (extension == ".mca" || extension == ".mcc"))
-            {
-                // Read chunk folder path from marker file
-                string chunkFolderPath = await File.ReadAllTextAsync(markerPath, Encoding.UTF8, cancellationToken);
-
-                if (Directory.Exists(chunkFolderPath))
-                {
-                    // Convert chunk files back to MCA
-                    await _nbtService.ConvertChunkFilesToMcaAsync(chunkFolderPath, outputPath, progress);
-
-                    // Clean up marker file
-                    File.Delete(markerPath);
-
-                    LogMessage($"    ✓ Reconstructed MCA from {Directory.GetFiles(chunkFolderPath, "chunk_*.snbt").Length} chunk files");
-                }
-                else
-                {
-                    throw new DirectoryNotFoundException($"Chunk folder not found: {chunkFolderPath}");
-                }
-            }
-            else
-            {
-                // Standard single-file conversion
-                // Add file validation before conversion
-                if (!File.Exists(inputPath)) throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
-
-                var fileInfo = new FileInfo(inputPath);
-                if (fileInfo.Length == 0) throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
-
-                // Use the enhanced async NbtService with minimal progress reporting
-                await _nbtService.ConvertFromSnbtAsync(inputPath, outputPath, progress);
-            }
+            // Use the enhanced async NbtService with minimal progress reporting
+            await _nbtService.ConvertFromSnbtAsync(inputPath, outputPath, progress);
 
             // Verify output was created
             if (!File.Exists(outputPath))
-                throw new InvalidOperationException($"Output file was not created: {outputPath}");
+                throw new InvalidOperationException($"NBT output file was not created: {outputPath}");
         }
         catch (Exception ex)
         {

@@ -91,9 +91,9 @@ public class McaRegionWriter : IDisposable
     }
 
     /// <summary>
-    ///     Write the region file to disk synchronously
+    ///     Write the region file to disk
     /// </summary>
-    public void Write()
+    public void WriteAsync()
     {
         // Ensure output directory exists
         string? directory = Path.GetDirectoryName(_filePath);
@@ -104,8 +104,11 @@ public class McaRegionWriter : IDisposable
         try
         {
             using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new BinaryWriter(fileStream))
             {
-                WriteRegionFileSync(fileStream);
+                WriteRegionFileAsync(writer);
+
+                writer.Flush();
                 fileStream.Flush();
             }
 
@@ -125,59 +128,25 @@ public class McaRegionWriter : IDisposable
     }
 
     /// <summary>
-    ///     Write the region file to disk asynchronously
+    ///     Write the complete region file structure
     /// </summary>
-    public async Task WriteAsync()
-    {
-        // Ensure output directory exists
-        string? directory = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory)) Directory.CreateDirectory(directory);
-
-        // Write to a temporary file first, then move to final location for atomic operation
-        string tempPath = _filePath + ".tmp";
-        try
-        {
-            await using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
-            {
-                await WriteRegionFileAsync(fileStream);
-                await fileStream.FlushAsync();
-            }
-
-            // Atomic move to final location
-            if (File.Exists(_filePath)) File.Delete(_filePath);
-            File.Move(tempPath, _filePath);
-        }
-        catch
-        {
-            // Clean up temp file on any error
-            if (File.Exists(tempPath))
-                try { File.Delete(tempPath); }
-                catch { }
-
-            throw;
-        }
-    }
-
-    /// <summary>
-    ///     Write the complete region file structure synchronously
-    /// </summary>
-    private void WriteRegionFileSync(Stream fileStream)
+    private void WriteRegionFileAsync(BinaryWriter writer)
     {
         // Step 1: Serialize all chunks and calculate their positions
         var chunkSectors = new Dictionary<int, ChunkSectorInfo>();
         var chunkDataBuffer = new MemoryStream();
 
-        SerializeChunksSync(chunkDataBuffer, chunkSectors);
+        SerializeChunks(chunkDataBuffer, chunkSectors);
 
         // Step 2: Write chunk location table (4KB)
-        WriteChunkLocationTableSync(fileStream, chunkSectors);
+        WriteChunkLocationTable(writer, chunkSectors);
 
         // Step 3: Write timestamp table (4KB)
-        WriteTimestampTableSync(fileStream, chunkSectors);
+        WriteTimestampTable(writer, chunkSectors);
 
         // Step 4: Write chunk data
         byte[] chunkDataBytes = chunkDataBuffer.ToArray();
-        fileStream.Write(chunkDataBytes, 0, chunkDataBytes.Length);
+        writer.Write(chunkDataBytes);
 
         // Step 5: Pad to 4KB boundary if needed
         int totalSize = 8192 + chunkDataBytes.Length; // 8KB headers + chunk data
@@ -185,47 +154,14 @@ public class McaRegionWriter : IDisposable
         if (remainder != 0)
         {
             int padding = 4096 - remainder;
-            byte[] paddingBytes = new byte[padding];
-            fileStream.Write(paddingBytes, 0, paddingBytes.Length);
+            writer.Write(new byte[padding]);
         }
     }
 
     /// <summary>
-    ///     Write the complete region file structure asynchronously
+    ///     Serialize all chunks and calculate their sector positions
     /// </summary>
-    private async Task WriteRegionFileAsync(Stream fileStream)
-    {
-        // Step 1: Serialize all chunks and calculate their positions
-        var chunkSectors = new Dictionary<int, ChunkSectorInfo>();
-        var chunkDataBuffer = new MemoryStream();
-
-        await SerializeChunksAsync(chunkDataBuffer, chunkSectors);
-
-        // Step 2: Write chunk location table (4KB)
-        await WriteChunkLocationTableAsync(fileStream, chunkSectors);
-
-        // Step 3: Write timestamp table (4KB)
-        await WriteTimestampTableAsync(fileStream, chunkSectors);
-
-        // Step 4: Write chunk data
-        byte[] chunkDataBytes = chunkDataBuffer.ToArray();
-        await fileStream.WriteAsync(chunkDataBytes);
-
-        // Step 5: Pad to 4KB boundary if needed
-        int totalSize = 8192 + chunkDataBytes.Length; // 8KB headers + chunk data
-        int remainder = totalSize % 4096;
-        if (remainder != 0)
-        {
-            int padding = 4096 - remainder;
-            byte[] paddingBytes = new byte[padding];
-            await fileStream.WriteAsync(paddingBytes);
-        }
-    }
-
-    /// <summary>
-    ///     Serialize all chunks and calculate their sector positions synchronously
-    /// </summary>
-    private void SerializeChunksSync(Stream chunkDataStream, Dictionary<int, ChunkSectorInfo> chunkSectors)
+    private void SerializeChunks(Stream chunkDataStream, Dictionary<int, ChunkSectorInfo> chunkSectors)
     {
         using var writer = new BinaryWriter(chunkDataStream, Encoding.UTF8, true);
 
@@ -241,7 +177,8 @@ public class McaRegionWriter : IDisposable
             int chunkIndex = localCoords.ToChunkIndex();
 
             // Ensure NBT data is not null
-            ArgumentNullException.ThrowIfNull(chunkData.NbtData);
+            if (chunkData.NbtData == null)
+                throw new InvalidOperationException($"Chunk {chunkCoordinates} has null NBT data");
 
             // Serialize NBT data
             byte[] nbtData;
@@ -306,96 +243,9 @@ public class McaRegionWriter : IDisposable
     }
 
     /// <summary>
-    ///     Serialize all chunks and calculate their sector positions asynchronously
+    ///     Write the chunk location table (first 4KB of region file)
     /// </summary>
-    private async Task SerializeChunksAsync(Stream chunkDataStream, Dictionary<int, ChunkSectorInfo> chunkSectors)
-    {
-        using var writer = new BinaryWriter(chunkDataStream, Encoding.UTF8, true);
-
-        int currentSector = 2; // Start after 8KB headers (2 sectors of 4KB each)
-
-        foreach (KeyValuePair<Point2I, ChunkData> kvp in _chunks)
-        {
-            Point2I chunkCoordinates = kvp.Key;
-            ChunkData chunkData = kvp.Value;
-
-            // Get local coordinates and chunk index
-            Point2I localCoords = chunkCoordinates.GetLocalCoordinates();
-            int chunkIndex = localCoords.ToChunkIndex();
-
-            // Ensure NBT data is not null
-            ArgumentNullException.ThrowIfNull(chunkData.NbtData);
-
-            // Serialize NBT data
-            byte[] nbtData;
-            using (var nbtStream = new MemoryStream())
-            {
-                var nbtFile = new NbtFile(chunkData.NbtData);
-                nbtFile.SaveToStream(nbtStream, NbtCompression.None);
-                nbtData = nbtStream.ToArray();
-            }
-
-            // Compress data
-            byte[] compressedData = CompressionHelper.Compress(nbtData, chunkData.CompressionType);
-
-            // Calculate total length (1 byte for compression type + compressed data)
-            int totalLength = 1 + compressedData.Length;
-            bool isOversized = totalLength > 1044476; // ~1MB limit for in-file storage
-
-            if (isOversized)
-                // TODO: Implement external .mcc file writing for oversized chunks
-                // For now, we'll compress more aggressively or throw an error
-                throw new InvalidOperationException(
-                    $"Chunk {chunkCoordinates} is too large ({totalLength} bytes). " +
-                    "Oversized chunk support (.mcc files) not yet implemented.");
-
-            // Write chunk data
-            long chunkStartPosition = writer.BaseStream.Position;
-
-            // Write length (4 bytes, big endian)
-            byte[] lengthBytes = BitConverter.GetBytes((uint)totalLength);
-            if (BitConverter.IsLittleEndian)
-                Array.Reverse(lengthBytes);
-            writer.Write(lengthBytes);
-
-            // Write compression type
-            writer.Write((byte)chunkData.CompressionType);
-
-            // Write compressed data
-            writer.Write(compressedData);
-
-            // Calculate sector count (round up to 4KB sectors)
-            int chunkSizeWithHeader = 4 + totalLength; // 4 bytes for length header
-            int sectorCount = (chunkSizeWithHeader + 4095) / 4096; // Round up division
-
-            // Pad to sector boundary
-            long currentPosition = writer.BaseStream.Position;
-            long sectorEndPosition = (currentSector + sectorCount) * 4096L;
-            long paddingNeeded = sectorEndPosition - (8192 + currentPosition);
-
-            if (paddingNeeded > 0) writer.Write(new byte[paddingNeeded]);
-
-            // Store sector information
-            chunkSectors[chunkIndex] = new ChunkSectorInfo
-            {
-                SectorOffset = (uint)currentSector,
-                SectorCount = (uint)sectorCount,
-                Timestamp = chunkData.Timestamp,
-                ChunkCoordinates = chunkCoordinates
-            };
-
-            currentSector += sectorCount;
-
-            // Yield control occasionally to prevent blocking
-            if (chunkIndex % 10 == 0)
-                await Task.Yield();
-        }
-    }
-
-    /// <summary>
-    ///     Write the chunk location table (first 4KB of region file) synchronously
-    /// </summary>
-    private void WriteChunkLocationTableSync(Stream stream, Dictionary<int, ChunkSectorInfo> chunkSectors)
+    private void WriteChunkLocationTable(BinaryWriter writer, Dictionary<int, ChunkSectorInfo> chunkSectors)
     {
         byte[] locationTable = new byte[4096];
 
@@ -415,39 +265,13 @@ public class McaRegionWriter : IDisposable
             Array.Copy(locationBytes, 0, locationTable, i * 4, 4);
         }
 
-        stream.Write(locationTable, 0, locationTable.Length);
+        writer.Write(locationTable);
     }
 
     /// <summary>
-    ///     Write the chunk location table (first 4KB of region file) asynchronously
+    ///     Write the timestamp table (second 4KB of region file)
     /// </summary>
-    private async Task WriteChunkLocationTableAsync(Stream stream, Dictionary<int, ChunkSectorInfo> chunkSectors)
-    {
-        byte[] locationTable = new byte[4096];
-
-        for (int i = 0; i < 1024; i++)
-        {
-            uint locationData = 0;
-
-            if (chunkSectors.TryGetValue(i, out ChunkSectorInfo? sectorInfo))
-                // Pack sector offset (24 bits) and sector count (8 bits)
-                locationData = (sectorInfo.SectorOffset << 8) | (sectorInfo.SectorCount & 0xFF);
-
-            // Write as big endian
-            byte[] locationBytes = BitConverter.GetBytes(locationData);
-            if (BitConverter.IsLittleEndian)
-                Array.Reverse(locationBytes);
-
-            Array.Copy(locationBytes, 0, locationTable, i * 4, 4);
-        }
-
-        await stream.WriteAsync(locationTable);
-    }
-
-    /// <summary>
-    ///     Write the timestamp table (second 4KB of region file) synchronously
-    /// </summary>
-    private void WriteTimestampTableSync(Stream stream, Dictionary<int, ChunkSectorInfo> chunkSectors)
+    private void WriteTimestampTable(BinaryWriter writer, Dictionary<int, ChunkSectorInfo> chunkSectors)
     {
         byte[] timestampTable = new byte[4096];
 
@@ -465,31 +289,7 @@ public class McaRegionWriter : IDisposable
             Array.Copy(timestampBytes, 0, timestampTable, i * 4, 4);
         }
 
-        stream.Write(timestampTable, 0, timestampTable.Length);
-    }
-
-    /// <summary>
-    ///     Write the timestamp table (second 4KB of region file) asynchronously
-    /// </summary>
-    private async Task WriteTimestampTableAsync(Stream stream, Dictionary<int, ChunkSectorInfo> chunkSectors)
-    {
-        byte[] timestampTable = new byte[4096];
-
-        for (int i = 0; i < 1024; i++)
-        {
-            uint timestamp = 0;
-
-            if (chunkSectors.TryGetValue(i, out ChunkSectorInfo? sectorInfo)) timestamp = sectorInfo.Timestamp;
-
-            // Write as big endian
-            byte[] timestampBytes = BitConverter.GetBytes(timestamp);
-            if (BitConverter.IsLittleEndian)
-                Array.Reverse(timestampBytes);
-
-            Array.Copy(timestampBytes, 0, timestampTable, i * 4, 4);
-        }
-
-        await stream.WriteAsync(timestampTable);
+        writer.Write(timestampTable);
     }
 
     /// <summary>
