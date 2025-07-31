@@ -18,7 +18,7 @@ namespace GitMC.Utils
     /// <summary>
     /// Service aggregator implementation
     /// </summary>
-    public class ServiceAggregator : IServiceAggregator
+    internal class ServiceAggregator : IServiceAggregator
     {
         public IConfigurationService Configuration { get; }
         public IGitService Git { get; }

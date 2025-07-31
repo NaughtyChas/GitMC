@@ -66,7 +66,7 @@ namespace GitMC.Utils.Nbt
         {
             Minified = true,
             ShouldQuoteKeys = x => !StringRegex.IsMatch(x),
-            ShouldQuoteStrings = x => true,
+            ShouldQuoteStrings = _ => true,
             KeyQuoteMode = QuoteMode.Automatic,
             StringQuoteMode = QuoteMode.Automatic,
             NumberSuffixes = true,
@@ -79,7 +79,7 @@ namespace GitMC.Utils.Nbt
         {
             Minified = true,
             IsJsonLike = true,
-            ShouldQuoteKeys = x => true,
+            ShouldQuoteKeys = _ => true,
             ShouldQuoteStrings = x => x != "null",
             KeyQuoteMode = QuoteMode.DoubleQuotes,
             StringQuoteMode = QuoteMode.DoubleQuotes,
@@ -92,8 +92,8 @@ namespace GitMC.Utils.Nbt
         public static SnbtOptions Preview => new()
         {
             Minified = true,
-            ShouldQuoteKeys = x => false,
-            ShouldQuoteStrings = x => false,
+            ShouldQuoteKeys = _ => false,
+            ShouldQuoteStrings = _ => false,
             NumberSuffixes = false,
             ArrayPrefixes = false,
             NewlineHandling = new ReplaceHandler("⏎")

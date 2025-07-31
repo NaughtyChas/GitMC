@@ -110,7 +110,15 @@ namespace GitMC.Views
 
         private async void ExecuteButton_Click(object sender, RoutedEventArgs e)
         {
-            await ExecuteCommand();
+            try
+            {
+                await ExecuteCommand();
+            }
+            catch (Exception ex)
+            {
+                // Log error and show user-friendly message
+                System.Diagnostics.Debug.WriteLine($"Error executing command: {ex.Message}");
+            }
         }
 
         private async Task ExecuteCommand()
@@ -222,7 +230,7 @@ namespace GitMC.Views
                 if (!result.Success && !string.IsNullOrEmpty(result.ErrorMessage))
                 {
                     AddOutputLine(result.ErrorMessage, "#FF6B6B");
-                    if (result.ErrorMessage.Contains("not installed") || result.ErrorMessage.Contains("not found"))
+                    if (result.ErrorMessage.Contains("not installed", StringComparison.OrdinalIgnoreCase) || result.ErrorMessage.Contains("not found", StringComparison.OrdinalIgnoreCase))
                     {
                         AddOutputLine("Please install Git or ensure it's properly configured.", "#FFAA00");
                     }
@@ -243,7 +251,7 @@ namespace GitMC.Views
             try
             {
                 var brush = new SolidColorBrush();
-                if (color.StartsWith("#"))
+                if (color.StartsWith('#'))
                 {
                     var colorValue = Convert.ToUInt32(color.Substring(1), 16);
                     brush.Color = ColorHelper.FromArgb(
@@ -281,7 +289,7 @@ namespace GitMC.Views
             AddOutputLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "#CCCCCC");
         }
 
-        private async void CopyOutputButton_Click(object sender, RoutedEventArgs e)
+        private void CopyOutputButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {

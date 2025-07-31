@@ -269,7 +269,7 @@ namespace GitMC.Services
             }
         }
 
-        private bool ArraysEqual(string[]? array1, string[] array2)
+        private bool ArraysEqual(string[]? array1, string[]? array2)
         {
             if (array1 == null && array2 == null) return true;
             if (array1 == null || array2 == null) return false;
@@ -309,7 +309,7 @@ namespace GitMC.Services
 
         public int CurrentOnboardingStep
         {
-            get => GetInt("CurrentOnboardingStep", 0);
+            get => GetInt("CurrentOnboardingStep");
             set => SetInt("CurrentOnboardingStep", value);
         }
 
@@ -353,33 +353,33 @@ namespace GitMC.Services
 
         public bool IsMaximized
         {
-            get => GetBool("IsMaximized", false);
+            get => GetBool("IsMaximized");
             set => SetBool("IsMaximized", value);
         }
 
         // Git configuration
         public string LastUsedGitPath
         {
-            get => GetString("LastUsedGitPath", "");
+            get => GetString("LastUsedGitPath");
             set => SetString("LastUsedGitPath", value);
         }
 
         public string DefaultGitUserName
         {
-            get => GetString("DefaultGitUserName", "");
+            get => GetString("DefaultGitUserName");
             set => SetString("DefaultGitUserName", value);
         }
 
         public string DefaultGitUserEmail
         {
-            get => GetString("DefaultGitUserEmail", "");
+            get => GetString("DefaultGitUserEmail");
             set => SetString("DefaultGitUserEmail", value);
         }
 
         // Repository and save management
         public string LastOpenedSavePath
         {
-            get => GetString("LastOpenedSavePath", "");
+            get => GetString("LastOpenedSavePath");
             set => SetString("LastOpenedSavePath", value);
         }
 
@@ -404,38 +404,38 @@ namespace GitMC.Services
 
         public string PlatformToken
         {
-            get => GetString("PlatformToken", "");
+            get => GetString("PlatformToken");
             set => SetString("PlatformToken", value);
         }
 
         public string PlatformUsername
         {
-            get => GetString("PlatformUsername", "");
+            get => GetString("PlatformUsername");
             set => SetString("PlatformUsername", value);
         }
 
         public string PlatformEmail
         {
-            get => GetString("PlatformEmail", "");
+            get => GetString("PlatformEmail");
             set => SetString("PlatformEmail", value);
         }
 
         // GitHub specific settings
         public string GitHubAccessToken
         {
-            get => GetString("GitHubAccessToken", "");
+            get => GetString("GitHubAccessToken");
             set => SetString("GitHubAccessToken", value);
         }
 
         public string GitHubUsername
         {
-            get => GetString("GitHubUsername", "");
+            get => GetString("GitHubUsername");
             set => SetString("GitHubUsername", value);
         }
 
         public string GitHubRepository
         {
-            get => GetString("GitHubRepository", "");
+            get => GetString("GitHubRepository");
             set => SetString("GitHubRepository", value);
         }
 
@@ -448,38 +448,38 @@ namespace GitMC.Services
         // Git server settings (for self-hosted)
         public string GitServerUrl
         {
-            get => GetString("GitServerUrl", "");
+            get => GetString("GitServerUrl");
             set => SetString("GitServerUrl", value);
         }
 
         public string GitUsername
         {
-            get => GetString("GitUsername", "");
+            get => GetString("GitUsername");
             set => SetString("GitUsername", value);
         }
 
         public string GitAccessToken
         {
-            get => GetString("GitAccessToken", "");
+            get => GetString("GitAccessToken");
             set => SetString("GitAccessToken", value);
         }
 
         public string GitServerType
         {
-            get => GetString("GitServerType", "");
+            get => GetString("GitServerType");
             set => SetString("GitServerType", value);
         }
 
         // Debug and development settings
         public bool DebugMode
         {
-            get => GetBool("DebugMode", false);
+            get => GetBool("DebugMode");
             set => SetBool("DebugMode", value);
         }
 
         public bool ShowPerformanceMetrics
         {
-            get => GetBool("ShowPerformanceMetrics", false);
+            get => GetBool("ShowPerformanceMetrics");
             set => SetBool("ShowPerformanceMetrics", value);
         }
 
@@ -504,7 +504,7 @@ namespace GitMC.Services
 
         public string BackupPath
         {
-            get => GetString("BackupPath", "");
+            get => GetString("BackupPath");
             set => SetString("BackupPath", value);
         }
 

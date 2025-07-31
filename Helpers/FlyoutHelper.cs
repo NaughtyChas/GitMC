@@ -1,7 +1,4 @@
-using System.Threading.Tasks;
 using Microsoft.UI;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 
@@ -117,19 +114,19 @@ namespace GitMC.Helpers
                 Placement = FlyoutPlacementMode.Right
             };
 
-            confirmButton.Click += (s, e) =>
+            confirmButton.Click += (_, _) =>
             {
                 flyout.Hide();
                 tcs.SetResult(true);
             };
 
-            cancelButton.Click += (s, e) =>
+            cancelButton.Click += (_, _) =>
             {
                 flyout.Hide();
                 tcs.SetResult(false);
             };
 
-            flyout.Closed += (s, e) =>
+            flyout.Closed += (_, _) =>
             {
                 if (!tcs.Task.IsCompleted)
                     tcs.SetResult(false);
@@ -173,7 +170,7 @@ namespace GitMC.Helpers
                 Placement = FlyoutPlacementMode.Right
             };
 
-            okButton.Click += (s, e) => flyout.Hide();
+            okButton.Click += (_, _) => flyout.Hide();
             return flyout;
         }
 

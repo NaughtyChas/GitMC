@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
 namespace GitMC.Helpers
@@ -9,7 +5,7 @@ namespace GitMC.Helpers
     /// <summary>
     /// Helper class for common UI operations and safe element finding
     /// </summary>
-    internal static class UIHelper
+    internal static class UiHelper
     {
         /// <summary>
         /// Safely finds a named element in the visual tree
@@ -20,7 +16,7 @@ namespace GitMC.Helpers
         /// <returns>Found element or null if not found</returns>
         public static T? FindElementByName<T>(DependencyObject parent, string name) where T : FrameworkElement
         {
-            if (parent == null || string.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(name))
                 return null;
 
             try
@@ -56,7 +52,6 @@ namespace GitMC.Helpers
         public static List<T> FindElementsOfType<T>(DependencyObject parent) where T : DependencyObject
         {
             var results = new List<T>();
-            if (parent == null) return results;
 
             try
             {
@@ -93,8 +88,6 @@ namespace GitMC.Helpers
         /// <returns>Parent of specified type or null if not found</returns>
         public static T? GetParentOfType<T>(DependencyObject element) where T : DependencyObject
         {
-            if (element == null) return null;
-
             try
             {
                 var parent = VisualTreeHelper.GetParent(element);
@@ -119,7 +112,7 @@ namespace GitMC.Helpers
         /// </summary>
         /// <param name="action">Action to execute</param>
         /// <param name="dispatcher">Dispatcher to use (optional, uses current if null)</param>
-        public static void RunOnUIThread(Action action, Microsoft.UI.Dispatching.DispatcherQueue? dispatcher = null)
+        public static void RunOnUIThread(Action? action, Microsoft.UI.Dispatching.DispatcherQueue? dispatcher = null)
         {
             if (action == null) return;
 
@@ -175,7 +168,7 @@ namespace GitMC.Helpers
         /// <returns>Debounced action</returns>
         public static Action CreateDebouncedAction(Action action, TimeSpan delay)
         {
-            System.Threading.Timer? timer = null;
+            Timer? timer = null;
             object lockObj = new object();
 
             return () =>
@@ -183,7 +176,7 @@ namespace GitMC.Helpers
                 lock (lockObj)
                 {
                     timer?.Dispose();
-                    timer = new System.Threading.Timer(_ => action(), null, delay, TimeSpan.FromMilliseconds(-1));
+                    timer = new Timer(_ => action(), null, delay, TimeSpan.FromMilliseconds(-1));
                 }
             };
         }

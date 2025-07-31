@@ -66,13 +66,13 @@ namespace GitMC.Services
 
                 using var process = new Process { StartInfo = processInfo };
                 
-                process.OutputDataReceived += (s, e) =>
+                process.OutputDataReceived += (_, e) =>
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                         outputLines.Add(e.Data);
                 };
 
-                process.ErrorDataReceived += (s, e) =>
+                process.ErrorDataReceived += (_, e) =>
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                         errorLines.Add(e.Data);

@@ -1,6 +1,4 @@
 using Microsoft.UI;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.UI;
@@ -10,7 +8,7 @@ namespace GitMC.Utils.UI
     /// <summary>
     /// UI component factory
     /// </summary>
-    public static class UIComponentFactory
+    public static class UiComponentFactory
     {
         /// <summary>
         /// Creates info panel

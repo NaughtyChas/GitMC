@@ -9,7 +9,7 @@ namespace GitMC.Views
         public SettingsPage()
         {
             InitializeComponent();
-            _localizationService = (App.Current as App)?.LocalizationService;
+            _localizationService = (Application.Current as App)?.LocalizationService;
             
             // Set initial language selection
             if (_localizationService != null)

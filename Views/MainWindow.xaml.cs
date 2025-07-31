@@ -1,11 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using GitMC.Services;
 using Microsoft.UI.Windowing;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace GitMC.Views
@@ -116,12 +110,12 @@ namespace GitMC.Views
             await _configurationService.LoadAsync();
 
             // Define minimum window size (1366*720)
-            const int MinWidth = 1366;
-            const int MinHeight = 720;
+            const int minWidth = 1366;
+            const int minHeight = 720;
 
             // Default window size (1520*800) - used for first launch
-            const int DefaultWidth = 1520;
-            const int DefaultHeight = 800;
+            const int defaultWidth = 1520;
+            const int defaultHeight = 800;
 
             // Check if this is the first launch
             bool isFirstLaunch = !_configurationService.IsFirstLaunchComplete;
@@ -129,14 +123,14 @@ namespace GitMC.Views
             if (isFirstLaunch)
             {
                 // First launch: use default size and center the window
-                AppWindow.Resize(new Windows.Graphics.SizeInt32(DefaultWidth, DefaultHeight));
+                AppWindow.Resize(new Windows.Graphics.SizeInt32(defaultWidth, defaultHeight));
 
                 // Center the window on screen
-                var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
+                var displayArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
                 if (displayArea != null)
                 {
-                    var centerX = (displayArea.WorkArea.Width - DefaultWidth) / 2;
-                    var centerY = (displayArea.WorkArea.Height - DefaultHeight) / 2;
+                    var centerX = (displayArea.WorkArea.Width - defaultWidth) / 2;
+                    var centerY = (displayArea.WorkArea.Height - defaultHeight) / 2;
                     AppWindow.Move(new Windows.Graphics.PointInt32(centerX, centerY));
                 }
 
@@ -147,8 +141,8 @@ namespace GitMC.Views
             else
             {
                 // Restore saved window size and position
-                var savedWidth = (int)Math.Max(_configurationService.WindowWidth, MinWidth);
-                var savedHeight = (int)Math.Max(_configurationService.WindowHeight, MinHeight);
+                var savedWidth = (int)Math.Max(_configurationService.WindowWidth, minWidth);
+                var savedHeight = (int)Math.Max(_configurationService.WindowHeight, minHeight);
                 var savedX = (int)_configurationService.WindowX;
                 var savedY = (int)_configurationService.WindowY;
 
@@ -158,7 +152,7 @@ namespace GitMC.Views
                 // Restore maximized state if needed
                 if (_configurationService.IsMaximized)
                 {
-                    var presenter = AppWindow.Presenter as Microsoft.UI.Windowing.OverlappedPresenter;
+                    var presenter = AppWindow.Presenter as OverlappedPresenter;
                     presenter?.Maximize();
                 }
             }
@@ -404,11 +398,11 @@ namespace GitMC.Views
         }
 
         // Window event handlers for size and position management
-        private void AppWindow_Changed(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowChangedEventArgs args)
+        private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
         {
             // Enforce minimum window size
-            const int MinWidth = 1366;
-            const int MinHeight = 720;
+            const int minWidth = 1366;
+            const int minHeight = 720;
 
             if (args.DidSizeChange)
             {
@@ -417,15 +411,15 @@ namespace GitMC.Views
                 int newWidth = currentSize.Width;
                 int newHeight = currentSize.Height;
 
-                if (currentSize.Width < MinWidth)
+                if (currentSize.Width < minWidth)
                 {
-                    newWidth = MinWidth;
+                    newWidth = minWidth;
                     needsResize = true;
                 }
 
-                if (currentSize.Height < MinHeight)
+                if (currentSize.Height < minHeight)
                 {
-                    newHeight = MinHeight;
+                    newHeight = minHeight;
                     needsResize = true;
                 }
 
@@ -436,19 +430,19 @@ namespace GitMC.Views
             }
         }
 
-        private async void MainWindow_Closed(object sender, Microsoft.UI.Xaml.WindowEventArgs e)
+        private async void MainWindow_Closed(object sender, WindowEventArgs e)
         {
             // Save current window state when closing
             try
             {
-                var presenter = AppWindow.Presenter as Microsoft.UI.Windowing.OverlappedPresenter;
+                var presenter = AppWindow.Presenter as OverlappedPresenter;
                 if (presenter != null)
                 {
                     // Save maximized state
-                    _configurationService.IsMaximized = presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized;
+                    _configurationService.IsMaximized = presenter.State == OverlappedPresenterState.Maximized;
 
                     // Only save size and position if not maximized
-                    if (presenter.State != Microsoft.UI.Windowing.OverlappedPresenterState.Maximized)
+                    if (presenter.State != OverlappedPresenterState.Maximized)
                     {
                         _configurationService.WindowWidth = AppWindow.Size.Width;
                         _configurationService.WindowHeight = AppWindow.Size.Height;

@@ -5,7 +5,7 @@ using fNbt;
 
 namespace GitMC.Utils.Nbt
 {
-    public class SnbtParser
+    internal class SnbtParser
     {
         private static readonly Regex DoublePatternNosuffix = new("^([-+]?(?:[0-9]+[.]|[0-9]*[.][0-9]+)(?:e[-+]?[0-9]+)?)$", RegexOptions.IgnoreCase);
         private static readonly Regex DoublePattern = new("^([-+]?(?:[0-9]+[.]?|[0-9]*[.][0-9]+)(?:e[-+]?[0-9]+)?d)$", RegexOptions.IgnoreCase);
@@ -35,7 +35,7 @@ namespace GitMC.Utils.Nbt
                     throw new ArgumentException("Cannot parse empty or whitespace string as named NBT tag");
                 return new NbtCompound(); // For unnamed tags, return an empty compound tag instead of throwing an exception
             }
-            
+
             var parser = new SnbtParser(snbt);
             var value = named ? parser.ReadNamedValue() : parser.ReadValue();
             parser.Finish();
@@ -201,7 +201,7 @@ namespace GitMC.Utils.Nbt
             _reader.SkipWhitespace();
             if (!_reader.CanRead())
                 throw new FormatException("Expected list to end, but reached end of data");
-            
+
             // Check if this is an empty list
             if (_reader.Peek() == Snbt.ListClose)
             {
@@ -209,7 +209,7 @@ namespace GitMC.Utils.Nbt
                 // For empty lists, use Compound as default type since it's the most common in Minecraft NBT
                 return new NbtList(NbtTagType.Compound);
             }
-            
+
             var list = new NbtList();
             while (_reader.Peek() != Snbt.ListClose)
             {
@@ -242,14 +242,14 @@ namespace GitMC.Utils.Nbt
             // because fNbt doesn't allow the same object instance to be in multiple containers
             if (NbtCache.TryGetValue(str, out var cached))
                 return CloneNbtTag(cached);
-            
+
             NbtTag result;
             try
             {
                 // Optimized: Use spans to avoid creating substring allocations
                 ReadOnlySpan<char> span = str.AsSpan();
                 ReadOnlySpan<char> valueSpan = span.Length > 1 ? span[..^1] : span; // All except last char for suffixed types
-                
+
                 if (FloatPattern.IsMatch(str))
                     result = new NbtFloat(float.Parse(valueSpan, NumberStyles.Float, CultureInfo.InvariantCulture));
                 else if (BytePattern.IsMatch(str))
@@ -281,13 +281,13 @@ namespace GitMC.Utils.Nbt
             {
                 result = new NbtString(str);
             }
-            
+
             // Cache the result if cache is not too large and string is reasonable length
             if (str.Length <= 100) // Only cache reasonably short strings
             {
                 NbtCache.TryAdd(str, result);
             }
-            
+
             return result;
         }
 
@@ -312,17 +312,17 @@ namespace GitMC.Utils.Nbt
 
         private NbtTag? SpecialCase(string text)
         {
-            if (String.IsNullOrEmpty(text))
+            if (string.IsNullOrEmpty(text))
                 return null;
-            
+
             // Optimized: Handle common special cases first to avoid DataUtils calls
             ReadOnlySpan<char> span = text.AsSpan();
-            
+
             // Handle suffix cases with span operations
             if (text[^1] == Snbt.FloatSuffix)
             {
                 ReadOnlySpan<char> valueSpan = span[..^1];
-                
+
                 // Check for common special float values directly without string allocation
                 if (valueSpan.SequenceEqual("Infinity".AsSpan()) || valueSpan.SequenceEqual("∞".AsSpan()))
                     return new NbtFloat(float.PositiveInfinity);
@@ -330,7 +330,7 @@ namespace GitMC.Utils.Nbt
                     return new NbtFloat(float.NegativeInfinity);
                 if (valueSpan.SequenceEqual("NaN".AsSpan()))
                     return new NbtFloat(float.NaN);
-                
+
                 // Fallback to DataUtils for other special cases (if any)
                 var specialFloat = DataUtils.TryParseSpecialFloat(valueSpan.ToString());
                 if (specialFloat != null)
@@ -339,7 +339,7 @@ namespace GitMC.Utils.Nbt
             if (text[^1] == Snbt.DoubleSuffix)
             {
                 ReadOnlySpan<char> valueSpan = span[..^1];
-                
+
                 // Check for common special double values directly without string allocation
                 if (valueSpan.SequenceEqual("Infinity".AsSpan()) || valueSpan.SequenceEqual("∞".AsSpan()))
                     return new NbtDouble(double.PositiveInfinity);
@@ -347,13 +347,13 @@ namespace GitMC.Utils.Nbt
                     return new NbtDouble(double.NegativeInfinity);
                 if (valueSpan.SequenceEqual("NaN".AsSpan()))
                     return new NbtDouble(double.NaN);
-                    
+
                 // Fallback to DataUtils for other special cases (if any)
                 var specialDouble = DataUtils.TryParseSpecialFloat(valueSpan.ToString());
                 if (specialDouble != null)
                     return new NbtDouble(specialDouble.Value);
             }
-            
+
             // Handle non-suffix special cases
             if (span.SequenceEqual("Infinity".AsSpan()) || span.SequenceEqual("∞".AsSpan()))
                 return new NbtDouble(double.PositiveInfinity);
@@ -361,7 +361,7 @@ namespace GitMC.Utils.Nbt
                 return new NbtDouble(double.NegativeInfinity);
             if (span.SequenceEqual("NaN".AsSpan()))
                 return new NbtDouble(double.NaN);
-            
+
             var specialByte = TryParseSpecialByte(text);
             if (specialByte != null)
                 return new NbtByte((byte)specialByte);
@@ -383,22 +383,22 @@ namespace GitMC.Utils.Nbt
             _reader.SkipWhitespace();
             if (StringReader.IsQuote(_reader.Peek()))
                 throw new FormatException("Array values cannot be quoted strings");
-            
+
             // Parse directly from Reader without creating intermediate strings
             int start = _reader.Cursor;
-            
+
             // Find end of unquoted string
             while (_reader.CanRead() && StringReader.UnquotedAllowed(_reader.Peek()))
             {
                 _reader.Read();
             }
-            
+
             int length = _reader.Cursor - start;
             if (length == 0)
                 throw new FormatException("Expected byte value to be non-empty");
 
             ReadOnlySpan<char> valueSpan = _reader.String.AsSpan(start, length);
-            
+
             try
             {
                 // Handle special boolean cases
@@ -413,7 +413,7 @@ namespace GitMC.Utils.Nbt
                     ReadOnlySpan<char> numberSpan = valueSpan[..^1];
                     return (byte)sbyte.Parse(numberSpan);
                 }
-                
+
                 // Handle plain integer that fits in byte range
                 var intVal = int.Parse(valueSpan);
                 if (intVal >= sbyte.MinValue && intVal <= sbyte.MaxValue)
@@ -431,16 +431,16 @@ namespace GitMC.Utils.Nbt
             _reader.SkipWhitespace();
             if (StringReader.IsQuote(_reader.Peek()))
                 throw new FormatException("Array values cannot be quoted strings");
-            
+
             // Parse directly from Reader without creating intermediate strings
             int start = _reader.Cursor;
-            
+
             // Find end of unquoted string
             while (_reader.CanRead() && StringReader.UnquotedAllowed(_reader.Peek()))
             {
                 _reader.Read();
             }
-            
+
             int length = _reader.Cursor - start;
             if (length == 0)
                 throw new FormatException("Expected long value to be non-empty");
@@ -455,7 +455,7 @@ namespace GitMC.Utils.Nbt
                     ReadOnlySpan<char> numberSpan = valueSpan[..^1];
                     return long.Parse(numberSpan);
                 }
-                
+
                 // Handle plain integer
                 return long.Parse(valueSpan);
             }
@@ -470,16 +470,16 @@ namespace GitMC.Utils.Nbt
             _reader.SkipWhitespace();
             if (StringReader.IsQuote(_reader.Peek()))
                 throw new FormatException("Array values cannot be quoted strings");
-            
+
             // Parse directly from Reader without creating intermediate strings
             int start = _reader.Cursor;
-            
+
             // Find end of unquoted string
             while (_reader.CanRead() && StringReader.UnquotedAllowed(_reader.Peek()))
             {
                 _reader.Read();
             }
-            
+
             int length = _reader.Cursor - start;
             if (length == 0)
                 throw new FormatException("Expected int value to be non-empty");
@@ -519,26 +519,26 @@ namespace GitMC.Utils.Nbt
         private readonly Dictionary<TKey, LinkedListNode<CacheItem>> _cache;
         private readonly LinkedList<CacheItem> _lruList;
         private readonly object _lock = new object();
-        
+
         private struct CacheItem
         {
             public TKey Key;
             public TValue Value;
-            
+
             public CacheItem(TKey key, TValue value)
             {
                 Key = key;
                 Value = value;
             }
         }
-        
+
         public LruCache(int maxSize)
         {
             _maxSize = maxSize;
             _cache = new Dictionary<TKey, LinkedListNode<CacheItem>>(maxSize);
             _lruList = new LinkedList<CacheItem>();
         }
-        
+
         public bool TryGetValue(TKey key, out TValue value)
         {
             lock (_lock)
@@ -551,12 +551,12 @@ namespace GitMC.Utils.Nbt
                     value = node.Value.Value;
                     return true;
                 }
-                
+
                 value = default!;
                 return false;
             }
         }
-        
+
         public void TryAdd(TKey key, TValue value)
         {
             lock (_lock)
@@ -564,7 +564,7 @@ namespace GitMC.Utils.Nbt
                 // Don't add if already exists
                 if (_cache.ContainsKey(key))
                     return;
-                
+
                 // If at capacity, remove least recently used item
                 if (_cache.Count >= _maxSize)
                 {
@@ -575,14 +575,14 @@ namespace GitMC.Utils.Nbt
                         _lruList.RemoveLast();
                     }
                 }
-                
+
                 // Add new item to front
                 var newItem = new CacheItem(key, value);
                 var newNode = _lruList.AddFirst(newItem);
                 _cache[key] = newNode;
             }
         }
-        
+
         public int Count
         {
             get
@@ -593,7 +593,7 @@ namespace GitMC.Utils.Nbt
                 }
             }
         }
-        
+
         /// <summary>
         /// Clear all cached items
         /// </summary>
@@ -607,21 +607,21 @@ namespace GitMC.Utils.Nbt
         }
     }
 
-    public class StringReader
+    internal class StringReader
     {
         private const char ESCAPE = '\\';
         private const char DOUBLE_QUOTE = '"';
         private const char SINGLE_QUOTE = '\'';
         public readonly string String;
         public int Cursor { get; private set; }
-        
+
         // Optimized: Reusable StringBuilder to avoid string allocations
         private readonly StringBuilder _stringBuilder = new StringBuilder(32);
-        
+
         // Optimized: Cache for common short strings (numbers 0-255, common tokens)
         private static readonly Dictionary<string, string> StringCache = new Dictionary<string, string>();
         private static readonly object CacheLock = new object();
-        
+
         static StringReader()
         {
             // Pre-populate cache with common values
@@ -630,7 +630,7 @@ namespace GitMC.Utils.Nbt
                 var str = i.ToString();
                 StringCache[str] = str;
             }
-            
+
             // Add common boolean and special values
             StringCache["true"] = "true";
             StringCache["false"] = "false";
@@ -680,7 +680,7 @@ namespace GitMC.Utils.Nbt
         public string ReadString()
         {
             if (!CanRead())
-                return String.Empty;
+                return string.Empty;
             char next = Peek();
             if (IsQuote(next))
             {
@@ -729,24 +729,24 @@ namespace GitMC.Utils.Nbt
         public string ReadUnquotedString()
         {
             int start = Cursor;
-            
+
             // First pass: find the end position without building strings
             while (CanRead() && UnquotedAllowed(Peek()))
             {
                 Read();
             }
-            
+
             int length = Cursor - start;
             if (length == 0)
                 return string.Empty;
-            
+
             // Optimized: Use string interning for very common short strings to avoid repeated allocations
             // For numbers 0-255 and common tokens, check cache first without creating strings
             if (length <= 3)
             {
                 // Try to match common patterns directly without creating intermediate strings
                 ReadOnlySpan<char> shortSpan = String.AsSpan(start, length);
-                
+
                 // For single characters, use direct comparison
                 if (length == 1)
                 {
@@ -760,7 +760,7 @@ namespace GitMC.Utils.Nbt
                         }
                     }
                 }
-                
+
                 // For 2-3 digit numbers, try direct lookup
                 if (length <= 3 && IsAllDigits(shortSpan))
                 {
@@ -770,7 +770,7 @@ namespace GitMC.Utils.Nbt
                     {
                         number = number * 10 + (shortSpan[i] - '0');
                     }
-                    
+
                     if (number <= 255)
                     {
                         lock (CacheLock)
@@ -779,7 +779,7 @@ namespace GitMC.Utils.Nbt
                         }
                     }
                 }
-                
+
                 // For other short strings, use StringBuilder to avoid span.ToString()
                 _stringBuilder.Clear();
                 _stringBuilder.EnsureCapacity(length);
@@ -788,12 +788,12 @@ namespace GitMC.Utils.Nbt
                     _stringBuilder.Append(shortSpan[i]);
                 }
                 string result = _stringBuilder.ToString();
-                
+
                 lock (CacheLock)
                 {
                     if (StringCache.TryGetValue(result, out var cached))
                         return cached;
-                    
+
                     // Cache new short strings (with size limit)
                     if (StringCache.Count < 1000)
                     {
@@ -803,19 +803,19 @@ namespace GitMC.Utils.Nbt
                 }
                 return result;
             }
-            
+
             // For longer strings, use StringBuilder to minimize memory allocations
             _stringBuilder.Clear();
             _stringBuilder.EnsureCapacity(length);
-            
+
             for (int i = start; i < start + length; i++)
             {
                 _stringBuilder.Append(String[i]);
             }
-            
+
             return _stringBuilder.ToString();
         }
-        
+
         // Helper method to check if span contains only digits
         private static bool IsAllDigits(ReadOnlySpan<char> span)
         {
@@ -830,7 +830,7 @@ namespace GitMC.Utils.Nbt
         public string ReadQuotedString()
         {
             if (!CanRead())
-                return String.Empty;
+                return string.Empty;
             char next = Peek();
             if (!IsQuote(next))
                 throw new FormatException($"Expected the string to at position {Cursor} to be quoted, but got '{next}'");
@@ -840,7 +840,7 @@ namespace GitMC.Utils.Nbt
 
         public void SkipWhitespace()
         {
-            while (CanRead() && Char.IsWhiteSpace(Peek()))
+            while (CanRead() && char.IsWhiteSpace(Peek()))
             {
                 Read();
             }

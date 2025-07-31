@@ -1,21 +1,16 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
 using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
 using GitMC.Utils;
 using Microsoft.UI;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.UI;
 using WinRT.Interop;
-using static GitMC.Constants.ColorConstants;
 
 namespace GitMC.Views
 {
@@ -44,8 +39,17 @@ namespace GitMC.Views
 
         private async void SaveManagementPage_Loaded(object sender, RoutedEventArgs e)
         {
-            await LoadManagedSaves();
-            UpdateStatistics();
+            try
+            {
+                await LoadManagedSaves().ConfigureAwait(false);
+                UpdateStatistics();
+            }
+            catch (Exception ex)
+            {
+                // Log error and show user-friendly message
+                System.Diagnostics.Debug.WriteLine($"Error loading saves: {ex.Message}");
+                // Could show a message dialog here
+            }
         }
 
         private async Task LoadManagedSaves()
@@ -223,7 +227,7 @@ namespace GitMC.Views
                 VerticalAlignment = VerticalAlignment.Center,
                 UseLayoutRounding = true
             };
-            openButton.Click += (s, e) => ShowSaveActions(saveInfo);
+            openButton.Click += (_, _) => ShowSaveActions(saveInfo);
             Grid.SetColumn(openButton, 3);
 
             headerGrid.Children.Add(iconContainer);
@@ -304,7 +308,7 @@ namespace GitMC.Views
             return saveCard;
         }
 
-        private StackPanel CreateInfoPanel(string? iconGlyph, string? iconPath, string title, string data, Windows.UI.Color iconColor)
+        private StackPanel CreateInfoPanel(string? iconGlyph, string? iconPath, string title, string data, Color iconColor)
         {
             var panel = new StackPanel
             {
@@ -386,7 +390,7 @@ namespace GitMC.Views
             return panel;
         }
 
-        private Border CreateGitStatusBadge(string iconGlyph, string text, Windows.UI.Color color)
+        private Border CreateGitStatusBadge(string iconGlyph, string text, Color color)
         {
             var badge = new Border
             {
@@ -784,7 +788,7 @@ namespace GitMC.Views
                 var folder = await folderPicker.PickSingleFolderAsync();
                 if (folder != null)
                 {
-                    var save = await AnalyzeSaveFolder(folder.Path);
+                    var save = await AnalyzeSaveFolder(folder.Path).ConfigureAwait(false);
                     if (save != null)
                     {
                         // Add to navigation in MainWindow
@@ -794,10 +798,10 @@ namespace GitMC.Views
                         }
 
                         // Register this save in our managed saves system
-                        await RegisterManagedSave(save);
+                        await RegisterManagedSave(save).ConfigureAwait(false);
 
                         // Refresh the saves list and statistics
-                        await LoadManagedSaves();
+                        await LoadManagedSaves().ConfigureAwait(false);
                     }
                     else
                     {
@@ -805,6 +809,13 @@ namespace GitMC.Views
                             "The selected folder doesn't appear to be a valid Minecraft save. A valid save should contain level.dat or level.dat_old.");
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                // Log error and show user-friendly message
+                System.Diagnostics.Debug.WriteLine($"Error adding save: {ex.Message}");
+                FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Error Adding Save",
+                    "An error occurred while adding the save. Please try again.");
             }
             finally
             {
@@ -879,7 +890,7 @@ namespace GitMC.Views
         {
             var invalidChars = Path.GetInvalidFileNameChars();
             var safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
             return $"{safeName}_{timestamp}";
         }
 
@@ -920,7 +931,7 @@ namespace GitMC.Views
 
     }
 
-    public class ManagedSaveInfo
+    internal class ManagedSaveInfo
     {
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";

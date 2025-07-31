@@ -16,7 +16,7 @@ namespace GitMC.Extensions
             // Create a binding to the localization service
             return new Binding
             {
-                Source = (App.Current as App)?.LocalizationService,
+                Source = (Application.Current as App)?.LocalizationService,
                 Path = new PropertyPath($"[{Key}]"),
                 Mode = BindingMode.OneWay
             };

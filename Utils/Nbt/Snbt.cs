@@ -29,7 +29,7 @@ namespace GitMC.Utils.Nbt
         // convert a tag to its string form
         public static string ToSnbt(this NbtTag tag, SnbtOptions options, bool includeName = false)
         {
-            string name = includeName ? GetNameBeforeValue(tag, options) : String.Empty;
+            string name = includeName ? GetNameBeforeValue(tag, options) : string.Empty;
             if (tag is NbtByte b)
                 return name + b.ToSnbt(options);
             if (tag is NbtShort s)
@@ -59,7 +59,7 @@ namespace GitMC.Utils.Nbt
 
         private static string OptionalSuffix(SnbtOptions options, char suffix)
         {
-            return options.NumberSuffixes ? suffix.ToString() : String.Empty;
+            return options.NumberSuffixes ? suffix.ToString() : string.Empty;
         }
 
         public static string ToSnbt(this NbtByte tag, SnbtOptions options) => (sbyte)tag.Value + OptionalSuffix(options, ByteSuffix);
@@ -147,13 +147,13 @@ namespace GitMC.Utils.Nbt
         private static string ListToString<T>(string listPrefix, Func<T, string> function, IEnumerable<T> values, SnbtOptions options)
         {
             if (!options.ArrayPrefixes)
-                listPrefix = String.Empty;
+                listPrefix = string.Empty;
             // spacing between values
-            string spacing = options.Minified ? String.Empty : ValueSpacing;
+            string spacing = options.Minified ? string.Empty : ValueSpacing;
             // spacing between list prefix and first value
-            string prefixSeparator = !options.Minified && listPrefix.Length > 0 && values.Any() ? ValueSpacing : String.Empty;
+            string prefixSeparator = !options.Minified && listPrefix.Length > 0 && values.Any() ? ValueSpacing : string.Empty;
             var s = new StringBuilder(ListOpen + listPrefix + prefixSeparator);
-            
+
             // Optimized: Use StringBuilder instead of String.Join to avoid creating intermediate arrays
             bool first = true;
             foreach (var value in values)
@@ -166,7 +166,7 @@ namespace GitMC.Utils.Nbt
                 s.Append(function(value));
                 first = false;
             }
-            
+
             s.Append(ListClose);
             return s.ToString();
         }
@@ -175,7 +175,7 @@ namespace GitMC.Utils.Nbt
         {
             if (shouldQuote(str))
                 return QuoteAndEscape(str, mode, newlines);
-            return str?.Replace("\n", newlines.Handle()) ?? "";
+            return str.Replace("\n", newlines.Handle()) ?? "";
         }
 
         public static string GetName(NbtTag tag, SnbtOptions options)
@@ -186,8 +186,8 @@ namespace GitMC.Utils.Nbt
         private static string GetNameBeforeValue(NbtTag tag, SnbtOptions options)
         {
             if (tag.Name == null)
-                return String.Empty;
-            return GetName(tag, options) + NameValueSeparator + (options.Minified ? String.Empty : ValueSpacing);
+                return string.Empty;
+            return GetName(tag, options) + NameValueSeparator + (options.Minified ? string.Empty : ValueSpacing);
         }
 
         // adapted directly from minecraft's (decompiled) source
@@ -297,8 +297,8 @@ namespace GitMC.Utils.Nbt
         // when a multiline list contains this type, should it keep all the values on one line anyway?
         private static bool ShouldCompressListOf(NbtTagType type)
         {
-            return type == NbtTagType.Byte || type == NbtTagType.Short || 
-                   type == NbtTagType.Int || type == NbtTagType.Long || 
+            return type == NbtTagType.Byte || type == NbtTagType.Short ||
+                   type == NbtTagType.Int || type == NbtTagType.Long ||
                    type == NbtTagType.Float || type == NbtTagType.Double;
         }
 
@@ -306,7 +306,7 @@ namespace GitMC.Utils.Nbt
         private static string ByteArrayToString(byte[] array, SnbtOptions options)
         {
             var sb = new StringBuilder();
-            
+
             // Add array prefix
             if (options.ArrayPrefixes)
             {
@@ -322,9 +322,9 @@ namespace GitMC.Utils.Nbt
             }
 
             // Add array elements
-            string spacing = options.Minified ? String.Empty : ValueSpacing;
-            string suffix = options.NumberSuffixes ? ByteSuffix.ToString() : String.Empty;
-            
+            string spacing = options.Minified ? string.Empty : ValueSpacing;
+            string suffix = options.NumberSuffixes ? ByteSuffix.ToString() : string.Empty;
+
             for (int i = 0; i < array.Length; i++)
             {
                 if (i > 0)
@@ -343,7 +343,7 @@ namespace GitMC.Utils.Nbt
         private static string IntArrayToString(int[] array, SnbtOptions options)
         {
             var sb = new StringBuilder();
-            
+
             // Add array prefix
             if (options.ArrayPrefixes)
             {
@@ -359,8 +359,8 @@ namespace GitMC.Utils.Nbt
             }
 
             // Add array elements
-            string spacing = options.Minified ? String.Empty : ValueSpacing;
-            
+            string spacing = options.Minified ? string.Empty : ValueSpacing;
+
             for (int i = 0; i < array.Length; i++)
             {
                 if (i > 0)
@@ -378,7 +378,7 @@ namespace GitMC.Utils.Nbt
         private static string LongArrayToString(long[] array, SnbtOptions options)
         {
             var sb = new StringBuilder();
-            
+
             // Add array prefix
             if (options.ArrayPrefixes)
             {
@@ -394,9 +394,9 @@ namespace GitMC.Utils.Nbt
             }
 
             // Add array elements
-            string spacing = options.Minified ? String.Empty : ValueSpacing;
-            string suffix = options.NumberSuffixes ? LongSuffix.ToString() : String.Empty;
-            
+            string spacing = options.Minified ? string.Empty : ValueSpacing;
+            string suffix = options.NumberSuffixes ? LongSuffix.ToString() : string.Empty;
+
             for (int i = 0; i < array.Length; i++)
             {
                 if (i > 0)

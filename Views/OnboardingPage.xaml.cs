@@ -5,11 +5,7 @@ using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
 using GitMC.Utils;
-using Microsoft.UI;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
 using WinRT.Interop;
@@ -48,21 +44,29 @@ namespace GitMC.Views
 
         private async void OnboardingPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // Initialize the configuration service and onboarding
-            await _onboardingService.InitializeAsync();
             try
             {
-                _onboardingService.RefreshApplicationDataCache();
-            }
-            catch
-            {
-                // If cache refresh fails, continue anyway
-            }
+                // Initialize the configuration service and onboarding
+                await _onboardingService.InitializeAsync();
+                try
+                {
+                    _onboardingService.RefreshApplicationDataCache();
+                }
+                catch
+                {
+                    // If cache refresh fails, continue anyway
+                }
 
-            // Then refresh onboarding status on page load
-            await _onboardingService.RefreshAllSteps();
-            UpdateStepVisibility();
-            UpdateSystemStatus();
+                // Then refresh onboarding status on page load
+                await _onboardingService.RefreshAllSteps();
+                UpdateStepVisibility();
+                UpdateSystemStatus();
+            }
+            catch (Exception ex)
+            {
+                // Log error and show user-friendly message
+                System.Diagnostics.Debug.WriteLine($"Error loading onboarding page: {ex.Message}");
+            }
         }
 
         private void OnPropertyChanged(string propertyName)
@@ -288,7 +292,7 @@ namespace GitMC.Views
         private async void UseLocallyButton_Click(object sender, RoutedEventArgs e)
         {
             // Show confirmation flyout first, only proceed if user clicks OK
-            var confirmed = await ShowConfirmationFlyoutWithOK(sender as FrameworkElement, "Local Mode Activated",
+            var confirmed = await ShowConfirmationFlyoutWithOk(sender as FrameworkElement, "Local Mode Activated",
                 "GitMC will now operate in local mode. Your saves will be managed locally with Git version control.");
 
             if (confirmed)
@@ -652,9 +656,7 @@ namespace GitMC.Views
             var confirmed = await FlyoutHelper.ShowConfirmationFlyout(
                 anchor ?? this, // Use the anchor button or fallback to page
                 "Connect to GitHub",
-                "This will open GitHub's authorization page in your browser. Continue?",
-                "Continue",
-                "Cancel"
+                "This will open GitHub's authorization page in your browser. Continue?"
             );
 
             if (confirmed)
@@ -797,11 +799,11 @@ namespace GitMC.Views
                 Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
             };
 
-            okButton.Click += (s, e) => flyout.Hide();
+            okButton.Click += (_, _) => flyout.Hide();
             flyout.ShowAt(anchor);
         }
 
-        private async Task<bool> ShowConfirmationFlyoutWithOK(FrameworkElement? anchor, string title, string message)
+        private async Task<bool> ShowConfirmationFlyoutWithOk(FrameworkElement? anchor, string title, string message)
         {
             if (anchor == null) return false;
 
@@ -842,7 +844,7 @@ namespace GitMC.Views
                 Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
             };
 
-            okButton.Click += (s, e) =>
+            okButton.Click += (_, _) =>
             {
                 tcs.SetResult(true);
                 flyout.Hide();

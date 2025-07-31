@@ -67,22 +67,29 @@ namespace GitMC.Views
 
         private async void BrowseSaveButton_Click(object sender, RoutedEventArgs e)
         {
-            var folderPicker = new FolderPicker();
-            folderPicker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-            folderPicker.FileTypeFilter.Add("*");
-
-            // Get the current window's handle
-            var window = App.MainWindow;
-            var hwnd = WindowNative.GetWindowHandle(window);
-            InitializeWithWindow.Initialize(folderPicker, hwnd);
-
-            var folder = await folderPicker.PickSingleFolderAsync();
-            if (folder != null)
+            try
             {
-                _selectedSavePath = folder.Path;
-                SavePathTextBox.Text = _selectedSavePath;
+                var folderPicker = new FolderPicker();
+                folderPicker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+                folderPicker.FileTypeFilter.Add("*");
 
-                await ValidateSaveFolder(_selectedSavePath);
+                // Get the current window's handle
+                var window = App.MainWindow;
+                var hwnd = WindowNative.GetWindowHandle(window);
+                InitializeWithWindow.Initialize(folderPicker, hwnd);
+
+                var folder = await folderPicker.PickSingleFolderAsync();
+                if (folder != null)
+                {
+                    _selectedSavePath = folder.Path;
+                    SavePathTextBox.Text = _selectedSavePath;
+
+                    await ValidateSaveFolder(_selectedSavePath).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in BrowseSaveButton_Click: {ex.Message}");
             }
         }
 

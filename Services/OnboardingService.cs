@@ -26,8 +26,16 @@ namespace GitMC.Services
 
         private async void OnConfigurationChanged(object? sender, string key)
         {
-            // When configuration changes, refresh the relevant step
-            await RefreshAllSteps();
+            try
+            {
+                // When configuration changes, refresh the relevant step
+                await RefreshAllSteps();
+            }
+            catch (Exception ex)
+            {
+                // Log the exception or handle it gracefully to prevent app crash
+                System.Diagnostics.Debug.WriteLine($"Error in OnConfigurationChanged: {ex.Message}");
+            }
         }
 
         // Updated method for new configuration system

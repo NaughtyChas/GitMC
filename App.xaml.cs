@@ -5,7 +5,7 @@ namespace GitMC
     /// <summary>
     /// Provides application-specific behavior to supplement the default Application class.
     /// </summary>
-    public partial class App : Application
+    public partial class App
     {
         /// <summary>
         /// Gets the main window of the application.
@@ -24,10 +24,10 @@ namespace GitMC
         public App()
         {
             InitializeComponent();
-            
+
             // Initialize services
             LocalizationService = new LocalizationService();
-            
+
             // Set default language to English for development
             LocalizationService.SetLanguage("en-US");
         }

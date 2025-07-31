@@ -1,9 +1,5 @@
 using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
 using GitMC.Services;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 
 namespace GitMC.Views
 {
@@ -30,19 +26,27 @@ namespace GitMC.Views
 
         private async void HomePage_Loaded(object sender, RoutedEventArgs e)
         {
-            // Initialize services
-            await _onboardingService.InitializeAsync();
+            try
+            {
+                // Initialize services
+                await _onboardingService.InitializeAsync().ConfigureAwait(false);
 
-            // Determine which page to show based on managed saves
-            if (HasManagedSaves())
-            {
-                // User has managed saves, show SaveManagementPage
-                NavigateToSaveManagement();
+                // Determine which page to show based on managed saves
+                if (HasManagedSaves())
+                {
+                    // User has managed saves, show SaveManagementPage
+                    NavigateToSaveManagement();
+                }
+                else
+                {
+                    // New user, show OnboardingPage
+                    NavigateToOnboarding();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                // New user, show OnboardingPage
-                NavigateToOnboarding();
+                // Log the exception to prevent app crash
+                System.Diagnostics.Debug.WriteLine($"Error in HomePage_Loaded: {ex.Message}");
             }
         }
 

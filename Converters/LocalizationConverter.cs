@@ -8,13 +8,13 @@ namespace GitMC.Converters
         {
             if (value is string key && !string.IsNullOrEmpty(key))
             {
-                if (App.Current is App app && app.LocalizationService != null)
+                if (Application.Current is App app)
                 {
                     return app.LocalizationService.GetLocalizedString(key);
                 }
             }
-            
-            return value?.ToString() ?? string.Empty;
+
+            return value.ToString() ?? string.Empty;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language)
