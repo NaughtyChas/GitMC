@@ -64,6 +64,33 @@
                     Content="{ext:Localize Key=SaveTranslator_WorldData}"
                     IsChecked="True"
                     x:Name="LevelDataCheckBox" />
+
+                <!--  MCA Processing Mode  -->
+                <Border
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Margin="0,8,0,0"
+                    Padding="12">
+                    <StackPanel Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="{ext:Localize Key=SaveTranslator_McaProcessingMode}" />
+                        <RadioButton
+                            Content="Standard MCA → SNBT (Single file per region)"
+                            GroupName="McaProcessingMode"
+                            IsChecked="True"
+                            x:Name="StandardMcaRadioButton" />
+                        <RadioButton
+                            Content="Chunk-based → Individual SNBT files (One file per chunk)"
+                            GroupName="McaProcessingMode"
+                            x:Name="ChunkBasedMcaRadioButton" />
+                        <TextBlock
+                            FontSize="12"
+                            Opacity="0.8"
+                            Text="Standard MCA converts each file to an SNBT file, chunk-based mode creates separate SNBT files for each chunk."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
 
             <!--  Output settings  -->
