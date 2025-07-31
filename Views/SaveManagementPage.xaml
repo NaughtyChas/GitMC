@@ -50,8 +50,8 @@
 
                         <!--  Folder Icon Container  -->
                         <Border
-                            Background="#E3F2FD"
-                            BorderBrush="#C8E6F5"
+                            Background="{x:Bind FolderIconBackground}"
+                            BorderBrush="{x:Bind FolderIconBorder}"
                             BorderThickness="1"
                             CornerRadius="8"
                             Grid.Column="0"
@@ -61,7 +61,7 @@
                             Width="40">
                             <FontIcon
                                 FontSize="18"
-                                Foreground="#2196F3"
+                                Foreground="{x:Bind FolderIconForeground}"
                                 Glyph="&#xE8B7;"
                                 HorizontalAlignment="Center"
                                 UseLayoutRounding="True"
@@ -89,8 +89,8 @@
 
                         <!--  Status Badge  -->
                         <Border
-                            Background="#FFF8C5"
-                            BorderBrush="#EED888"
+                            Background="{x:Bind StatusBadgeBackground}"
+                            BorderBrush="{x:Bind StatusBadgeBorder}"
                             BorderThickness="1"
                             CornerRadius="12"
                             Grid.Column="2"
@@ -98,13 +98,12 @@
                             Margin="8,0,8,0"
                             Padding="8,4"
                             UseLayoutRounding="True"
-                            VerticalAlignment="Center"
-                            Visibility="{x:Bind HasPendingChanges}">
+                            VerticalAlignment="Center">
                             <TextBlock
                                 FontSize="10"
                                 FontWeight="SemiBold"
-                                Foreground="#D39500"
-                                Text="modified"
+                                Foreground="{x:Bind StatusBadgeText}"
+                                Text="{x:Bind StatusText}"
                                 UseLayoutRounding="True"
                                 VerticalAlignment="Center" />
                         </Border>
@@ -137,7 +136,7 @@
                             Orientation="Horizontal"
                             VerticalAlignment="Center">
                             <ImageIcon
-                                Foreground="#727282"
+                                Foreground="{x:Bind InfoIconColor}"
                                 Height="16"
                                 Margin="0,0,8,0"
                                 Source="../Assets/Icons/branch_grey.svg"
@@ -147,7 +146,7 @@
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock
                                     FontSize="11"
-                                    Foreground="#727282"
+                                    Foreground="{x:Bind InfoTextColor}"
                                     Margin="0,0,0,2"
                                     Text="Branch"
                                     UseLayoutRounding="True" />
@@ -165,7 +164,7 @@
                             Orientation="Horizontal"
                             VerticalAlignment="Center">
                             <ImageIcon
-                                Foreground="#727282"
+                                Foreground="{x:Bind InfoIconColor}"
                                 Height="16"
                                 Margin="0,0,8,0"
                                 Source="../Assets/Icons/db_grey.svg"
@@ -175,7 +174,7 @@
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock
                                     FontSize="11"
-                                    Foreground="#727282"
+                                    Foreground="{x:Bind InfoTextColor}"
                                     Margin="0,0,0,2"
                                     Text="Size"
                                     UseLayoutRounding="True" />
@@ -193,7 +192,7 @@
                             Orientation="Horizontal"
                             VerticalAlignment="Center">
                             <ImageIcon
-                                Foreground="#727282"
+                                Foreground="{x:Bind InfoIconColor}"
                                 Height="16"
                                 Margin="0,0,8,0"
                                 Source="../Assets/Icons/commit_grey.svg"
@@ -203,7 +202,7 @@
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock
                                     FontSize="11"
-                                    Foreground="#727282"
+                                    Foreground="{x:Bind InfoTextColor}"
                                     Margin="0,0,0,2"
                                     Text="Commits"
                                     UseLayoutRounding="True" />
@@ -222,7 +221,7 @@
                             VerticalAlignment="Center">
                             <FontIcon
                                 FontSize="16"
-                                Foreground="#727282"
+                                Foreground="{x:Bind InfoIconColor}"
                                 Glyph="&#xE823;"
                                 Margin="0,0,8,0"
                                 UseLayoutRounding="True"
@@ -230,7 +229,7 @@
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock
                                     FontSize="11"
-                                    Foreground="#727282"
+                                    Foreground="{x:Bind InfoTextColor}"
                                     Margin="0,0,0,2"
                                     Text="Modified"
                                     UseLayoutRounding="True" />
@@ -245,7 +244,7 @@
 
                     <!--  Separator  -->
                     <Border
-                        Background="#E1E1E1"
+                        Background="{x:Bind SeparatorBackground}"
                         Grid.Row="2"
                         Height="1"
                         Margin="0,0,0,16" />
@@ -254,20 +253,29 @@
                     <StackPanel
                         Grid.Row="3"
                         Orientation="Horizontal"
-                        Spacing="12"
-                        Visibility="{x:Bind IsGitInitialized}">
+                        Spacing="12">
                         <TextBlock
                             FontSize="14"
                             FontWeight="SemiBold"
                             Text="Git Status:"
                             UseLayoutRounding="True" />
 
-                        <!--  Push Status Badge  -->
+                        <!--  Git Status Badges - Show Different Content Based on State  -->
+                        <!--  If no pending actions, show status text  -->
+                        <TextBlock
+                            FontSize="12"
+                            Text="{x:Bind GitStatusDescription}"
+                            UseLayoutRounding="True"
+                            VerticalAlignment="Center"
+                            Visibility="{x:Bind ShowStatusTextOnly}" />
+
+                        <!--  Push Status Badge - Show if has pending pushes  -->
                         <Border
-                            Background="#328EF6"
+                            Background="{ThemeResource SystemAccentColor}"
                             CornerRadius="8"
                             Padding="8,4"
-                            UseLayoutRounding="True">
+                            UseLayoutRounding="True"
+                            Visibility="{x:Bind ShowPushBadge}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <FontIcon
                                     FontSize="10"
@@ -280,18 +288,19 @@
                                     FontSize="10"
                                     FontWeight="SemiBold"
                                     Foreground="White"
-                                    Text="1 to push"
+                                    Text="{x:Bind PushStatusText}"
                                     UseLayoutRounding="True"
                                     VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
 
-                        <!--  Pull Status Badge  -->
+                        <!--  Pull Status Badge - Show if has pending pulls  -->
                         <Border
-                            Background="#328EF6"
+                            Background="{ThemeResource SystemAccentColor}"
                             CornerRadius="8"
                             Padding="8,4"
-                            UseLayoutRounding="True">
+                            UseLayoutRounding="True"
+                            Visibility="{x:Bind ShowPullBadge}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <FontIcon
                                     FontSize="10"
@@ -304,7 +313,32 @@
                                     FontSize="10"
                                     FontWeight="SemiBold"
                                     Foreground="White"
-                                    Text="2 to pull"
+                                    Text="{x:Bind PullStatusText}"
+                                    UseLayoutRounding="True"
+                                    VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!--  Conflict Status Badge - Show if has conflicts  -->
+                        <Border
+                            Background="{x:Bind ConflictBadgeBackground}"
+                            CornerRadius="8"
+                            Padding="8,4"
+                            UseLayoutRounding="True"
+                            Visibility="{x:Bind ShowConflictBadge}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <FontIcon
+                                    FontSize="10"
+                                    Foreground="{x:Bind ConflictBadgeText}"
+                                    Glyph="&#xE783;"
+                                    Margin="0,0,4,0"
+                                    UseLayoutRounding="True"
+                                    VerticalAlignment="Center" />
+                                <TextBlock
+                                    FontSize="10"
+                                    FontWeight="SemiBold"
+                                    Foreground="{x:Bind ConflictBadgeText}"
+                                    Text="{x:Bind ConflictStatusText}"
                                     UseLayoutRounding="True"
                                     VerticalAlignment="Center" />
                             </StackPanel>

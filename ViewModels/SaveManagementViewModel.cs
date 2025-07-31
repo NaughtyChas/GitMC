@@ -4,6 +4,7 @@ using System.Diagnostics;
 using GitMC.Models;
 using GitMC.Services;
 using GitMC.Utils;
+using static GitMC.Models.ManagedSaveInfo;
 
 namespace GitMC.ViewModels;
 
@@ -138,6 +139,15 @@ public class SaveManagementViewModel : BaseViewModel
                             saveInfo.LastModified = dirInfo.LastWriteTime;
                             saveInfo.Size = await CalculateFolderSizeAsync(saveInfo.Path);
                         }
+
+                        // Set some example status data for testing
+                        // TODO: Replace with actual Git status checks
+                        saveInfo.IsGitInitialized = true;
+                        saveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Modified;
+                        saveInfo.PendingPushCount = 1;
+                        saveInfo.PendingPullCount = 2;
+                        saveInfo.ConflictCount = 0;
+                        saveInfo.HasPendingChanges = true;
 
                         saves.Add(saveInfo);
                     }
