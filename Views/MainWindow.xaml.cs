@@ -1,17 +1,17 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Windows.Graphics;
+using GitMC.Models;
 using GitMC.Services;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace GitMC.Views;
 
-public partial class MainWindow : Window
+public partial class MainWindow
 {
     private readonly IConfigurationService _configurationService;
     private readonly IDataStorageService _dataStorageService;
-    private readonly IGitService _gitService;
     private readonly IOnboardingService _onboardingService;
 
     public MainWindow()
@@ -20,9 +20,9 @@ public partial class MainWindow : Window
 
         // Initialize services
         _dataStorageService = new DataStorageService();
-        _gitService = new GitService();
+        IGitService gitService = new GitService();
         _configurationService = new ConfigurationService();
-        _onboardingService = new OnboardingService(_gitService, _configurationService);
+        _onboardingService = new OnboardingService(gitService, _configurationService);
 
         SetWindowProperties();
         _ = LoadExistingSavesToNavigationAsync(); // Load saved entries on startup

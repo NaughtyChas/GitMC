@@ -10,7 +10,9 @@ public class ManagedSaveInfo
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
+    public string OriginalPath { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public DateTime AddedDate { get; set; }
     public DateTime LastModified { get; set; }
     public long Size { get; set; }
     public string Branch { get; set; } = "main";
@@ -18,6 +20,7 @@ public class ManagedSaveInfo
     public bool HasPendingChanges { get; set; }
     public string WorldIcon { get; set; } = "🌍";
     public string GameVersion { get; set; } = "Unknown";
+    public string GitRepository { get; set; } = string.Empty;
     public bool IsGitInitialized { get; set; }
 
     // Computed properties

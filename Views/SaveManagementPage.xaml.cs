@@ -2,9 +2,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.UI;
 using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
@@ -14,6 +11,9 @@ using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.UI;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -25,6 +25,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private readonly IGitService _gitService;
     private readonly NbtService _nbtService;
     private readonly IOnboardingService _onboardingService;
+    private readonly SaveAnalyzerService _saveAnalyzerService;
 
     public SaveManagementPage()
     {
@@ -34,6 +35,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         _configurationService = new ConfigurationService();
         _dataStorageService = new DataStorageService();
         _onboardingService = new OnboardingService(_gitService, _configurationService);
+        _saveAnalyzerService = new SaveAnalyzerService();
 
         DataContext = this;
         Loaded += SaveManagementPage_Loaded;
@@ -279,7 +281,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var gitStatusHeader = new TextBlock
         {
-            Text = "Git Status:", FontSize = 14, FontWeight = FontWeights.SemiBold, UseLayoutRounding = true
+            Text = "Git Status:",
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            UseLayoutRounding = true
         };
         gitStatusPanel.Children.Add(gitStatusHeader);
 
@@ -304,7 +309,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
         };
 
         if (!string.IsNullOrEmpty(iconPath))
@@ -392,7 +398,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
         };
 
         var icon = new FontIcon
@@ -761,7 +768,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
-                MinecraftSave? save = await AnalyzeSaveFolder(folder.Path).ConfigureAwait(false);
+                MinecraftSave? save = await _saveAnalyzerService.AnalyzeSaveFolder(folder.Path).ConfigureAwait(false);
                 if (save != null)
                 {
                     // Add to navigation in MainWindow
@@ -830,7 +837,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
             if (!Directory.Exists(managedSavesPath)) Directory.CreateDirectory(managedSavesPath);
 
-            string saveId = GenerateSaveId(save.Name);
+            string saveId = _saveAnalyzerService.GenerateSaveId(save.Name);
             string saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
 
             var saveInfo = new ManagedSaveInfo
@@ -852,56 +859,4 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             Debug.WriteLine($"Failed to register managed save: {ex.Message}");
         }
     }
-
-    private string GenerateSaveId(string saveName)
-    {
-        char[] invalidChars = Path.GetInvalidFileNameChars();
-        string safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-        string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
-        return $"{safeName}_{timestamp}";
-    }
-
-    private Task<MinecraftSave?> AnalyzeSaveFolder(string savePath)
-    {
-        try
-        {
-            string levelDatPath = Path.Combine(savePath, "level.dat");
-            string levelDatOldPath = Path.Combine(savePath, "level.dat_old");
-
-            if (!File.Exists(levelDatPath) && !File.Exists(levelDatOldPath))
-                return Task.FromResult<MinecraftSave?>(null);
-
-            var directoryInfo = new DirectoryInfo(savePath);
-            var save = new MinecraftSave
-            {
-                Name = directoryInfo.Name,
-                Path = savePath,
-                LastPlayed = directoryInfo.LastWriteTime,
-                WorldSize = CommonHelpers.CalculateFolderSize(directoryInfo),
-                IsGitInitialized = Directory.Exists(Path.Combine(savePath, "GitMC")),
-                WorldType = "Survival",
-                GameVersion = "1.21"
-            };
-
-            save.WorldIcon = CommonHelpers.GetWorldIcon(save.WorldType);
-
-            return Task.FromResult<MinecraftSave?>(save);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to analyze save folder: {ex.Message}");
-            return Task.FromResult<MinecraftSave?>(null);
-        }
-    }
-}
-
-internal class ManagedSaveInfo
-{
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string OriginalPath { get; set; } = "";
-    public DateTime AddedDate { get; set; }
-    public DateTime LastModified { get; set; }
-    public string GitRepository { get; set; } = "";
-    public bool IsGitInitialized { get; set; }
 }

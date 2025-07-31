@@ -20,7 +20,7 @@ public class McaRegionWriter : IDisposable
         _chunks = new Dictionary<Point2I, ChunkData>();
     }
 
-    public McaRegionWriter(string filePath) : this(filePath, ExtractRegionCoordinatesFromPath(filePath))
+    public McaRegionWriter(string filePath) : this(filePath, CommonHelpers.ExtractRegionCoordinatesFromPath(filePath))
     {
     }
 
@@ -290,39 +290,6 @@ public class McaRegionWriter : IDisposable
         }
 
         writer.Write(timestampTable);
-    }
-
-    /// <summary>
-    ///     Extract region coordinates from file path
-    /// </summary>
-    private static Point2I ExtractRegionCoordinatesFromPath(string filePath)
-    {
-        string fileName = Path.GetFileNameWithoutExtension(filePath);
-        if (fileName.StartsWith("r."))
-        {
-            // Optimized: Parse region coordinates without Split to avoid allocations
-            ReadOnlySpan<char> nameSpan = fileName.AsSpan();
-            if (nameSpan.Length > 2) // "r." + at least one char
-            {
-                ReadOnlySpan<char> remaining = nameSpan[2..]; // Skip "r."
-
-                // Find first dot
-                int firstDot = remaining.IndexOf('.');
-                if (firstDot > 0)
-                {
-                    ReadOnlySpan<char> xSpan = remaining[..firstDot];
-                    ReadOnlySpan<char> afterFirstDot = remaining[(firstDot + 1)..];
-
-                    // Find second dot (or end of string)
-                    int secondDot = afterFirstDot.IndexOf('.');
-                    ReadOnlySpan<char> zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
-
-                    if (int.TryParse(xSpan, out int x) && int.TryParse(zSpan, out int z)) return new Point2I(x, z);
-                }
-            }
-        }
-
-        throw new ArgumentException($"Cannot extract region coordinates from file path: {filePath}");
     }
 
     /// <summary>

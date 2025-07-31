@@ -2,9 +2,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.System;
 using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
@@ -13,6 +10,9 @@ using GitMC.Utils;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.System;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -24,6 +24,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     private readonly IDataStorageService _dataStorageService;
     private readonly IGitService _gitService;
     private readonly NbtService _nbtService;
+    private readonly SaveAnalyzerService _saveAnalyzerService;
 
     public OnboardingPage()
     {
@@ -32,6 +33,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         _gitService = new GitService();
         _configurationService = new ConfigurationService();
         _dataStorageService = new DataStorageService();
+        _saveAnalyzerService = new SaveAnalyzerService();
         OnboardingService = new OnboardingService(_gitService, _configurationService);
 
         // Subscribe to onboarding changes
@@ -340,7 +342,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
-                MinecraftSave? save = await AnalyzeSaveFolder(folder.Path);
+                MinecraftSave? save = await _saveAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
                     // Add to navigation in MainWindow
@@ -401,7 +403,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             if (folder != null)
             {
                 // For version folders, we might have different validation logic
-                MinecraftSave? save = await AnalyzeSaveFolder(folder.Path);
+                MinecraftSave? save = await _saveAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
                     if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);
@@ -686,41 +688,6 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
         FlyoutHelper.ShowSuccessFlyout(anchor ?? this, "Git Server Connected",
             "Successfully connected to your Git server!");
-    }
-
-    private Task<MinecraftSave?> AnalyzeSaveFolder(string savePath)
-    {
-        try
-        {
-            // Validate it's a Minecraft save
-            string levelDatPath = Path.Combine(savePath, "level.dat");
-            string levelDatOldPath = Path.Combine(savePath, "level.dat_old");
-
-            if (!File.Exists(levelDatPath) && !File.Exists(levelDatOldPath))
-                return Task.FromResult<MinecraftSave?>(null);
-
-            var directoryInfo = new DirectoryInfo(savePath);
-            var save = new MinecraftSave
-            {
-                Name = directoryInfo.Name,
-                Path = savePath,
-                LastPlayed = directoryInfo.LastWriteTime,
-                WorldSize = CommonHelpers.CalculateFolderSize(directoryInfo),
-                IsGitInitialized = Directory.Exists(Path.Combine(savePath, "GitMC")),
-                WorldType = "Survival", // Default
-                GameVersion = "1.21" // Default
-            };
-
-            // Set appropriate world icon based on world type
-            save.WorldIcon = CommonHelpers.GetWorldIcon(save.WorldType);
-
-            return Task.FromResult<MinecraftSave?>(save);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to analyze save folder: {ex.Message}");
-            return Task.FromResult<MinecraftSave?>(null);
-        }
     }
 
     // Flyout helper methods for less intrusive dialogs

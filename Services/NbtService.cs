@@ -1776,40 +1776,4 @@ public class NbtService : INbtService
             Console.WriteLine($@"Failed to parse chunk {chunkCoord.X},{chunkCoord.Z}: {ex.Message}");
         }
     }
-
-    /// <summary>
-    ///     Extract region coordinates from MCA file path
-    ///     Example: "r.2.-1.mca" -> Point2i(2, -1)
-    /// </summary>
-    private static Point2I ExtractRegionCoordinatesFromMcaPath(string filePath)
-    {
-        string fileName = Path.GetFileNameWithoutExtension(filePath);
-        if (fileName.StartsWith("r."))
-        {
-            // Optimized: Parse region coordinates without Split to avoid allocations
-            ReadOnlySpan<char> nameSpan = fileName.AsSpan();
-            if (nameSpan.Length > 2) // "r." + at least one char
-            {
-                ReadOnlySpan<char> remaining = nameSpan[2..]; // Skip "r."
-
-                // Find first dot
-                int firstDot = remaining.IndexOf('.');
-                if (firstDot > 0)
-                {
-                    ReadOnlySpan<char> xSpan = remaining[..firstDot];
-                    ReadOnlySpan<char> afterFirstDot = remaining[(firstDot + 1)..];
-
-                    // Find second dot (or end of string)
-                    int secondDot = afterFirstDot.IndexOf('.');
-                    ReadOnlySpan<char> zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
-
-                    if (int.TryParse(xSpan, out int x) && int.TryParse(zSpan, out int z)) return new Point2I(x, z);
-                }
-            }
-        }
-
-        // If we can't extract from filename, try to infer from chunks
-        // For now, default to region 0,0
-        return new Point2I(0, 0);
-    }
 }

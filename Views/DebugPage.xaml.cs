@@ -1,9 +1,10 @@
+using GitMC.Services;
+using GitMC.Tests;
+using GitMC.Utils;
 using Windows.ApplicationModel.Core;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.UI.Core;
-using GitMC.Services;
-using GitMC.Tests;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -46,7 +47,7 @@ public sealed partial class DebugPage : Page
 
                 // Check if it's an Anvil file
                 string extension = Path.GetExtension(_selectedFilePath).ToLowerInvariant();
-                _isAnvilFile = await IsAnvilRelatedFile(_selectedFilePath, extension);
+                _isAnvilFile = await CommonHelpers.IsAnvilRelatedFileAsync(_selectedFilePath, extension);
 
                 // Show appropriate UI panels
                 if (_isAnvilFile)
@@ -590,101 +591,6 @@ public sealed partial class DebugPage : Page
         {
             // Re-enable button whether successful or not
             ConvertSnbtToMcaButton.IsEnabled = true;
-        }
-    }
-
-    /// <summary>
-    ///     Checks if file is Anvil-related
-    /// </summary>
-    private async Task<bool> IsAnvilRelatedFile(string filePath, string extension)
-    {
-        try
-        {
-            // Direct MCA/MCC files
-            if (extension == ".mca" || extension == ".mcc") return true;
-
-            // For SNBT files, check content to see if it's derived from MCA
-            if (extension == ".snbt") return await IsSnbtFromMcaFile(filePath);
-
-            return false;
-        }
-        catch
-        {
-            // If we can't determine, fall back to extension-based detection
-            return extension == ".mca" || extension == ".mcc";
-        }
-    }
-
-    /// <summary>
-    ///     Checks if SNBT file was derived from MCA
-    /// </summary>
-    private async Task<bool> IsSnbtFromMcaFile(string snbtPath)
-    {
-        try
-        {
-            // Read the first part of the file to check for MCA-specific indicators
-            using var reader = new StreamReader(snbtPath);
-
-            // Read first 10KB or entire file if smaller
-            char[] buffer = new char[10240];
-            int charsRead = await reader.ReadAsync(buffer, 0, buffer.Length);
-            string content = new(buffer, 0, charsRead);
-
-            // Check for MCA-specific indicators:
-            // 1. Region file headers
-            if (content.Contains("// Region file:") ||
-                content.Contains("// Region coordinates:"))
-                return true;
-
-            // 2. Chunk headers in MCA format
-            if (content.Contains("// Chunk(") && content.Contains("// Total chunks:")) return true;
-
-            // 3. Minecraft chunk structure indicators
-            if (content.Contains("xPos:") && content.Contains("zPos:") &&
-                (content.Contains("sections:") || content.Contains("block_states:")))
-                return true;
-
-            // 4. Level tag with chunk data (typical of MCA-derived SNBT)
-            if (content.Contains("Level:") &&
-                (content.Contains("Heightmaps:") || content.Contains("Status:")))
-                return true;
-
-            // 5. Multiple chunk indicators
-            int chunkCount = 0;
-            // Optimized: Use span-based line enumeration instead of Split
-            ReadOnlySpan<char> contentSpan = content.AsSpan();
-            ReadOnlySpan<char> remaining = contentSpan;
-
-            while (!remaining.IsEmpty && chunkCount <= 1)
-            {
-                int lineEnd = remaining.IndexOf('\n');
-                ReadOnlySpan<char> line;
-
-                if (lineEnd >= 0)
-                {
-                    line = remaining[..lineEnd];
-                    remaining = remaining[(lineEnd + 1)..];
-                }
-                else
-                {
-                    line = remaining;
-                    remaining = ReadOnlySpan<char>.Empty;
-                }
-
-                if (line.Contains("// Chunk(".AsSpan(), StringComparison.Ordinal) ||
-                    line.Contains("// SNBT for chunk".AsSpan(), StringComparison.Ordinal))
-                {
-                    chunkCount++;
-                    if (chunkCount > 1) return true; // Multiple chunks indicate MCA origin
-                }
-            }
-
-            return false;
-        }
-        catch
-        {
-            // If we can't read the file, assume it's not MCA-derived
-            return false;
         }
     }
 }

@@ -54,7 +54,7 @@ public class MinecraftSave : INotifyPropertyChanged
         set => SetProperty(ref _worldSize, value);
     }
 
-    public string WorldSizeFormatted => FormatFileSize(_worldSize);
+    public string WorldSizeFormatted => CommonHelpers.FormatFileSize(_worldSize);
 
     public string GitStatus
     {
@@ -86,22 +86,13 @@ public class MinecraftSave : INotifyPropertyChanged
         set => SetProperty(ref _worldIcon, value);
     }
 
-    public string LastPlayedFormatted => _lastPlayed == DateTime.MinValue ? "Never" : FormatRelativeTime(_lastPlayed);
+    public string LastPlayedFormatted =>
+        _lastPlayed == DateTime.MinValue ? "Never" : CommonHelpers.FormatRelativeTime(_lastPlayed);
 
     public string LastCommitFormatted =>
-        _lastCommit == DateTime.MinValue ? "No commits" : FormatRelativeTime(_lastCommit);
+        _lastCommit == DateTime.MinValue ? "No commits" : CommonHelpers.FormatRelativeTime(_lastCommit);
 
     public event PropertyChangedEventHandler? PropertyChanged;
-
-    private static string FormatFileSize(long bytes)
-    {
-        return CommonHelpers.FormatFileSize(bytes);
-    }
-
-    private static string FormatRelativeTime(DateTime dateTime)
-    {
-        return CommonHelpers.FormatRelativeTime(dateTime);
-    }
 
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {

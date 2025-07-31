@@ -1,12 +1,13 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 using GitMC.Services;
+using GitMC.Utils;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -38,8 +39,8 @@ public sealed partial class SaveTranslatorPage : Page
         {
             // Disable performance counters in debug mode to prevent UI freezing
 #if !DEBUG
-                _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-                _memoryCounter = new PerformanceCounter("Memory", "Available MBytes");
+            _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+            _memoryCounter = new PerformanceCounter("Memory", "Available MBytes");
 #endif
 
             _performanceTimer = new DispatcherTimer();
@@ -462,7 +463,7 @@ public sealed partial class SaveTranslatorPage : Page
                         if (snbtContent.Contains("# Chunk"))
                         {
                             // Optimized: Count occurrences without Split to avoid massive memory allocations
-                            int chunkCount = CountOccurrences(snbtContent.AsSpan(), "# Chunk".AsSpan());
+                            int chunkCount = CommonHelpers.CountOccurrences(snbtContent.AsSpan(), "# Chunk".AsSpan());
                             if (chunkCount > 1) LogMessage($"  📦 Multi-chunk file detected: {chunkCount} chunks");
                         }
                     }
@@ -866,27 +867,5 @@ public sealed partial class SaveTranslatorPage : Page
         FlushLogQueue();
 
         base.OnNavigatedFrom(e);
-    }
-
-    /// <summary>
-    ///     Count pattern occurrences in span
-    /// </summary>
-    private static int CountOccurrences(ReadOnlySpan<char> text, ReadOnlySpan<char> pattern)
-    {
-        if (pattern.IsEmpty) return 0;
-
-        int count = 0;
-        int index = 0;
-
-        while (index <= text.Length - pattern.Length)
-        {
-            int found = text[index..].IndexOf(pattern);
-            if (found == -1) break;
-
-            count++;
-            index += found + pattern.Length;
-        }
-
-        return count;
     }
 }
