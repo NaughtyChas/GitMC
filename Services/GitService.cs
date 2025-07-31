@@ -200,40 +200,34 @@ public class GitService : IGitService
 
     public bool ChangeDirectory(string path)
     {
-        try
-        {
-            if (string.IsNullOrEmpty(path))
-                return false;
-
-            string targetPath;
-
-            if (path == "..")
-            {
-                DirectoryInfo? parent = Directory.GetParent(_currentDirectory);
-                if (parent == null) return false;
-                targetPath = parent.FullName;
-            }
-            else if (Path.IsPathRooted(path))
-            {
-                targetPath = path;
-            }
-            else
-            {
-                targetPath = Path.GetFullPath(Path.Combine(_currentDirectory, path));
-            }
-
-            if (Directory.Exists(targetPath))
-            {
-                _currentDirectory = targetPath;
-                Directory.SetCurrentDirectory(_currentDirectory);
-                return true;
-            }
-
+        if (string.IsNullOrEmpty(path))
             return false;
-        }
-        catch
+
+        string targetPath;
+
+        if (path == "..")
         {
-            return false;
+            DirectoryInfo? parent = Directory.GetParent(_currentDirectory);
+            if (parent == null) return false;
+            targetPath = parent.FullName;
         }
+        else if (Path.IsPathRooted(path))
+        {
+            targetPath = path;
+        }
+        else
+        {
+            targetPath = Path.GetFullPath(Path.Combine(_currentDirectory, path));
+        }
+
+        if (Directory.Exists(targetPath))
+        {
+            // Try setting directory using system method first for possible exceptions
+            Directory.SetCurrentDirectory(targetPath);
+            _currentDirectory = targetPath;
+            return true;
+        }
+
+        return false;
     }
 }
