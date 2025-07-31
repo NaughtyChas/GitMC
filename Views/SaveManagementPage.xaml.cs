@@ -1,1069 +1,862 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
+using System.Globalization;
+using System.Text.Json;
+using GitMC.Constants;
+using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
+using GitMC.Utils;
 using Microsoft.UI;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using Windows.System;
 using Windows.UI;
 using WinRT.Interop;
 
-namespace GitMC.Views
+namespace GitMC.Views;
+
+public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 {
-    public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
+    private readonly IConfigurationService _configurationService;
+    private readonly IDataStorageService _dataStorageService;
+    private readonly IGitService _gitService;
+    private readonly NbtService _nbtService;
+    private readonly IOnboardingService _onboardingService;
+    private readonly SaveAnalyzerService _saveAnalyzerService;
+
+    public SaveManagementPage()
     {
-        private readonly NbtService _nbtService;
-        private readonly IGitService _gitService;
-        private readonly IConfigurationService _configurationService;
-        private readonly IOnboardingService _onboardingService;
-        private readonly IDataStorageService _dataStorageService;
+        InitializeComponent();
+        _nbtService = new NbtService();
+        _gitService = new GitService();
+        _configurationService = new ConfigurationService();
+        _dataStorageService = new DataStorageService();
+        _onboardingService = new OnboardingService(_gitService, _configurationService);
+        _saveAnalyzerService = new SaveAnalyzerService();
 
-        public event PropertyChangedEventHandler? PropertyChanged;
+        DataContext = this;
+        Loaded += SaveManagementPage_Loaded;
+    }
 
-        public SaveManagementPage()
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private async void SaveManagementPage_Loaded(object sender, RoutedEventArgs e)
+    {
+        try
         {
-            InitializeComponent();
-            _nbtService = new NbtService();
-            _gitService = new GitService();
-            _configurationService = new ConfigurationService();
-            _dataStorageService = new DataStorageService();
-            _onboardingService = new OnboardingService(_gitService, _configurationService);
-
-            DataContext = this;
-            Loaded += SaveManagementPage_Loaded;
-        }
-
-        private async void SaveManagementPage_Loaded(object sender, RoutedEventArgs e)
-        {
-            await LoadManagedSaves();
+            await LoadManagedSaves().ConfigureAwait(false);
             UpdateStatistics();
         }
-
-        private async Task LoadManagedSaves()
+        catch (Exception ex)
         {
+            // Log error and show user-friendly message
+            Debug.WriteLine($"Error loading saves: {ex.Message}");
+            // Could show a message dialog here
+        }
+    }
+
+    private async Task LoadManagedSaves()
+    {
+        try
+        {
+            List<ManagedSaveInfo> managedSaves = await GetManagedSaves();
+            PopulateSavesList(managedSaves);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to load managed saves: {ex.Message}");
+        }
+    }
+
+    private async Task<List<ManagedSaveInfo>> GetManagedSaves()
+    {
+        var saves = new List<ManagedSaveInfo>();
+        string managedSavesPath = GetManagedSavesStoragePath();
+
+        if (!Directory.Exists(managedSavesPath)) return saves;
+
+        string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+        foreach (string jsonFile in jsonFiles)
             try
             {
-                var managedSaves = await GetManagedSaves();
-                PopulateSavesList(managedSaves);
+                string json = await File.ReadAllTextAsync(jsonFile);
+                ManagedSaveInfo? saveInfo = JsonSerializer.Deserialize<ManagedSaveInfo>(json);
+                if (saveInfo != null) saves.Add(saveInfo);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to load managed saves: {ex.Message}");
+                Debug.WriteLine($"Failed to parse save info from {jsonFile}: {ex.Message}");
             }
+
+        return saves.OrderByDescending(s => s.LastModified).ToList();
+    }
+
+    private void PopulateSavesList(List<ManagedSaveInfo> saves)
+    {
+        var savesGridView = FindName("SavesGridView") as GridView;
+        var saveCountInfo = FindName("SaveCountInfo") as TextBlock;
+
+        if (savesGridView == null || saveCountInfo == null) return;
+
+        // Clear existing items
+        savesGridView.Items.Clear();
+
+        // Update save count info
+        if (saves.Count == 0)
+            saveCountInfo.Text = "No saves managed yet";
+        else
+            saveCountInfo.Text = $"{saves.Count} save{(saves.Count == 1 ? "" : "s")} managed";
+
+        // Add real save cards as squared cards
+        foreach (ManagedSaveInfo save in saves)
+        {
+            Border saveCard = CreateSquaredSaveCard(save);
+            savesGridView.Items.Add(saveCard);
         }
 
-        private async Task<List<ManagedSaveInfo>> GetManagedSaves()
+        // Update statistics
+        UpdateStatistics();
+    }
+
+    private Border CreateSquaredSaveCard(ManagedSaveInfo saveInfo)
+    {
+        var saveCard = new Border
         {
-            var saves = new List<ManagedSaveInfo>();
-            var managedSavesPath = GetManagedSavesStoragePath();
+            Background = (SolidColorBrush)Application.Current.Resources["SystemControlBackgroundAltHighBrush"],
+            BorderBrush = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseLowBrush"],
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16),
+            Margin = new Thickness(0, 0, 0, 12),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            UseLayoutRounding = true
+        };
 
-            if (!Directory.Exists(managedSavesPath))
-            {
-                return saves;
-            }
-
-            var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
-            foreach (var jsonFile in jsonFiles)
-            {
-                try
-                {
-                    var json = await File.ReadAllTextAsync(jsonFile);
-                    var saveInfo = System.Text.Json.JsonSerializer.Deserialize<ManagedSaveInfo>(json);
-                    if (saveInfo != null)
-                    {
-                        saves.Add(saveInfo);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Failed to parse save info from {jsonFile}: {ex.Message}");
-                }
-            }
-
-            return saves.OrderByDescending(s => s.LastModified).ToList();
-        }
-
-        private void PopulateSavesList(List<ManagedSaveInfo> saves)
+        var mainGrid = new Grid();
+        mainGrid.RowDefinitions.Add(new RowDefinition
         {
-            var savesGridView = FindName("SavesGridView") as GridView;
-            var saveCountInfo = FindName("SaveCountInfo") as TextBlock;
+            Height = GridLength.Auto
+        }); // Row 1: Header with icon, title, path and actions
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 2: General information
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Separator
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 3: Git status badges
 
-            if (savesGridView == null || saveCountInfo == null) return;
-
-            // Clear existing items
-            savesGridView.Items.Clear();
-
-            // Update save count info
-            if (saves.Count == 0)
-            {
-                saveCountInfo.Text = "No saves managed yet";
-            }
-            else
-            {
-                saveCountInfo.Text = $"{saves.Count} save{(saves.Count == 1 ? "" : "s")} managed";
-            }
-
-            // Add real save cards as squared cards
-            foreach (var save in saves)
-            {
-                var saveCard = CreateSquaredSaveCard(save);
-                savesGridView.Items.Add(saveCard);
-            }
-
-            // Update statistics
-            UpdateStatistics();
-        }
-
-        private Border CreateSquaredSaveCard(ManagedSaveInfo saveInfo)
+        // Row 1: Header section
+        var headerGrid = new Grid();
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Icon
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition
         {
-            var saveCard = new Border
-            {
-                Background = new SolidColorBrush(Colors.White),
-                BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(255, 225, 225, 225)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(16),
-                Margin = new Thickness(0, 0, 0, 12),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                UseLayoutRounding = true
-            };
+            Width = new GridLength(1, GridUnitType.Star)
+        }); // Title and path
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Status badge
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Open button
+        headerGrid.Margin = new Thickness(0, 0, 0, 16);
+        Grid.SetRow(headerGrid, 0);
 
-            var mainGrid = new Grid();
-            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 1: Header with icon, title, path and actions
-            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 2: General information
-            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Separator
-            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 3: Git status badges
-
-            // Row 1: Header section
-            var headerGrid = new Grid();
-            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Icon
-            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Title and path
-            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Status badge
-            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Open button
-            headerGrid.Margin = new Thickness(0, 0, 0, 16);
-            Grid.SetRow(headerGrid, 0);
-
-            // Folder icon with rounded background
-            var iconContainer = new Border
-            {
-                Background = new SolidColorBrush(ColorHelper.FromArgb(255, 227, 242, 253)),
-                BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(255, 200, 230, 250)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8),
-                Width = 40,
-                Height = 40,
-                Margin = new Thickness(0, 0, 12, 0),
-                UseLayoutRounding = true
-            };
-
-            var folderIcon = new FontIcon
-            {
-                FontSize = 18,
-                Glyph = "\uE8B7", // Folder icon
-                Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 33, 150, 243)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                UseLayoutRounding = true
-            };
-            iconContainer.Child = folderIcon;
-            Grid.SetColumn(iconContainer, 0);
-
-            // Title and path section
-            var titlePathPanel = new StackPanel
-            {
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            var nameText = new TextBlock
-            {
-                FontSize = 16,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Text = saveInfo.Name,
-                TextWrapping = TextWrapping.Wrap,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                Margin = new Thickness(0, 0, 0, 4),
-                UseLayoutRounding = true
-            };
-
-            var pathText = new TextBlock
-            {
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Colors.Gray),
-                Text = saveInfo.OriginalPath ?? "Unknown path",
-                TextWrapping = TextWrapping.Wrap,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                UseLayoutRounding = true
-            };
-
-            titlePathPanel.Children.Add(nameText);
-            titlePathPanel.Children.Add(pathText);
-            Grid.SetColumn(titlePathPanel, 1);
-
-            // Status badge
-            var statusBadge = new Border
-            {
-                Background = new SolidColorBrush(ColorHelper.FromArgb(255, 255, 248, 197)),
-                CornerRadius = new CornerRadius(12),
-                BorderThickness = new Thickness(1),
-                BorderBrush = new SolidColorBrush(ColorHelper.FromArgb(255, 238, 216, 136)),
-                Padding = new Thickness(8, 4, 8, 4),
-                Margin = new Thickness(8, 0, 8, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-                UseLayoutRounding = true
-            };
-
-            var statusText = new TextBlock
-            {
-                Text = "modified",
-                FontSize = 10,
-                Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 211, 149, 0)),
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                UseLayoutRounding = true
-            };
-            statusBadge.Child = statusText;
-            Grid.SetColumn(statusBadge, 2);
-
-            // Open button
-            var openButton = new Button
-            {
-                Content = "Open",
-                Height = 32,
-                MinWidth = 60,
-                Style = Application.Current.Resources["AccentButtonStyle"] as Style,
-                VerticalAlignment = VerticalAlignment.Center,
-                UseLayoutRounding = true
-            };
-            openButton.Click += (s, e) => ShowSaveActions(saveInfo);
-            Grid.SetColumn(openButton, 3);
-
-            headerGrid.Children.Add(iconContainer);
-            headerGrid.Children.Add(titlePathPanel);
-            headerGrid.Children.Add(statusBadge);
-            headerGrid.Children.Add(openButton);
-
-            // Row 2: General information display
-            var infoGrid = new Grid();
-            infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            infoGrid.Margin = new Thickness(0, 0, 0, 16);
-            Grid.SetRow(infoGrid, 1);
-
-            // Branch info
-            var branchInfoPanel = CreateInfoPanel(null, "Assets/Icons/branch_grey.svg", "Branch", "main", ColorHelper.FromArgb(255, 114, 114, 130));
-            Grid.SetColumn(branchInfoPanel, 0);
-
-            // Size info
-            var sizeInfoPanel = CreateInfoPanel(null, "Assets/Icons/db_grey.svg", "Size", "2.4 GB", ColorHelper.FromArgb(255, 114, 114, 130));
-            Grid.SetColumn(sizeInfoPanel, 1);
-
-            // Commits info
-            var commitsInfoPanel = CreateInfoPanel(null, "Assets/Icons/commit_grey.svg", "Commits", "45", ColorHelper.FromArgb(255, 114, 114, 130));
-            Grid.SetColumn(commitsInfoPanel, 2);
-
-            // Modified info
-            var modifiedInfoPanel = CreateInfoPanel("\uE823", null, "Modified", "2 hours ago", ColorHelper.FromArgb(255, 114, 114, 130));
-            Grid.SetColumn(modifiedInfoPanel, 3);
-
-            infoGrid.Children.Add(branchInfoPanel);
-            infoGrid.Children.Add(sizeInfoPanel);
-            infoGrid.Children.Add(commitsInfoPanel);
-            infoGrid.Children.Add(modifiedInfoPanel);
-
-            // Separator
-            var separator = new Border
-            {
-                Height = 1,
-                Background = new SolidColorBrush(ColorHelper.FromArgb(255, 225, 225, 225)),
-                Margin = new Thickness(0, 0, 0, 16)
-            };
-            Grid.SetRow(separator, 2);
-
-            // Row 3: Git status badges
-            var gitStatusPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 12
-            };
-            Grid.SetRow(gitStatusPanel, 3);
-
-            var gitStatusHeader = new TextBlock
-            {
-                Text = "Git Status:",
-                FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                UseLayoutRounding = true
-            };
-            gitStatusPanel.Children.Add(gitStatusHeader);
-
-            // Push badge
-            var pushBadge = CreateGitStatusBadge("\uE898", "1 to push", ColorHelper.FromArgb(255, 78, 142, 246));
-            gitStatusPanel.Children.Add(pushBadge);
-
-            // Pull badge
-            var pullBadge = CreateGitStatusBadge("\uE896", "2 to pull", ColorHelper.FromArgb(255, 78, 142, 246));
-            gitStatusPanel.Children.Add(pullBadge);
-
-            mainGrid.Children.Add(headerGrid);
-            mainGrid.Children.Add(infoGrid);
-            mainGrid.Children.Add(separator);
-            mainGrid.Children.Add(gitStatusPanel);
-            saveCard.Child = mainGrid;
-
-            return saveCard;
-        }
-
-        private StackPanel CreateInfoPanel(string? iconGlyph, string? iconPath, string title, string data, Windows.UI.Color iconColor)
+        // Folder icon with rounded background
+        var iconContainer = new Border
         {
-            var panel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center
-            };
+            Background = new SolidColorBrush(ColorConstants.IconColors.FolderBackground),
+            BorderBrush = new SolidColorBrush(ColorConstants.IconColors.FolderBorder),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Width = 40,
+            Height = 40,
+            Margin = new Thickness(0, 0, 12, 0),
+            UseLayoutRounding = true
+        };
 
-            // Add icon based on which parameter is provided
-            if (!string.IsNullOrEmpty(iconPath))
+        var folderIcon = new FontIcon
+        {
+            FontSize = 18,
+            Glyph = "\uE8B7", // Folder icon
+            Foreground = new SolidColorBrush(ColorConstants.IconColors.FolderIcon),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            UseLayoutRounding = true
+        };
+        iconContainer.Child = folderIcon;
+        Grid.SetColumn(iconContainer, 0);
+
+        // Title and path section
+        var titlePathPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+
+        var nameText = new TextBlock
+        {
+            FontSize = 16,
+            FontWeight = FontWeights.SemiBold,
+            Text = saveInfo.Name,
+            TextWrapping = TextWrapping.Wrap,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Margin = new Thickness(0, 0, 0, 4),
+            UseLayoutRounding = true
+        };
+
+        var pathText = new TextBlock
+        {
+            FontSize = 11,
+            Foreground = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseMediumBrush"],
+            Text = saveInfo.OriginalPath ?? "Unknown path",
+            TextWrapping = TextWrapping.Wrap,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            UseLayoutRounding = true
+        };
+
+        titlePathPanel.Children.Add(nameText);
+        titlePathPanel.Children.Add(pathText);
+        Grid.SetColumn(titlePathPanel, 1);
+
+        // Status badge
+        Border statusBadge = CreateWarningBadge("modified");
+        statusBadge.Margin = new Thickness(8, 0, 8, 0);
+        Grid.SetColumn(statusBadge, 2);
+
+        // Open button
+        var openButton = new Button
+        {
+            Content = "Open",
+            Height = 32,
+            MinWidth = 60,
+            Style = Application.Current.Resources["AccentButtonStyle"] as Style,
+            VerticalAlignment = VerticalAlignment.Center,
+            UseLayoutRounding = true
+        };
+        openButton.Click += (_, _) => ShowSaveActions(saveInfo);
+        Grid.SetColumn(openButton, 3);
+
+        headerGrid.Children.Add(iconContainer);
+        headerGrid.Children.Add(titlePathPanel);
+        headerGrid.Children.Add(statusBadge);
+        headerGrid.Children.Add(openButton);
+
+        // Row 2: General information display
+        var infoGrid = new Grid();
+        infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        infoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        infoGrid.Margin = new Thickness(0, 0, 0, 16);
+        Grid.SetRow(infoGrid, 1);
+
+        // Branch info
+        StackPanel branchInfoPanel = CreateInfoPanel(null, "Assets/Icons/branch_grey.svg", "Branch", "main",
+            ColorConstants.InfoPanelColors.SecondaryIconText);
+        Grid.SetColumn(branchInfoPanel, 0);
+
+        // Size info
+        StackPanel sizeInfoPanel = CreateInfoPanel(null, "Assets/Icons/db_grey.svg", "Size", "2.4 GB",
+            ColorConstants.InfoPanelColors.SecondaryIconText);
+        Grid.SetColumn(sizeInfoPanel, 1);
+
+        // Commits info
+        StackPanel commitsInfoPanel = CreateInfoPanel(null, "Assets/Icons/commit_grey.svg", "Commits", "45",
+            ColorConstants.InfoPanelColors.SecondaryIconText);
+        Grid.SetColumn(commitsInfoPanel, 2);
+
+        // Modified info
+        StackPanel modifiedInfoPanel = CreateInfoPanel("\uE823", null, "Modified", "2 hours ago",
+            ColorConstants.InfoPanelColors.SecondaryIconText);
+        Grid.SetColumn(modifiedInfoPanel, 3);
+
+        infoGrid.Children.Add(branchInfoPanel);
+        infoGrid.Children.Add(sizeInfoPanel);
+        infoGrid.Children.Add(commitsInfoPanel);
+        infoGrid.Children.Add(modifiedInfoPanel);
+
+        // Separator
+        var separator = new Border
+        {
+            Height = 1,
+            Background = new SolidColorBrush(ColorConstants.InfoPanelColors.SeparatorBackground),
+            Margin = new Thickness(0, 0, 0, 16)
+        };
+        Grid.SetRow(separator, 2);
+
+        // Row 3: Git status badges
+        var gitStatusPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        Grid.SetRow(gitStatusPanel, 3);
+
+        var gitStatusHeader = new TextBlock
+        {
+            Text = "Git Status:",
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            UseLayoutRounding = true
+        };
+        gitStatusPanel.Children.Add(gitStatusHeader);
+
+        // Push badge
+        Border pushBadge = CreateGitStatusBadge("\uE898", "1 to push", ColorConstants.BadgeColors.GitText);
+        gitStatusPanel.Children.Add(pushBadge);
+
+        // Pull badge
+        Border pullBadge = CreateGitStatusBadge("\uE896", "2 to pull", ColorConstants.BadgeColors.GitText);
+        gitStatusPanel.Children.Add(pullBadge);
+
+        mainGrid.Children.Add(headerGrid);
+        mainGrid.Children.Add(infoGrid);
+        mainGrid.Children.Add(separator);
+        mainGrid.Children.Add(gitStatusPanel);
+        saveCard.Child = mainGrid;
+
+        return saveCard;
+    }
+
+    private StackPanel CreateInfoPanel(string? iconGlyph, string? iconPath, string title, string data, Color iconColor)
+    {
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        if (!string.IsNullOrEmpty(iconPath))
+        {
+            if (iconPath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
             {
-                // Use #727282 for greyed-out icon when fontIcon got rgb(114, 114, 130)
-                // I know it is not an elegant solution, but it works for now
-                if (iconPath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+                var imageIcon = new ImageIcon
                 {
-                    var imageIcon = new ImageIcon
-                    {
-                        Source = new SvgImageSource(new Uri($"ms-appx:///{iconPath.TrimStart('/', '.')}")),
-                        Foreground = new SolidColorBrush(iconColor),
-                        Width = 16,
-                        Height = 16,
-                        Margin = new Thickness(0, 0, 8, 0),
-                        VerticalAlignment = VerticalAlignment.Center,
-                        UseLayoutRounding = true
-                    };
-                    panel.Children.Add(imageIcon);
-                }
-                else
-                {
-                    // For PNG/other formats, use Image with potential color overlay
-                    var image = new Image
-                    {
-                        Source = new BitmapImage(new Uri($"ms-appx:///{iconPath.TrimStart('/', '.')}")),
-                        Width = 16,
-                        Height = 16,
-                        Margin = new Thickness(0, 0, 8, 0),
-                        VerticalAlignment = VerticalAlignment.Center,
-                        UseLayoutRounding = true,
-                        // Note: For PNG images, Foreground won't change the color
-                        // Consider using a color overlay or different colored images
-                    };
-                    panel.Children.Add(image);
-                }
-            }
-            else if (!string.IsNullOrEmpty(iconGlyph))
-            {
-                // FontIcon supports Foreground color properly
-                var fontIcon = new FontIcon
-                {
-                    FontSize = 16,
-                    Glyph = iconGlyph,
+                    Source = new SvgImageSource(new Uri($"ms-appx:///{iconPath.TrimStart('/', '.')}")),
                     Foreground = new SolidColorBrush(iconColor),
+                    Width = 16,
+                    Height = 16,
                     Margin = new Thickness(0, 0, 8, 0),
                     VerticalAlignment = VerticalAlignment.Center,
                     UseLayoutRounding = true
                 };
-                panel.Children.Add(fontIcon);
+                panel.Children.Add(imageIcon);
             }
-
-            var textPanel = new StackPanel
+            else
             {
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            var titleText = new TextBlock
-            {
-                FontSize = 11,
-                Text = title,
-                Foreground = new SolidColorBrush(Colors.Gray),
-                Margin = new Thickness(0, 0, 0, 2),
-                UseLayoutRounding = true
-            };
-
-            var dataText = new TextBlock
-            {
-                FontSize = 13,
-                Text = data,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.Black),
-                UseLayoutRounding = true
-            };
-
-            textPanel.Children.Add(titleText);
-            textPanel.Children.Add(dataText);
-            panel.Children.Add(textPanel);
-
-            return panel;
+                var image = new Image
+                {
+                    Source = new BitmapImage(new Uri($"ms-appx:///{iconPath.TrimStart('/', '.')}")),
+                    Width = 16,
+                    Height = 16,
+                    Margin = new Thickness(0, 0, 8, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    UseLayoutRounding = true
+                };
+                panel.Children.Add(image);
+            }
         }
-
-        private Border CreateGitStatusBadge(string iconGlyph, string text, Windows.UI.Color color)
+        else if (!string.IsNullOrEmpty(iconGlyph))
         {
-            var badge = new Border
+            var fontIcon = new FontIcon
             {
-                Background = new SolidColorBrush(ColorHelper.FromArgb(50, color.R, color.G, color.B)), // Light background
-                BorderBrush = new SolidColorBrush(color),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(8, 4, 8, 4),
-                UseLayoutRounding = true
-            };
-
-            var panel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            var icon = new FontIcon
-            {
-                FontSize = 10,
+                FontSize = 16,
                 Glyph = iconGlyph,
-                Foreground = new SolidColorBrush(color),
-                Margin = new Thickness(0, 0, 4, 0),
+                Foreground = new SolidColorBrush(iconColor),
+                Margin = new Thickness(0, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 UseLayoutRounding = true
             };
+            panel.Children.Add(fontIcon);
+        }
 
-            var textBlock = new TextBlock
+        var textPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+
+        var titleText = new TextBlock
+        {
+            FontSize = 11,
+            Text = title,
+            Foreground = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseMediumBrush"],
+            Margin = new Thickness(0, 0, 0, 2),
+            UseLayoutRounding = true
+        };
+
+        var dataText = new TextBlock
+        {
+            FontSize = 13,
+            Text = data,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseHighBrush"],
+            UseLayoutRounding = true
+        };
+
+        textPanel.Children.Add(titleText);
+        textPanel.Children.Add(dataText);
+        panel.Children.Add(textPanel);
+
+        return panel;
+    }
+
+    private Border CreateGitStatusBadge(string iconGlyph, string text, Color color)
+    {
+        var badge = new Border
+        {
+            Background = new SolidColorBrush(ColorConstants.BadgeColors.GitBackground),
+            BorderBrush = new SolidColorBrush(ColorConstants.BadgeColors.GitBorder),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(8, 4, 8, 4),
+            UseLayoutRounding = true
+        };
+
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var icon = new FontIcon
+        {
+            FontSize = 10,
+            Glyph = iconGlyph,
+            Foreground = new SolidColorBrush(ColorConstants.BadgeColors.GitText),
+            Margin = new Thickness(0, 0, 4, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            UseLayoutRounding = true
+        };
+
+        var textBlock = new TextBlock
+        {
+            FontSize = 10,
+            Text = text,
+            Foreground = new SolidColorBrush(ColorConstants.BadgeColors.GitText),
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            UseLayoutRounding = true
+        };
+
+        panel.Children.Add(icon);
+        panel.Children.Add(textBlock);
+        badge.Child = panel;
+
+        return badge;
+    }
+
+    // Helper methods for creating different types of badges
+    private Border CreateTypedBadge(string text, BadgeType type)
+    {
+        return type switch
+        {
+            BadgeType.Info => CreateBadge(text, ColorConstants.BadgeColors.InfoBackground,
+                ColorConstants.BadgeColors.InfoBorder, ColorConstants.BadgeColors.InfoText),
+            BadgeType.Warning => CreateBadge(text, ColorConstants.BadgeColors.WarningBackground,
+                ColorConstants.BadgeColors.WarningBorder, ColorConstants.BadgeColors.WarningText),
+            BadgeType.Success => CreateBadge(text, ColorConstants.BadgeColors.SuccessBackground,
+                ColorConstants.BadgeColors.SuccessBorder, ColorConstants.BadgeColors.SuccessText),
+            BadgeType.Error => CreateBadge(text, ColorConstants.BadgeColors.ErrorBackground,
+                ColorConstants.BadgeColors.ErrorBorder, ColorConstants.BadgeColors.ErrorText),
+            BadgeType.Git => CreateBadge(text, ColorConstants.BadgeColors.GitBackground,
+                ColorConstants.BadgeColors.GitBorder, ColorConstants.BadgeColors.GitText),
+            _ => CreateBadge(text, ColorConstants.BadgeColors.InfoBackground,
+                ColorConstants.BadgeColors.InfoBorder, ColorConstants.BadgeColors.InfoText)
+        };
+    }
+
+    private Border CreateInfoBadge(string text)
+    {
+        return CreateBadge(text, ColorConstants.BadgeColors.InfoBackground,
+            ColorConstants.BadgeColors.InfoBorder, ColorConstants.BadgeColors.InfoText);
+    }
+
+    private Border CreateWarningBadge(string text)
+    {
+        return CreateBadge(text, ColorConstants.BadgeColors.WarningBackground,
+            ColorConstants.BadgeColors.WarningBorder, ColorConstants.BadgeColors.WarningText);
+    }
+
+    private Border CreateSuccessBadge(string text)
+    {
+        return CreateBadge(text, ColorConstants.BadgeColors.SuccessBackground,
+            ColorConstants.BadgeColors.SuccessBorder, ColorConstants.BadgeColors.SuccessText);
+    }
+
+    private Border CreateErrorBadge(string text)
+    {
+        return CreateBadge(text, ColorConstants.BadgeColors.ErrorBackground,
+            ColorConstants.BadgeColors.ErrorBorder, ColorConstants.BadgeColors.ErrorText);
+    }
+
+    private Border CreateBadge(string text, Color backgroundColor, Color borderColor, Color textColor)
+    {
+        var badge = new Border
+        {
+            Background = new SolidColorBrush(backgroundColor),
+            BorderBrush = new SolidColorBrush(borderColor),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(8, 4, 8, 4),
+            VerticalAlignment = VerticalAlignment.Center,
+            UseLayoutRounding = true
+        };
+
+        var textBlock = new TextBlock
+        {
+            Text = text,
+            FontSize = 10,
+            Foreground = new SolidColorBrush(textColor),
+            FontWeight = FontWeights.SemiBold,
+            UseLayoutRounding = true
+        };
+
+        badge.Child = textBlock;
+        return badge;
+    }
+
+    private void ShowSaveActions(ManagedSaveInfo saveInfo)
+    {
+        FlyoutHelper.ShowSuccessFlyout(null, "Save Actions",
+            $"Actions for '{saveInfo.Name}' will be available soon!");
+    }
+
+    private async void UpdateStatistics()
+    {
+        try
+        {
+            List<ManagedSaveInfo> managedSaves = await GetManagedSaves().ConfigureAwait(false);
+
+            // Update the statistics in the status bar
+            var totalSavesCount = FindName("TotalSavesCount") as TextBlock;
+            var savesWithChangesCount = FindName("SavesWithChangesCount") as TextBlock;
+            var remoteUpdatesCount = FindName("RemoteUpdatesCount") as TextBlock;
+            var gitStatusText = FindName("GitStatusText") as TextBlock;
+            var totalSizeText = FindName("TotalSizeText") as TextBlock;
+
+            // Switch to UI thread for updates
+            DispatcherQueue.TryEnqueue(() =>
             {
-                FontSize = 10,
-                Text = text,
-                Foreground = new SolidColorBrush(color),
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-                UseLayoutRounding = true
-            };
+                if (totalSavesCount != null)
+                    totalSavesCount.Text = managedSaves.Count.ToString(CultureInfo.InvariantCulture);
 
-            panel.Children.Add(icon);
-            panel.Children.Add(textBlock);
-            badge.Child = panel;
-
-            return badge;
-        }
-
-        private string GetWorldIcon(string saveName)
-        {
-            // Bro just wanna remove this in the future.
-            var lowerName = saveName.ToLower(System.Globalization.CultureInfo.InvariantCulture);
-            if (lowerName.Contains("creative", StringComparison.InvariantCultureIgnoreCase))
-                return "🎨";
-            else if (lowerName.Contains("hardcore", StringComparison.InvariantCultureIgnoreCase))
-                return "💀";
-            else if (lowerName.Contains("spectator", StringComparison.InvariantCultureIgnoreCase))
-                return "👻";
-            else if (lowerName.Contains("adventure", StringComparison.InvariantCultureIgnoreCase))
-                return "🗺️";
-            else
-                return "🌍";
-        }
-
-        private void ShowSaveActions(ManagedSaveInfo saveInfo)
-        {
-            // TODO: Implement save actions menu (open folder, remove, etc.)
-            ShowSuccessFlyout(null, "Save Actions",
-                $"Actions for '{saveInfo.Name}' will be available soon!");
-        }
-
-        private async void UpdateStatistics()
-        {
-            try
-            {
-                var managedSaves = await GetManagedSaves().ConfigureAwait(false);
-
-                // Update the statistics in the status bar
-                var totalSavesCount = FindName("TotalSavesCount") as TextBlock;
-                var savesWithChangesCount = FindName("SavesWithChangesCount") as TextBlock;
-                var remoteUpdatesCount = FindName("RemoteUpdatesCount") as TextBlock;
-                var gitStatusText = FindName("GitStatusText") as TextBlock;
-                var totalSizeText = FindName("TotalSizeText") as TextBlock;
-
-                // Switch to UI thread for updates
-                DispatcherQueue.TryEnqueue(() =>
+                if (savesWithChangesCount != null)
                 {
-                    if (totalSavesCount != null)
-                    {
-                        totalSavesCount.Text = managedSaves.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    }
-
-                    if (savesWithChangesCount != null)
-                    {
-                        // TODO: Implement actual Git status checking for changes
-                        var changesCount = 0; // Placeholder
-                        savesWithChangesCount.Text = changesCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    }
-
-                    if (remoteUpdatesCount != null)
-                    {
-                        // TODO: Implement actual Git status checking for remote updates
-                        var updatesCount = 0; // Placeholder
-                        remoteUpdatesCount.Text = updatesCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    }
-
-                    if (gitStatusText != null)
-                    {
-                        var gitInitializedSaves = managedSaves.Count(s => s.IsGitInitialized);
-                        gitStatusText.Text = gitInitializedSaves > 0 ? "Ready" : "Not Configured";
-                    }
-
-                    if (totalSizeText != null)
-                    {
-                        _ = Task.Run(async () =>
-                        {
-                            var totalSize = await CalculateTotalSize(managedSaves).ConfigureAwait(false);
-                            DispatcherQueue.TryEnqueue(() =>
-                            {
-                                totalSizeText.Text = FormatFileSize(totalSize);
-                            });
-                        });
-                    }
-
-                    // Update Quick Actions button states
-                    UpdateQuickActionButtons(managedSaves);
-
-                    // Update Recent Activity
-                    UpdateRecentActivity(managedSaves);
-                });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to update statistics: {ex.Message}");
-            }
-        }
-
-        private void UpdateQuickActionButtons(List<ManagedSaveInfo> saves)
-        {
-            var commitAllButton = FindName("CommitAllButton") as Button;
-            var pullAllButton = FindName("PullAllButton") as Button;
-            var pushAllButton = FindName("PushAllButtonSidebar") as Button;
-            var pullBadge = FindName("PullBadge") as Border;
-            var pushBadge = FindName("PushBadge") as Border;
-            var pullBadgeText = FindName("PullBadgeText") as TextBlock;
-            var pushBadgeText = FindName("PushBadgeText") as TextBlock;
-
-            // Enable/disable buttons based on Git status
-            var hasGitSaves = saves.Any(s => s.IsGitInitialized);
-
-            if (commitAllButton != null)
-                commitAllButton.IsEnabled = hasGitSaves;
-
-            if (pullAllButton != null)
-                pullAllButton.IsEnabled = hasGitSaves;
-
-            if (pushAllButton != null)
-                pushAllButton.IsEnabled = hasGitSaves;
-
-            // Update badges (placeholder logic)
-            var pendingPulls = 0; // TODO: Get from Git status
-            var pendingPushes = 0; // TODO: Get from Git status
-
-            if (pullBadge != null && pullBadgeText != null)
-            {
-                pullBadge.Visibility = pendingPulls > 0 ? Visibility.Visible : Visibility.Collapsed;
-                pullBadgeText.Text = pendingPulls.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            }
-
-            if (pushBadge != null && pushBadgeText != null)
-            {
-                pushBadge.Visibility = pendingPushes > 0 ? Visibility.Visible : Visibility.Collapsed;
-                pushBadgeText.Text = pendingPushes.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            }
-        }
-
-        private void UpdateRecentActivity(List<ManagedSaveInfo> saves)
-        {
-            var activityContainer = FindName("RecentActivityContainer") as StackPanel;
-            var noActivityText = FindName("NoActivityText") as TextBlock;
-
-            if (activityContainer == null || noActivityText == null) return;
-
-            // Clear existing activity items (except the "no activity" text)
-            var itemsToRemove = activityContainer.Children.Where(c => c != noActivityText).ToList();
-            foreach (var item in itemsToRemove)
-            {
-                activityContainer.Children.Remove(item);
-            }
-
-            if (saves.Count == 0)
-            {
-                noActivityText.Visibility = Visibility.Visible;
-                return;
-            }
-
-            noActivityText.Visibility = Visibility.Collapsed;
-
-            // Add recent activity items (most recent first)
-            var recentSaves = saves.OrderByDescending(s => s.LastModified).Take(3);
-
-            foreach (var save in recentSaves)
-            {
-                var activityItem = CreateActivityItem(save);
-                activityContainer.Children.Insert(0, activityItem); // Insert at beginning
-            }
-        }
-
-        private Border CreateActivityItem(ManagedSaveInfo saveInfo)
-        {
-            var item = new Border
-            {
-                Background = new SolidColorBrush(ColorHelper.FromArgb(255, 243, 243, 243)),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(12),
-                Margin = new Thickness(0, 0, 0, 8)
-            };
-
-            var panel = new StackPanel();
-
-            var titleText = new TextBlock
-            {
-                FontSize = 13,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Text = saveInfo.Name,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            panel.Children.Add(titleText);
-
-            var timeSpan = DateTime.Now - saveInfo.LastModified;
-            string timeText;
-            if (timeSpan.TotalDays >= 1)
-                timeText = $"{(int)timeSpan.TotalDays} day{(timeSpan.TotalDays >= 2 ? "s" : "")} ago";
-            else if (timeSpan.TotalHours >= 1)
-                timeText = $"{(int)timeSpan.TotalHours} hour{(timeSpan.TotalHours >= 2 ? "s" : "")} ago";
-            else
-                timeText = "Recently added";
-
-            var detailText = new TextBlock
-            {
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Colors.Gray),
-                Text = $"Added to GitMC • {timeText}"
-            };
-            panel.Children.Add(detailText);
-
-            item.Child = panel;
-            return item;
-        }
-
-        private Task<long> CalculateTotalSize(List<ManagedSaveInfo> saves)
-        {
-            return Task.Run(() =>
-            {
-                long totalSize = 0;
-                foreach (var save in saves)
-                {
-                    try
-                    {
-                        if (Directory.Exists(save.OriginalPath))
-                        {
-                            var directoryInfo = new DirectoryInfo(save.OriginalPath);
-                            totalSize += CalculateFolderSize(directoryInfo);
-                        }
-                    }
-                    catch
-                    {
-                        // Skip if folder is inaccessible
-                    }
+                    int changesCount = 0;
+                    savesWithChangesCount.Text = changesCount.ToString(CultureInfo.InvariantCulture);
                 }
-                return totalSize;
+
+                if (remoteUpdatesCount != null)
+                {
+                    int updatesCount = 0;
+                    remoteUpdatesCount.Text = updatesCount.ToString(CultureInfo.InvariantCulture);
+                }
+
+                if (gitStatusText != null)
+                {
+                    int gitInitializedSaves = managedSaves.Count(s => s.IsGitInitialized);
+                    gitStatusText.Text = gitInitializedSaves > 0 ? "Ready" : "Not Configured";
+                }
+
+                if (totalSizeText != null)
+                    _ = Task.Run(async () =>
+                    {
+                        long totalSize = await CalculateTotalSize(managedSaves).ConfigureAwait(false);
+                        DispatcherQueue.TryEnqueue(() =>
+                        {
+                            totalSizeText.Text = CommonHelpers.FormatFileSize(totalSize);
+                        });
+                    });
+
+                // Update Quick Actions button states
+                UpdateQuickActionButtons(managedSaves);
+
+                // Update Recent Activity
+                UpdateRecentActivity(managedSaves);
             });
         }
-
-        private string FormatFileSize(long bytes)
+        catch (Exception ex)
         {
-            if (bytes == 0) return "0 B";
-
-            var units = new[] { "B", "KB", "MB", "GB", "TB" };
-            var unitIndex = 0;
-            var size = (double)bytes;
-
-            while (size >= 1024 && unitIndex < units.Length - 1)
-            {
-                size /= 1024;
-                unitIndex++;
-            }
-
-            return $"{size:F1} {units[unitIndex]}";
-        }
-
-        private int GetManagedSavesCount()
-        {
-            try
-            {
-                var managedSavesPath = GetManagedSavesStoragePath();
-                if (!Directory.Exists(managedSavesPath))
-                {
-                    return 0;
-                }
-
-                var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
-                return jsonFiles.Length;
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        private string GetManagedSavesStoragePath()
-        {
-            return _dataStorageService.GetManagedSavesDirectory();
-        }
-
-        // Event handlers
-        private void SettingsButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (App.MainWindow is MainWindow mainWindow)
-            {
-                mainWindow.NavigateToPage(typeof(SettingsPage));
-            }
-        }
-
-        private async void CommitAllButton_Click(object sender, RoutedEventArgs e)
-        {
-            // TODO: Implement commit all changes functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Commit All Changes",
-                "Commit all changes feature is coming soon!");
-        }
-
-        private async void PullAllButton_Click(object sender, RoutedEventArgs e)
-        {
-            // TODO: Implement pull all updates functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Pull All Updates",
-                "Pull all updates feature is coming soon!");
-        }
-
-        private async void PushAllButton_Click(object sender, RoutedEventArgs e)
-        {
-            // TODO: Implement push all changes functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Push All Changes",
-                "Push all changes feature is coming soon!");
-        }
-
-        private async void AddSaveButton_Click(object sender, RoutedEventArgs e)
-        {
-            var loadingPanel = FindName("LoadingPanel") as Grid;
-            var loadingProgressRing = FindName("LoadingProgressRing") as ProgressBar;
-
-            if (loadingPanel != null && loadingProgressRing != null)
-            {
-                loadingPanel.Visibility = Visibility.Visible;
-                loadingProgressRing.IsIndeterminate = true;
-            }
-
-            try
-            {
-                var folderPicker = new FolderPicker();
-                folderPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
-                folderPicker.FileTypeFilter.Add("*");
-
-                if (App.MainWindow != null)
-                {
-                    var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
-                    InitializeWithWindow.Initialize(folderPicker, hwnd);
-                }
-
-                var folder = await folderPicker.PickSingleFolderAsync();
-                if (folder != null)
-                {
-                    var save = await AnalyzeSaveFolder(folder.Path);
-                    if (save != null)
-                    {
-                        // Add to navigation in MainWindow
-                        if (App.MainWindow is MainWindow mainWindow)
-                        {
-                            mainWindow.AddSaveToNavigation(save.Name, save.Path);
-                        }
-
-                        // Register this save in our managed saves system
-                        await RegisterManagedSave(save);
-
-                        // Refresh the saves list and statistics
-                        await LoadManagedSaves();
-                    }
-                    else
-                    {
-                        ShowErrorFlyout(sender as FrameworkElement, "Invalid Minecraft Save",
-                            "The selected folder doesn't appear to be a valid Minecraft save. A valid save should contain level.dat or level.dat_old.");
-                    }
-                }
-            }
-            finally
-            {
-                if (loadingPanel != null && loadingProgressRing != null)
-                {
-                    loadingPanel.Visibility = Visibility.Collapsed;
-                    loadingProgressRing.IsIndeterminate = false;
-                }
-            }
-        }
-
-        private async void InitializeGitButton_Click(object sender, RoutedEventArgs e)
-        {
-            // TODO: Implement Git initialization for selected saves
-            ShowSuccessFlyout(sender as FrameworkElement, "Git Initialization",
-                "Git initialization feature is coming soon!");
-            await Task.CompletedTask;
-        }
-
-        private async void SyncAllButton_Click(object sender, RoutedEventArgs e)
-        {
-            // TODO: Implement sync all functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Sync All",
-                "Sync all feature is coming soon!");
-            await Task.CompletedTask;
-        }
-
-        private async void FetchAllButton_Click(object sender, RoutedEventArgs e)
-        {
-            // TODO: Implement fetch all functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Fetch All",
-                "Fetch all changes feature is coming soon!");
-            await Task.CompletedTask;
-        }
-
-        private async void BackupButton_Click(object sender, RoutedEventArgs e)
-        {
-            // TODO: Implement backup functionality
-            ShowSuccessFlyout(sender as FrameworkElement, "Create Backup",
-                "Backup feature is coming soon!");
-            await Task.CompletedTask;
-        }
-
-        // Helper methods
-        private async Task RegisterManagedSave(MinecraftSave save)
-        {
-            try
-            {
-                var managedSavesPath = GetManagedSavesStoragePath();
-
-                if (!Directory.Exists(managedSavesPath))
-                {
-                    Directory.CreateDirectory(managedSavesPath);
-                }
-
-                var saveId = GenerateSaveId(save.Name);
-                var saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
-
-                var saveInfo = new ManagedSaveInfo
-                {
-                    Id = saveId,
-                    Name = save.Name,
-                    OriginalPath = save.Path,
-                    AddedDate = DateTime.UtcNow,
-                    LastModified = DateTime.UtcNow,
-                    GitRepository = "",
-                    IsGitInitialized = false
-                };
-
-                var json = System.Text.Json.JsonSerializer.Serialize(saveInfo, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                await File.WriteAllTextAsync(saveInfoPath, json);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to register managed save: {ex.Message}");
-            }
-        }
-
-        private string GenerateSaveId(string saveName)
-        {
-            var invalidChars = Path.GetInvalidFileNameChars();
-            var safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-            return $"{safeName}_{timestamp}";
-        }
-
-        private Task<MinecraftSave?> AnalyzeSaveFolder(string savePath)
-        {
-            try
-            {
-                var levelDatPath = Path.Combine(savePath, "level.dat");
-                var levelDatOldPath = Path.Combine(savePath, "level.dat_old");
-
-                if (!File.Exists(levelDatPath) && !File.Exists(levelDatOldPath))
-                {
-                    return Task.FromResult<MinecraftSave?>(null);
-                }
-
-                var directoryInfo = new DirectoryInfo(savePath);
-                var save = new MinecraftSave
-                {
-                    Name = directoryInfo.Name,
-                    Path = savePath,
-                    LastPlayed = directoryInfo.LastWriteTime,
-                    WorldSize = CalculateFolderSize(directoryInfo),
-                    IsGitInitialized = Directory.Exists(Path.Combine(savePath, "GitMC")),
-                    WorldType = "Survival",
-                    GameVersion = "1.21"
-                };
-
-                save.WorldIcon = save.WorldType.ToLower() switch
-                {
-                    "creative" => "🎨",
-                    "hardcore" => "💀",
-                    "spectator" => "👻",
-                    "adventure" => "🗺️",
-                    _ => "🌍"
-                };
-
-                return Task.FromResult<MinecraftSave?>(save);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to analyze save folder: {ex.Message}");
-                return Task.FromResult<MinecraftSave?>(null);
-            }
-        }
-
-        private static long CalculateFolderSize(DirectoryInfo directoryInfo)
-        {
-            try
-            {
-                return directoryInfo.EnumerateFiles("*", SearchOption.AllDirectories)
-                    .Sum(file => file.Length);
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        // Flyout helper methods
-        private void ShowErrorFlyout(FrameworkElement? anchor, string title, string message)
-        {
-            if (anchor == null) return;
-
-            var okButton = new Button
-            {
-                Content = "OK",
-                HorizontalAlignment = HorizontalAlignment.Right,
-                MinWidth = 80
-            };
-
-            var flyout = new Flyout
-            {
-                Content = new StackPanel
-                {
-                    Width = 300,
-                    Children =
-                    {
-                        new StackPanel
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Margin = new Thickness(0, 0, 0, 8),
-                            Children =
-                            {
-                                new FontIcon
-                                {
-                                    Glyph = "\uE783", // Error icon
-                                    FontSize = 16,
-                                    Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 209, 52, 56)),
-                                    Margin = new Thickness(0, 0, 8, 0),
-                                    VerticalAlignment = VerticalAlignment.Center
-                                },
-                                new TextBlock
-                                {
-                                    Text = title,
-                                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                                    FontSize = 16,
-                                    VerticalAlignment = VerticalAlignment.Center
-                                }
-                            }
-                        },
-                        new TextBlock
-                        {
-                            Text = message,
-                            TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
-                            Margin = new Thickness(0, 0, 0, 12)
-                        },
-                        okButton
-                    }
-                },
-                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
-            };
-
-            okButton.Click += (s, e) => flyout.Hide();
-            flyout.ShowAt(anchor);
-        }
-
-        private void ShowSuccessFlyout(FrameworkElement? anchor, string title, string message)
-        {
-            if (anchor == null) return;
-
-            var okButton = new Button
-            {
-                Content = "OK",
-                HorizontalAlignment = HorizontalAlignment.Right,
-                MinWidth = 80
-            };
-
-            var flyout = new Flyout
-            {
-                Content = new StackPanel
-                {
-                    Width = 300,
-                    Children =
-                    {
-                        new StackPanel
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Margin = new Thickness(0, 0, 0, 8),
-                            Children =
-                            {
-                                new FontIcon
-                                {
-                                    Glyph = "\uE73E", // Checkmark icon
-                                    FontSize = 16,
-                                    Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 16, 124, 16)),
-                                    Margin = new Thickness(0, 0, 8, 0),
-                                    VerticalAlignment = VerticalAlignment.Center
-                                },
-                                new TextBlock
-                                {
-                                    Text = title,
-                                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                                    FontSize = 16,
-                                    VerticalAlignment = VerticalAlignment.Center
-                                }
-                            }
-                        },
-                        new TextBlock
-                        {
-                            Text = message,
-                            TextWrapping = TextWrapping.Wrap,
-                            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 107, 107, 107)),
-                            Margin = new Thickness(0, 0, 0, 12)
-                        },
-                        okButton
-                    }
-                },
-                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Right
-            };
-
-            okButton.Click += (s, e) => flyout.Hide();
-            flyout.ShowAt(anchor);
+            Debug.WriteLine($"Failed to update statistics: {ex.Message}");
         }
     }
 
-    // Data model for managed save information
-    public class ManagedSaveInfo
+    private void UpdateQuickActionButtons(List<ManagedSaveInfo> saves)
     {
-        public string Id { get; set; } = "";
-        public string Name { get; set; } = "";
-        public string OriginalPath { get; set; } = "";
-        public DateTime AddedDate { get; set; }
-        public DateTime LastModified { get; set; }
-        public string GitRepository { get; set; } = "";
-        public bool IsGitInitialized { get; set; }
+        var commitAllButton = FindName("CommitAllButton") as Button;
+        var pullAllButton = FindName("PullAllButton") as Button;
+        var pushAllButton = FindName("PushAllButtonSidebar") as Button;
+        var pullBadge = FindName("PullBadge") as Border;
+        var pushBadge = FindName("PushBadge") as Border;
+        var pullBadgeText = FindName("PullBadgeText") as TextBlock;
+        var pushBadgeText = FindName("PushBadgeText") as TextBlock;
+
+        // Enable/disable buttons based on Git status
+        bool hasGitSaves = saves.Any(s => s.IsGitInitialized);
+
+        if (commitAllButton != null)
+            commitAllButton.IsEnabled = hasGitSaves;
+
+        if (pullAllButton != null)
+            pullAllButton.IsEnabled = hasGitSaves;
+
+        if (pushAllButton != null)
+            pushAllButton.IsEnabled = hasGitSaves;
+
+        int pendingPulls = 0;
+        int pendingPushes = 0;
+
+        if (pullBadge != null && pullBadgeText != null)
+        {
+            pullBadge.Visibility = pendingPulls > 0 ? Visibility.Visible : Visibility.Collapsed;
+            pullBadgeText.Text = pendingPulls.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (pushBadge != null && pushBadgeText != null)
+        {
+            pushBadge.Visibility = pendingPushes > 0 ? Visibility.Visible : Visibility.Collapsed;
+            pushBadgeText.Text = pendingPushes.ToString(CultureInfo.InvariantCulture);
+        }
+    }
+
+    private void UpdateRecentActivity(List<ManagedSaveInfo> saves)
+    {
+        var activityContainer = FindName("RecentActivityContainer") as StackPanel;
+        var noActivityText = FindName("NoActivityText") as TextBlock;
+
+        if (activityContainer == null || noActivityText == null) return;
+
+        // Clear existing activity items (except the "no activity" text)
+        var itemsToRemove = activityContainer.Children.Where(c => c != noActivityText).ToList();
+        foreach (UIElement? item in itemsToRemove) activityContainer.Children.Remove(item);
+
+        if (saves.Count == 0)
+        {
+            noActivityText.Visibility = Visibility.Visible;
+            return;
+        }
+
+        noActivityText.Visibility = Visibility.Collapsed;
+
+        // Add recent activity items (most recent first)
+        IEnumerable<ManagedSaveInfo> recentSaves = saves.OrderByDescending(s => s.LastModified).Take(3);
+
+        foreach (ManagedSaveInfo save in recentSaves)
+        {
+            Border activityItem = CreateActivityItem(save);
+            activityContainer.Children.Insert(0, activityItem); // Insert at beginning
+        }
+    }
+
+    private Border CreateActivityItem(ManagedSaveInfo saveInfo)
+    {
+        var item = new Border
+        {
+            Background = new SolidColorBrush(ColorHelper.FromArgb(255, 243, 243, 243)),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+
+        var panel = new StackPanel();
+
+        var titleText = new TextBlock
+        {
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Text = saveInfo.Name,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        panel.Children.Add(titleText);
+
+        TimeSpan timeSpan = DateTime.Now - saveInfo.LastModified;
+        string timeText;
+        if (timeSpan.TotalDays >= 1)
+            timeText = $"{(int)timeSpan.TotalDays} day{(timeSpan.TotalDays >= 2 ? "s" : "")} ago";
+        else if (timeSpan.TotalHours >= 1)
+            timeText = $"{(int)timeSpan.TotalHours} hour{(timeSpan.TotalHours >= 2 ? "s" : "")} ago";
+        else
+            timeText = "Recently added";
+
+        var detailText = new TextBlock
+        {
+            FontSize = 11,
+            Foreground = (SolidColorBrush)Application.Current.Resources["SystemControlForegroundBaseMediumBrush"],
+            Text = $"Added to GitMC • {timeText}"
+        };
+        panel.Children.Add(detailText);
+
+        item.Child = panel;
+        return item;
+    }
+
+    private Task<long> CalculateTotalSize(List<ManagedSaveInfo> saves)
+    {
+        return Task.Run(() =>
+        {
+            long totalSize = 0;
+            foreach (ManagedSaveInfo save in saves)
+                try
+                {
+                    if (Directory.Exists(save.OriginalPath))
+                    {
+                        var directoryInfo = new DirectoryInfo(save.OriginalPath);
+                        totalSize += CommonHelpers.CalculateFolderSize(directoryInfo);
+                    }
+                }
+                catch
+                {
+                    // Skip if folder is inaccessible
+                }
+
+            return totalSize;
+        });
+    }
+
+    private int GetManagedSavesCount()
+    {
+        try
+        {
+            string managedSavesPath = GetManagedSavesStoragePath();
+            if (!Directory.Exists(managedSavesPath)) return 0;
+
+            string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+            return jsonFiles.Length;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private string GetManagedSavesStoragePath()
+    {
+        return _dataStorageService.GetManagedSavesDirectory();
+    }
+
+    // Event handlers
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (App.MainWindow is MainWindow mainWindow) mainWindow.NavigateToPage(typeof(SettingsPage));
+    }
+
+    private void CommitAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Commit All Changes",
+            "Commit all changes feature is coming soon!");
+    }
+
+    private void PullAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Pull All Updates",
+            "Pull all updates feature is coming soon!");
+    }
+
+    private void PushAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Push All Changes",
+            "Push all changes feature is coming soon!");
+    }
+
+    private async void AddSaveButton_Click(object sender, RoutedEventArgs e)
+    {
+        var loadingPanel = FindName("LoadingPanel") as Grid;
+        var loadingProgressRing = FindName("LoadingProgressRing") as ProgressBar;
+
+        if (loadingPanel != null && loadingProgressRing != null)
+        {
+            loadingPanel.Visibility = Visibility.Visible;
+            loadingProgressRing.IsIndeterminate = true;
+        }
+
+        try
+        {
+            var folderPicker = new FolderPicker();
+            folderPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+            folderPicker.FileTypeFilter.Add("*");
+
+            if (App.MainWindow != null)
+            {
+                IntPtr hwnd = WindowNative.GetWindowHandle(App.MainWindow);
+                InitializeWithWindow.Initialize(folderPicker, hwnd);
+            }
+
+            StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
+            if (folder != null)
+            {
+                MinecraftSave? save = await _saveAnalyzerService.AnalyzeSaveFolder(folder.Path).ConfigureAwait(false);
+                if (save != null)
+                {
+                    // Add to navigation in MainWindow
+                    if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);
+
+                    // Register this save in our managed saves system
+                    await RegisterManagedSave(save).ConfigureAwait(false);
+
+                    // Refresh the saves list and statistics
+                    await LoadManagedSaves().ConfigureAwait(false);
+                }
+                else
+                {
+                    FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Invalid Minecraft Save",
+                        "The selected folder doesn't appear to be a valid Minecraft save. A valid save should contain level.dat or level.dat_old.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log error and show user-friendly message
+            Debug.WriteLine($"Error adding save: {ex.Message}");
+            FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Error Adding Save",
+                "An error occurred while adding the save. Please try again.");
+        }
+        finally
+        {
+            if (loadingPanel != null && loadingProgressRing != null)
+            {
+                loadingPanel.Visibility = Visibility.Collapsed;
+                loadingProgressRing.IsIndeterminate = false;
+            }
+        }
+    }
+
+    private void InitializeGitButton_Click(object sender, RoutedEventArgs e)
+    {
+        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Git Initialization",
+            "Git initialization feature is coming soon!");
+    }
+
+    private void SyncAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Sync All",
+            "Sync all feature is coming soon!");
+    }
+
+    private void FetchAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Fetch All",
+            "Fetch all changes feature is coming soon!");
+    }
+
+    private void BackupButton_Click(object sender, RoutedEventArgs e)
+    {
+        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Create Backup",
+            "Backup feature is coming soon!");
+    }
+
+    // Helper methods
+    private async Task RegisterManagedSave(MinecraftSave save)
+    {
+        try
+        {
+            string managedSavesPath = GetManagedSavesStoragePath();
+
+            if (!Directory.Exists(managedSavesPath)) Directory.CreateDirectory(managedSavesPath);
+
+            string saveId = _saveAnalyzerService.GenerateSaveId(save.Name);
+            string saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
+
+            var saveInfo = new ManagedSaveInfo
+            {
+                Id = saveId,
+                Name = save.Name,
+                OriginalPath = save.Path,
+                AddedDate = DateTime.UtcNow,
+                LastModified = DateTime.UtcNow,
+                GitRepository = "",
+                IsGitInitialized = false
+            };
+
+            string json = JsonSerializer.Serialize(saveInfo, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(saveInfoPath, json);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to register managed save: {ex.Message}");
+        }
     }
 }
