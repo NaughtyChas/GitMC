@@ -46,7 +46,7 @@ namespace GitMC.Tests
                 // Convert to SNBT using our implementation
                 var nbtService = new NbtService();
                 var snbtContent = await nbtService.ConvertNbtToSnbtAsync(tempNbtPath);
-                
+
                 Console.WriteLine(@"3. Converted to SNBT:");
                 Console.WriteLine(snbtContent);
                 Console.WriteLine();
@@ -71,19 +71,19 @@ namespace GitMC.Tests
                 Console.WriteLine(@"6. Round-trip verification:");
                 Console.WriteLine($@"   Original tags: {root.Count}");
                 Console.WriteLine($@"   Final tags: {finalRoot?.Count ?? 0}");
-                
+
                 if (finalRoot != null)
                 {
                     var messageTag = finalRoot.Get<NbtString>("message");
                     var numberTag = finalRoot.Get<NbtInt>("number");
                     var piTag = finalRoot.Get<NbtFloat>("pi");
-                    
+
                     Console.WriteLine($@"   Message: '{messageTag?.Value}' (expected: 'Hello World!')");
                     Console.WriteLine($@"   Number: {numberTag?.Value} (expected: 42)");
                     Console.WriteLine($@"   Pi: {piTag?.Value} (expected: 3.14159)");
-                    
-                    if (messageTag?.Value == "Hello World!" && 
-                        numberTag?.Value == 42 && 
+
+                    if (messageTag?.Value == "Hello World!" &&
+                        numberTag?.Value == 42 &&
                         Math.Abs(piTag?.Value - 3.14159f ?? float.MaxValue) < 0.0001f)
                     {
                         Console.WriteLine();
@@ -106,7 +106,6 @@ namespace GitMC.Tests
                 File.Delete(finalNbtPath);
                 Console.WriteLine();
                 Console.WriteLine(@"7. Cleaned up temporary files.");
-
             }
             catch (Exception ex)
             {
