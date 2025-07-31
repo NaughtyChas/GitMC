@@ -47,7 +47,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         try
         {
-            await LoadManagedSaves().ConfigureAwait(false);
+            await LoadManagedSaves();
             UpdateStatistics();
         }
         catch (Exception ex)
@@ -768,17 +768,17 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
-                MinecraftSave? save = await _saveAnalyzerService.AnalyzeSaveFolder(folder.Path).ConfigureAwait(false);
+                MinecraftSave? save = await _saveAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
                     // Add to navigation in MainWindow
                     if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);
 
                     // Register this save in our managed saves system
-                    await RegisterManagedSave(save).ConfigureAwait(false);
+                    await RegisterManagedSave(save);
 
                     // Refresh the saves list and statistics
-                    await LoadManagedSaves().ConfigureAwait(false);
+                    await LoadManagedSaves();
                 }
                 else
                 {
