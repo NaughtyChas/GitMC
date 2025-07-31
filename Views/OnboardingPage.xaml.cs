@@ -25,6 +25,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     private readonly IGitService _gitService;
     private readonly NbtService _nbtService;
     private readonly SaveAnalyzerService _saveAnalyzerService;
+    private readonly ManagedSaveService _managedSaveService;
 
     public OnboardingPage()
     {
@@ -34,6 +35,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         _configurationService = new ConfigurationService();
         _dataStorageService = new DataStorageService();
         _saveAnalyzerService = new SaveAnalyzerService();
+        _managedSaveService = new ManagedSaveService(_dataStorageService);
         OnboardingService = new OnboardingService(_gitService, _configurationService);
 
         // Subscribe to onboarding changes
@@ -348,8 +350,18 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                     // Add to navigation in MainWindow
                     if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);
 
-                    // Register this save in our managed saves system
-                    await RegisterManagedSave(save);
+                    // Register this save in our managed saves system using the service
+                    try
+                    {
+                        await _managedSaveService.RegisterManagedSave(save);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to register managed save: {ex.Message}");
+                        // Show warning but continue - save is still added to navigation
+                        FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Save Registration Warning",
+                            "The save was added but there was an issue registering it for management. You may need to add it again later.");
+                    }
 
                     // Complete step 4 (save will be detected by OnboardingService automatically)
                     await OnboardingService.CompleteStep(4);
@@ -407,6 +419,19 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                 if (save != null)
                 {
                     if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);
+
+                    // Register this save in our managed saves system using the service
+                    try
+                    {
+                        await _managedSaveService.RegisterManagedSave(save);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to register managed save: {ex.Message}");
+                        // Show warning but continue - save is still added to navigation
+                        FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Save Registration Warning",
+                            "The save was added but there was an issue registering it for management. You may need to add it again later.");
+                    }
 
                     // Complete step 4 (save will be detected by OnboardingService automatically)
                     await OnboardingService.CompleteStep(4);
@@ -780,44 +805,4 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     }
 
     // Methods updated to use FlyoutHelper
-
-    // Helper method to register managed save
-    private async Task RegisterManagedSave(MinecraftSave save)
-    {
-        try
-        {
-            string managedSavesPath = _dataStorageService.GetManagedSavesDirectory();
-
-            if (!Directory.Exists(managedSavesPath)) Directory.CreateDirectory(managedSavesPath);
-
-            string saveId = GenerateSaveId(save.Name);
-            string saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
-
-            var saveInfo = new ManagedSaveInfo
-            {
-                Id = saveId,
-                Name = save.Name,
-                OriginalPath = save.Path,
-                AddedDate = DateTime.UtcNow,
-                LastModified = DateTime.UtcNow,
-                GitRepository = "",
-                IsGitInitialized = false
-            };
-
-            string json = JsonSerializer.Serialize(saveInfo, JsonOptions);
-            await File.WriteAllTextAsync(saveInfoPath, json);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to register managed save: {ex.Message}");
-        }
-    }
-
-    private string GenerateSaveId(string saveName)
-    {
-        char[] invalidChars = Path.GetInvalidFileNameChars();
-        string safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-        string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
-        return $"{safeName}_{timestamp}";
-    }
 }

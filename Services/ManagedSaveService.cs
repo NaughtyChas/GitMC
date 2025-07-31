@@ -87,13 +87,23 @@ public class ManagedSaveService
     {
         try
         {
+            Debug.WriteLine($"[RegisterManagedSave] Starting registration for save: {save.Name}");
+
             string managedSavesPath = GetManagedSavesStoragePath();
+            Debug.WriteLine($"[RegisterManagedSave] Managed saves path: {managedSavesPath}");
 
             if (!Directory.Exists(managedSavesPath))
+            {
+                Debug.WriteLine($"[RegisterManagedSave] Directory doesn't exist, creating: {managedSavesPath}");
                 Directory.CreateDirectory(managedSavesPath);
+                Debug.WriteLine($"[RegisterManagedSave] Directory created successfully");
+            }
 
             string actualSaveId = saveId ?? GenerateSaveId(save.Name);
+            Debug.WriteLine($"[RegisterManagedSave] Generated save ID: {actualSaveId}");
+
             string saveInfoPath = Path.Combine(managedSavesPath, $"{actualSaveId}.json");
+            Debug.WriteLine($"[RegisterManagedSave] Save info path: {saveInfoPath}");
 
             var saveInfo = new ManagedSaveInfo
             {
@@ -104,15 +114,32 @@ public class ManagedSaveService
                 AddedDate = DateTime.UtcNow,
                 LastModified = DateTime.UtcNow,
                 GitRepository = "",
-                IsGitInitialized = save.IsGitInitialized
+                IsGitInitialized = save.IsGitInitialized,
+                Size = save.WorldSize,
+                GameVersion = save.GameVersion,
+                WorldIcon = save.WorldIcon
+            };
+            Debug.WriteLine($"[RegisterManagedSave] Created save info object");
+
+            // Create JsonSerializerOptions that ignore UI properties
+            var jsonOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
             };
 
-            string json = JsonSerializer.Serialize(saveInfo, new JsonSerializerOptions { WriteIndented = true });
+            string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
+            Debug.WriteLine($"[RegisterManagedSave] Serialized to JSON, length: {json.Length}");
+
+            Debug.WriteLine($"[RegisterManagedSave] About to write file to: {saveInfoPath}");
             await File.WriteAllTextAsync(saveInfoPath, json);
+            Debug.WriteLine($"[RegisterManagedSave] File written successfully!");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to register managed save: {ex.Message}");
+            Debug.WriteLine($"[RegisterManagedSave] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+            Debug.WriteLine($"[RegisterManagedSave] Stack trace: {ex.StackTrace}");
+            throw; // Re-throw the exception so the caller can handle it appropriately
         }
     }
 

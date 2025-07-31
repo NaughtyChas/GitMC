@@ -18,8 +18,15 @@ public class DataStorageService : IDataStorageService
                               Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ??
                               Environment.CurrentDirectory;
 
+        if (string.IsNullOrEmpty(exeDirectory))
+        {
+            Debug.WriteLine("[DataStorageService] Warning: Could not determine executable directory, using current directory");
+            exeDirectory = Environment.CurrentDirectory;
+        }
+
         // Create the .GitMC hidden directory
         _dataDirectory = Path.Combine(exeDirectory, ".GitMC");
+        Debug.WriteLine($"[DataStorageService] Data directory set to: {_dataDirectory}");
     }
 
     public string GetDataDirectory()
