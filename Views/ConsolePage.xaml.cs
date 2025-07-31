@@ -154,6 +154,23 @@ public sealed partial class ConsolePage : Page
                 return;
             }
 
+            if (command.ToLower() == "cd -")
+            {
+                string? target = _gitService.GetLastDirectory();
+
+                if (string.IsNullOrEmpty(target))
+                {
+                    succeeded = false;
+                    AddOutputLine("There is no location history left to navigate backwards.", "#FF6B6B");
+                    return;
+                }
+
+                succeeded = HandleChangeDirectory($"cd {target}");
+                if (succeeded)
+                    _gitService.PopDirectory();
+                return;
+            }
+
             if (command.ToLower().StartsWith("cd "))
             {
                 succeeded = HandleChangeDirectory(command);

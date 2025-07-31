@@ -23,6 +23,8 @@ public interface IGitService
 
     // Working Directory
     string GetCurrentDirectory();
+    string? GetLastDirectory();
+    void PopDirectory();
     bool ChangeToInitialDirectory();
     bool ChangeDirectory(string path);
 }

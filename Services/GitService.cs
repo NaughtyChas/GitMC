@@ -5,6 +5,7 @@ namespace GitMC.Services;
 public class GitService : IGitService
 {
     private readonly string _initialDirectory;
+    private readonly List<string> _directoryStack = [];
     private string _currentDirectory;
 
     public GitService()
@@ -17,6 +18,7 @@ public class GitService : IGitService
         try
         {
             GitCommandResult result = await ExecuteCommandAsync("--version");
+
             if (result.Success && result.OutputLines.Length > 0)
             {
                 string output = result.OutputLines[0];
@@ -54,7 +56,7 @@ public class GitService : IGitService
             var processInfo = new ProcessStartInfo
             {
                 FileName = "git",
-                Arguments = command.StartsWith("git ") ? command.Substring(4) : command,
+                Arguments = $"--no-pager {(command.StartsWith("git ") ? command.Substring(4) : command)}",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -194,9 +196,14 @@ public class GitService : IGitService
         }
     }
 
-    public string GetCurrentDirectory()
+    public string GetCurrentDirectory() => _currentDirectory;
+
+    public string? GetLastDirectory() => _directoryStack.Count > 0 ? _directoryStack.Last() : null;
+
+    public void PopDirectory()
     {
-        return _currentDirectory;
+        if (_directoryStack.Count > 0)
+            _directoryStack.Remove(_directoryStack.Last());
     }
 
     public bool ChangeToInitialDirectory() => ChangeDirectory(_initialDirectory);
@@ -228,6 +235,10 @@ public class GitService : IGitService
             // Try setting directory using system method first for possible exceptions
             Directory.SetCurrentDirectory(targetPath);
             _currentDirectory = targetPath;
+
+            if (_directoryStack.LastOrDefault() != targetPath)
+                _directoryStack.Add(targetPath);
+
             return true;
         }
 
