@@ -130,7 +130,14 @@ public sealed partial class ConsolePage : Page
             directoryName = currentDirectory;
 
         AddOutputLine($"{directoryName}$ {command}", "#00FF00");
+
+        bool succeeded = true;
+        int? statusCode = null;
+
         CommandInput.Text = string.Empty;
+        StatusCodeText.Visibility = Visibility.Collapsed;
+        CommandStatusIcon.Visibility = Visibility.Collapsed;
+        CommandProgressRing.Visibility = Visibility.Visible;
 
         try
         {
@@ -141,9 +148,15 @@ public sealed partial class ConsolePage : Page
                 return;
             }
 
+            if (command.ToLower() == "cd")
+            {
+                succeeded = _gitService.ChangeToInitialDirectory();
+                return;
+            }
+
             if (command.ToLower().StartsWith("cd "))
             {
-                HandleChangeDirectory(command);
+                succeeded = HandleChangeDirectory(command);
                 return;
             }
 
@@ -154,24 +167,36 @@ public sealed partial class ConsolePage : Page
             }
 
             // Execute Git command using GitService
-            await ExecuteGitCommand(command);
+            GitCommandResult? result = await ExecuteGitCommand(command);
+            succeeded = result is { Success: true };
+            statusCode = result?.ExitCode;
         }
         catch (Exception ex)
         {
             AddOutputLine($"Error: {ex.Message}", "#FF6B6B");
+            succeeded = false;
         }
         finally
         {
             ExecuteButton.IsEnabled = true;
+            CommandStatusIcon.Visibility = Visibility.Visible;
+            CommandStatusIcon.Glyph = succeeded ? "\uEC61" : "\uEB90";
+            StatusCodeText.Visibility = statusCode != null && statusCode != 0 ? Visibility.Visible : Visibility.Collapsed;
+            StatusCodeText.Text = statusCode?.ToString();
+            StatusCodeText.Foreground = CommandStatusIcon.Foreground
+                = Application.Current.Resources[succeeded ? "SystemFillColorSuccessBrush" : "SystemFillColorCriticalBrush"]
+                as SolidColorBrush;
+            CommandProgressRing.Visibility = Visibility.Collapsed;
             CommandInput.Focus(FocusState.Programmatic);
         }
     }
 
-    private void HandleChangeDirectory(string command)
+    private bool HandleChangeDirectory(string command)
     {
         try
         {
             string path = command.Substring(3).Trim().Trim('"');
+
             if (string.IsNullOrEmpty(path))
             {
                 // Show current directory
@@ -182,16 +207,22 @@ public sealed partial class ConsolePage : Page
                 if (_gitService.ChangeDirectory(path))
                     AddOutputLine($"Changed to: {_gitService.GetCurrentDirectory()}", "#CCCCCC");
                 else
+                {
                     AddOutputLine($"Directory not found: {path}", "#FF6B6B");
+                    return false;
+                }
             }
+
+            return true;
         }
         catch (Exception ex)
         {
             AddOutputLine($"Error changing directory: {ex.Message}", "#FF6B6B");
+            return false;
         }
     }
 
-    private async Task ExecuteGitCommand(string command)
+    private async Task<GitCommandResult?> ExecuteGitCommand(string command)
     {
         try
         {
@@ -212,10 +243,13 @@ public sealed partial class ConsolePage : Page
                     result.ErrorMessage.Contains("not found", StringComparison.OrdinalIgnoreCase))
                     AddOutputLine("Please install Git or ensure it's properly configured.", "#FFAA00");
             }
+
+            return result;
         }
         catch (Exception ex)
         {
             AddOutputLine($"Error executing command: {ex.Message}", "#FF6B6B");
+            return null;
         }
     }
 
