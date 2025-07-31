@@ -1,15 +1,15 @@
 using GitMC.Services;
 
-namespace GitMC.Tests
-{
-    internal class NbtServiceTest
-    {
-        public static async Task TestNbtService()
-        {
-            var nbtService = new NbtService();
+namespace GitMC.Tests;
 
-            // This is a simple SNBT structure for testing purposes
-            var testSnbt = @"{
+internal class NbtServiceTest
+{
+    public static async Task TestNbtService()
+    {
+        var nbtService = new NbtService();
+
+        // This is a simple SNBT structure for testing purposes
+        string testSnbt = @"{
     ""test"": ""Hello World"",
     ""number"": 42,
     ""float"": 3.14f,
@@ -19,38 +19,37 @@ namespace GitMC.Tests
     }
 }";
 
-            try
-            {
-                // Test SNBT validation
-                Console.WriteLine($@"SNBT validation result: {nbtService.IsValidSnbt(testSnbt)}");
+        try
+        {
+            // Test SNBT validation
+            Console.WriteLine($@"SNBT validation result: {nbtService.IsValidSnbt(testSnbt)}");
 
-                // Test conversion to NBT
-                var tempFile = Path.GetTempFileName() + ".nbt";
-                await nbtService.ConvertSnbtToNbtAsync(testSnbt, tempFile);
-                Console.WriteLine($@"NBT file created: {tempFile}");
+            // Test conversion to NBT
+            string tempFile = Path.GetTempFileName() + ".nbt";
+            await nbtService.ConvertSnbtToNbtAsync(testSnbt, tempFile);
+            Console.WriteLine($@"NBT file created: {tempFile}");
 
-                // Test file validation
-                var isValid = await nbtService.IsValidNbtFileAsync(tempFile);
-                Console.WriteLine($@"File validation result: {isValid}");
+            // Test file validation
+            bool isValid = await nbtService.IsValidNbtFileAsync(tempFile);
+            Console.WriteLine($@"File validation result: {isValid}");
 
-                // Test file info
-                var fileInfo = await nbtService.GetNbtFileInfoAsync(tempFile);
-                Console.WriteLine($@"File info:
+            // Test file info
+            string fileInfo = await nbtService.GetNbtFileInfoAsync(tempFile);
+            Console.WriteLine($@"File info:
 {fileInfo}");
 
-                // Test conversion back to SNBT
-                var convertedSnbt = await nbtService.ConvertNbtToSnbtAsync(tempFile);
-                Console.WriteLine($@"Converted back to SNBT:
+            // Test conversion back to SNBT
+            string convertedSnbt = await nbtService.ConvertNbtToSnbtAsync(tempFile);
+            Console.WriteLine($@"Converted back to SNBT:
 {convertedSnbt}");
 
-                // Clean up
-                File.Delete(tempFile);
-                Console.WriteLine(@"Test completed!");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($@"Test failed: {ex.Message}");
-            }
+            // Clean up
+            File.Delete(tempFile);
+            Console.WriteLine(@"Test completed!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Test failed: {ex.Message}");
         }
     }
 }

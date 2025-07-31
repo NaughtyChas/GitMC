@@ -16,8 +16,6 @@
         <!--  These styles can be referenced to create a consistent SettingsPage layout  -->
         <!--  Reference SettingsExpander Page in Windows Community Toolkit Gallery for the full sample  -->
 
-        <converters:LocalizationConverter x:Key="LocalizationConverter" />
-
         <!--  Spacing between cards  -->
         <x:Double x:Key="SettingsCardSpacing">4</x:Double>
 

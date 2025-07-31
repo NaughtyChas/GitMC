@@ -10,9 +10,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Page.Resources>
-        <converters:LocalizationConverter x:Key="LocalizationConverter" />
-    </Page.Resources>
+    <Page.Resources />
 
     <ScrollViewer>
         <Grid Margin="24,0,24,24">

@@ -1,57 +1,56 @@
-namespace GitMC.Utils
+namespace GitMC.Utils;
+
+public interface IFailable
 {
-    public interface IFailable
+    string Description { get; }
+    Exception? Exception { get; }
+    bool IsSuccess { get; }
+}
+
+public interface IFailable<out T> : IFailable
+{
+    T? Result { get; }
+}
+
+public class Failable : IFailable
+{
+    public Failable(Exception exception, string description)
     {
-        string Description { get; }
-        Exception? Exception { get; }
-        bool IsSuccess { get; }
+        Exception = exception;
+        Description = description;
     }
 
-    public interface IFailable<out T> : IFailable
+    public string Description { get; }
+    public Exception? Exception { get; }
+    public bool IsSuccess => Exception == null;
+}
+
+public class Failable<T> : IFailable<T>
+{
+    public Failable(T? result, Exception? exception, string description)
     {
-        T? Result { get; }
+        Result = result;
+        Exception = exception;
+        Description = description;
     }
 
-    public class Failable : IFailable
+    public Failable(Func<T> action, string description)
     {
-        public string Description { get; }
-        public Exception? Exception { get; }
-        public bool IsSuccess => Exception == null;
-
-        public Failable(Exception exception, string description)
+        Description = description;
+        try
         {
-            Exception = exception;
-            Description = description;
+            Result = action();
+            Exception = null;
+        }
+        catch (Exception ex)
+        {
+            Result = default;
+            Exception = ex;
         }
     }
 
-    public class Failable<T> : IFailable<T>
-    {
-        public T? Result { get; }
-        public string Description { get; }
-        public Exception? Exception { get; }
-        public bool IsSuccess => Exception == null;
-
-        public Failable(T? result, Exception? exception, string description)
-        {
-            Result = result;
-            Exception = exception;
-            Description = description;
-        }
-
-        public Failable(Func<T> action, string description)
-        {
-            Description = description;
-            try
-            {
-                Result = action();
-                Exception = null;
-            }
-            catch (Exception ex)
-            {
-                Result = default(T);
-                Exception = ex;
-            }
-        }
-    }
+    public T? Result { get; }
+    public string Description { get; }
+    public Exception? Exception { get; }
+    public bool IsSuccess => Exception == null;
 }
