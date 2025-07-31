@@ -4,11 +4,12 @@ namespace GitMC.Services;
 
 public class GitService : IGitService
 {
+    private readonly string _initialDirectory;
     private string _currentDirectory;
 
     public GitService()
     {
-        _currentDirectory = Directory.GetCurrentDirectory();
+        _initialDirectory = _currentDirectory = Directory.GetCurrentDirectory();
     }
 
     public async Task<string> GetVersionAsync()
@@ -197,6 +198,8 @@ public class GitService : IGitService
     {
         return _currentDirectory;
     }
+
+    public bool ChangeToInitialDirectory() => ChangeDirectory(_initialDirectory);
 
     public bool ChangeDirectory(string path)
     {
