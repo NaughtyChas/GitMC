@@ -1,16 +1,14 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Windows.Graphics;
 using GitMC.Models;
 using GitMC.Services;
 using Microsoft.UI.Windowing;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Windows.Graphics;
 
 namespace GitMC.Views;
 
-public partial class MainWindow : Window
+public partial class MainWindow
 {
     private readonly IConfigurationService _configurationService;
     private readonly IDataStorageService _dataStorageService;
@@ -165,9 +163,7 @@ public partial class MainWindow : Window
     {
         NavView.MenuItems.Add(new NavigationViewItem
         {
-            Content = saveName,
-            Icon = new SymbolIcon(Symbol.Folder),
-            Tag = savePath
+            Content = saveName, Icon = new SymbolIcon(Symbol.Folder), Tag = savePath
         });
     }
 

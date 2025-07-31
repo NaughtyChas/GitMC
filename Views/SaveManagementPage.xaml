@@ -7,8 +7,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:models="using:GitMC.Models"
-    xmlns:viewModels="using:GitMC.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Page.Resources>
@@ -19,334 +17,6 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
         </Style>
-
-        <!--  Save Card Data Template  -->
-        <DataTemplate x:DataType="models:ManagedSaveInfo" x:Key="SaveCardTemplate">
-            <Border
-                Background="{ThemeResource SystemControlBackgroundAltHighBrush}"
-                BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}"
-                BorderThickness="1"
-                CornerRadius="12"
-                HorizontalAlignment="Stretch"
-                Margin="0,0,0,12"
-                Padding="16"
-                UseLayoutRounding="True">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <!--  Header Row: Icon, Title, Status Badge, and Action Button  -->
-                    <Grid Grid.Row="0" Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <!--  Folder Icon Container  -->
-                        <Border
-                            Background="{x:Bind FolderIconBackground}"
-                            BorderBrush="{x:Bind FolderIconBorder}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Grid.Column="0"
-                            Height="40"
-                            Margin="0,0,12,0"
-                            VerticalAlignment="Center"
-                            Width="40">
-                            <FontIcon
-                                FontSize="18"
-                                Foreground="{x:Bind FolderIconForeground}"
-                                Glyph="&#xE8B7;"
-                                HorizontalAlignment="Center"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center" />
-                        </Border>
-
-                        <!--  Title and Path  -->
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="16"
-                                FontWeight="SemiBold"
-                                Margin="0,0,0,4"
-                                Text="{x:Bind Name}"
-                                TextTrimming="CharacterEllipsis"
-                                TextWrapping="Wrap"
-                                UseLayoutRounding="True" />
-                            <TextBlock
-                                FontSize="11"
-                                Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
-                                Text="{x:Bind OriginalPath}"
-                                TextTrimming="CharacterEllipsis"
-                                TextWrapping="Wrap"
-                                UseLayoutRounding="True" />
-                        </StackPanel>
-
-                        <!--  Status Badge  -->
-                        <Border
-                            Background="{x:Bind StatusBadgeBackground}"
-                            BorderBrush="{x:Bind StatusBadgeBorder}"
-                            BorderThickness="1"
-                            CornerRadius="12"
-                            Grid.Column="2"
-                            Height="Auto"
-                            Margin="8,0,8,0"
-                            Padding="8,4"
-                            UseLayoutRounding="True"
-                            VerticalAlignment="Center">
-                            <TextBlock
-                                FontSize="10"
-                                FontWeight="SemiBold"
-                                Foreground="{x:Bind StatusBadgeText}"
-                                Text="{x:Bind StatusText}"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center" />
-                        </Border>
-
-                        <!--  Open Button  -->
-                        <Button
-                            Click="OpenSave_Click"
-                            Content="Open"
-                            Grid.Column="3"
-                            Height="32"
-                            MinWidth="60"
-                            Style="{StaticResource AccentButtonStyle}"
-                            Tag="{x:Bind}"
-                            UseLayoutRounding="True"
-                            VerticalAlignment="Center" />
-                    </Grid>
-
-                    <!--  Information Row  -->
-                    <Grid Grid.Row="1" Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <!--  Branch Info  -->
-                        <StackPanel
-                            Grid.Column="0"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                            <ImageIcon
-                                Foreground="{x:Bind InfoIconColor}"
-                                Height="16"
-                                Margin="0,0,8,0"
-                                Source="../Assets/Icons/branch_grey.svg"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center"
-                                Width="16" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock
-                                    FontSize="11"
-                                    Foreground="{x:Bind InfoTextColor}"
-                                    Margin="0,0,0,2"
-                                    Text="Branch"
-                                    UseLayoutRounding="True" />
-                                <TextBlock
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Text="main"
-                                    UseLayoutRounding="True" />
-                            </StackPanel>
-                        </StackPanel>
-
-                        <!--  Size Info  -->
-                        <StackPanel
-                            Grid.Column="1"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                            <ImageIcon
-                                Foreground="{x:Bind InfoIconColor}"
-                                Height="16"
-                                Margin="0,0,8,0"
-                                Source="../Assets/Icons/db_grey.svg"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center"
-                                Width="16" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock
-                                    FontSize="11"
-                                    Foreground="{x:Bind InfoTextColor}"
-                                    Margin="0,0,0,2"
-                                    Text="Size"
-                                    UseLayoutRounding="True" />
-                                <TextBlock
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Text="{x:Bind SizeFormatted}"
-                                    UseLayoutRounding="True" />
-                            </StackPanel>
-                        </StackPanel>
-
-                        <!--  Commits Info  -->
-                        <StackPanel
-                            Grid.Column="2"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                            <ImageIcon
-                                Foreground="{x:Bind InfoIconColor}"
-                                Height="16"
-                                Margin="0,0,8,0"
-                                Source="../Assets/Icons/commit_grey.svg"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center"
-                                Width="16" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock
-                                    FontSize="11"
-                                    Foreground="{x:Bind InfoTextColor}"
-                                    Margin="0,0,0,2"
-                                    Text="Commits"
-                                    UseLayoutRounding="True" />
-                                <TextBlock
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Text="45"
-                                    UseLayoutRounding="True" />
-                            </StackPanel>
-                        </StackPanel>
-
-                        <!--  Modified Info  -->
-                        <StackPanel
-                            Grid.Column="3"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                            <FontIcon
-                                FontSize="16"
-                                Foreground="{x:Bind InfoIconColor}"
-                                Glyph="&#xE823;"
-                                Margin="0,0,8,0"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock
-                                    FontSize="11"
-                                    Foreground="{x:Bind InfoTextColor}"
-                                    Margin="0,0,0,2"
-                                    Text="Modified"
-                                    UseLayoutRounding="True" />
-                                <TextBlock
-                                    FontSize="13"
-                                    FontWeight="SemiBold"
-                                    Text="{x:Bind LastModifiedFormatted}"
-                                    UseLayoutRounding="True" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Grid>
-
-                    <!--  Separator  -->
-                    <Border
-                        Background="{x:Bind SeparatorBackground}"
-                        Grid.Row="2"
-                        Height="1"
-                        Margin="0,0,0,16" />
-
-                    <!--  Git Status Row  -->
-                    <StackPanel
-                        Grid.Row="3"
-                        Orientation="Horizontal"
-                        Spacing="12">
-                        <TextBlock
-                            FontSize="14"
-                            FontWeight="SemiBold"
-                            Text="Git Status:"
-                            UseLayoutRounding="True" />
-
-                        <!--  Git Status Badges - Show Different Content Based on State  -->
-                        <!--  If no pending actions, show status text  -->
-                        <TextBlock
-                            FontSize="12"
-                            Text="{x:Bind GitStatusDescription}"
-                            UseLayoutRounding="True"
-                            VerticalAlignment="Center"
-                            Visibility="{x:Bind ShowStatusTextOnly}" />
-
-                        <!--  Push Status Badge - Show if has pending pushes  -->
-                        <Border
-                            Background="{ThemeResource SystemAccentColor}"
-                            CornerRadius="8"
-                            Padding="8,4"
-                            UseLayoutRounding="True"
-                            Visibility="{x:Bind ShowPushBadge}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <FontIcon
-                                    FontSize="10"
-                                    Foreground="White"
-                                    Glyph="&#xE898;"
-                                    Margin="0,0,4,0"
-                                    UseLayoutRounding="True"
-                                    VerticalAlignment="Center" />
-                                <TextBlock
-                                    FontSize="10"
-                                    FontWeight="SemiBold"
-                                    Foreground="White"
-                                    Text="{x:Bind PushStatusText}"
-                                    UseLayoutRounding="True"
-                                    VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-
-                        <!--  Pull Status Badge - Show if has pending pulls  -->
-                        <Border
-                            Background="{ThemeResource SystemAccentColor}"
-                            CornerRadius="8"
-                            Padding="8,4"
-                            UseLayoutRounding="True"
-                            Visibility="{x:Bind ShowPullBadge}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <FontIcon
-                                    FontSize="10"
-                                    Foreground="White"
-                                    Glyph="&#xE896;"
-                                    Margin="0,0,4,0"
-                                    UseLayoutRounding="True"
-                                    VerticalAlignment="Center" />
-                                <TextBlock
-                                    FontSize="10"
-                                    FontWeight="SemiBold"
-                                    Foreground="White"
-                                    Text="{x:Bind PullStatusText}"
-                                    UseLayoutRounding="True"
-                                    VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-
-                        <!--  Conflict Status Badge - Show if has conflicts  -->
-                        <Border
-                            Background="{x:Bind ConflictBadgeBackground}"
-                            CornerRadius="8"
-                            Padding="8,4"
-                            UseLayoutRounding="True"
-                            Visibility="{x:Bind ShowConflictBadge}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <FontIcon
-                                    FontSize="10"
-                                    Foreground="{x:Bind ConflictBadgeText}"
-                                    Glyph="&#xE783;"
-                                    Margin="0,0,4,0"
-                                    UseLayoutRounding="True"
-                                    VerticalAlignment="Center" />
-                                <TextBlock
-                                    FontSize="10"
-                                    FontWeight="SemiBold"
-                                    Foreground="{x:Bind ConflictBadgeText}"
-                                    Text="{x:Bind ConflictStatusText}"
-                                    UseLayoutRounding="True"
-                                    VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Grid>
-            </Border>
-        </DataTemplate>
     </Page.Resources>
 
     <Grid>
@@ -405,7 +75,7 @@
                             <TextBlock
                                 FontSize="16"
                                 FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.TotalSavesCount}"
+                                Text="0"
                                 x:Name="TotalSavesCount" />
                             <TextBlock
                                 FontSize="11"
@@ -433,7 +103,7 @@
                             <TextBlock
                                 FontSize="16"
                                 FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.SavesWithChangesCount}"
+                                Text="0"
                                 x:Name="SavesWithChangesCount" />
                             <TextBlock
                                 FontSize="11"
@@ -461,7 +131,7 @@
                             <TextBlock
                                 FontSize="16"
                                 FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.RemoteUpdatesCount}"
+                                Text="0"
                                 x:Name="RemoteUpdatesCount" />
                             <TextBlock
                                 FontSize="11"
@@ -489,7 +159,7 @@
                             <TextBlock
                                 FontSize="16"
                                 FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.GitStatusText}"
+                                Text="Ready"
                                 x:Name="GitStatusText" />
                             <TextBlock
                                 FontSize="11"
@@ -517,7 +187,7 @@
                             <TextBlock
                                 FontSize="16"
                                 FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.TotalSizeText}"
+                                Text="0 B"
                                 x:Name="TotalSizeText" />
                             <TextBlock
                                 FontSize="11"
@@ -609,7 +279,6 @@
                         Grid.Row="1"
                         Margin="0,0,0,16"
                         Text="No saves managed yet"
-                        Visibility="{x:Bind ViewModel.HasNoSaves}"
                         x:Name="SaveCountInfo" />
 
                     <!--  Saves Grid  -->
@@ -620,8 +289,6 @@
                         <GridView
                             HorizontalContentAlignment="Stretch"
                             ItemContainerStyle="{StaticResource SaveCardGridViewItemStyle}"
-                            ItemTemplate="{StaticResource SaveCardTemplate}"
-                            ItemsSource="{x:Bind ViewModel.ManagedSaves}"
                             SelectionMode="None"
                             x:Name="SavesGridView">
                             <GridView.ItemsPanel>
@@ -887,7 +554,7 @@
         <Grid
             Background="#80000000"
             Grid.RowSpan="2"
-            Visibility="{x:Bind ViewModel.IsLoading}"
+            Visibility="Collapsed"
             x:Name="LoadingPanel">
             <Border
                 Background="White"
