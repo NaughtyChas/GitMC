@@ -36,7 +36,7 @@
 
                     <!--  App Icon  -->
                     <Border
-                        Background="#f3f3f3"
+                        Background="{ThemeResource ControlFillColorDefaultBrush}"
                         CornerRadius="12"
                         Grid.Column="0"
                         Height="80"
@@ -56,7 +56,7 @@
                             Text="{local:Localize Key=Welcome_Title}" />
                         <TextBlock
                             FontSize="18"
-                            Foreground="#6B6B6B"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Text="{local:Localize Key=App_Description}" />
                     </StackPanel>
                 </Grid>
@@ -72,8 +72,8 @@
 
                 <!--  Left Panel - Getting Started  -->
                 <Border
-                    Background="#FAFAFA"
-                    BorderBrush="#E1E1E1"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="12"
                     Grid.Column="0"
@@ -124,7 +124,7 @@
                                 VerticalAlignment="Top"
                                 Width="48">
                                 <Border
-                                    Background="#fafafa"
+                                    Background="{ThemeResource ControlFillColorDefaultBrush}"
                                     CornerRadius="24"
                                     Height="48"
                                     Width="48" />
@@ -168,7 +168,7 @@
                                     Margin="0,0,0,4"
                                     Text="{local:Localize Key=Setup_Step1_Title}" />
                                 <TextBlock
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Margin="0,0,0,12"
                                     Text="{local:Localize Key=Setup_Step1_Description}"
                                     TextWrapping="Wrap" />
@@ -217,7 +217,7 @@
                                     Margin="0,0,0,4"
                                     Text="{local:Localize Key=Setup_Step1_Title}" />
                                 <TextBlock
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="{local:Localize Key=UI_SetPreferredLanguage}"
                                     TextWrapping="Wrap" />
                             </StackPanel>
@@ -231,12 +231,12 @@
                                 VerticalAlignment="Center"
                                 Width="48">
                                 <Border
-                                    Background="#fafafa"
+                                    Background="{ThemeResource ControlFillColorDefaultBrush}"
                                     CornerRadius="24"
                                     Height="48"
                                     Width="48" />
                                 <Border
-                                    Background="#D1D1D1"
+                                    Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}"
                                     CornerRadius="16"
                                     Height="32"
                                     HorizontalAlignment="Center"
@@ -320,7 +320,7 @@
                                     Margin="0,0,0,4"
                                     Text="{local:Localize Key=Setup_Step2_Title}" />
                                 <TextBlock
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="{local:Localize Key=UI_GitVersionControl}"
                                     TextWrapping="Wrap" />
                             </StackPanel>
@@ -332,12 +332,12 @@
                                 Height="48"
                                 Width="48">
                                 <Border
-                                    Background="#fafafa"
+                                    Background="{ThemeResource ControlFillColorDefaultBrush}"
                                     CornerRadius="24"
                                     Height="48"
                                     Width="48" />
                                 <Border
-                                    Background="#D1D1D1"
+                                    Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}"
                                     CornerRadius="16"
                                     Height="32"
                                     HorizontalAlignment="Center"
@@ -377,7 +377,7 @@
                                     Margin="0,0,0,4"
                                     Text="{local:Localize Key=Setup_Step3_Title}" />
                                 <TextBlock
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Margin="0,0,0,12"
                                     Text="{local:Localize Key=Setup_Step3_Description}"
                                     TextWrapping="Wrap" />
@@ -408,7 +408,7 @@
                                     Margin="0,0,0,4"
                                     Text="{local:Localize Key=Setup_Step3_Title}" />
                                 <TextBlock
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="{local:Localize Key=UI_MarkChangesInGit}"
                                     TextWrapping="Wrap" />
                                 <TextBlock
@@ -426,12 +426,12 @@
                                 Height="48"
                                 Width="48">
                                 <Border
-                                    Background="#fafafa"
+                                    Background="{ThemeResource ControlFillColorDefaultBrush}"
                                     CornerRadius="24"
                                     Height="48"
                                     Width="48" />
                                 <Border
-                                    Background="#D1D1D1"
+                                    Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}"
                                     CornerRadius="16"
                                     Height="32"
                                     HorizontalAlignment="Center"
@@ -464,22 +464,22 @@
                                 Grid.Row="3"
                                 Margin="0,0,0,32"
                                 VerticalAlignment="Top"
-                                Visibility="Collapsed"
+
                                 x:Name="Step4Content">
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,4"
                                     Text="{local:Localize Key=Setup_Step4_Title}" />
                                 <TextBlock
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Margin="0,0,0,12"
                                     Text="{local:Localize Key=Setup_Step4_Description}"
                                     TextWrapping="Wrap" />
 
                                 <!--  Platform Selector with Border  -->
                                 <Border
-                                    Background="#FAFAFA"
-                                    BorderBrush="#E1E1E1"
+                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                     BorderThickness="1"
                                     CornerRadius="8"
                                     Margin="0,0,0,12"
@@ -532,14 +532,14 @@
                                                     Margin="0,0,0,8"
                                                     Text="Connect to GitHub" />
                                                 <TextBlock
-                                                    Foreground="#6B6B6B"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Margin="0,0,0,12"
                                                     Text="Sign in to your GitHub account to create and manage repositories for your Minecraft saves."
                                                     TextWrapping="Wrap" />
 
                                                 <!--  GitHub Status  -->
                                                 <Border
-                                                    Background="#F8F9FA"
+                                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                                                     CornerRadius="8"
                                                     Margin="0,0,0,12"
                                                     Padding="12"
@@ -547,7 +547,7 @@
                                                     <StackPanel Orientation="Horizontal">
                                                         <FontIcon
                                                             FontSize="16"
-                                                            Foreground="#6B6B6B"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                             Glyph="&#xE946;"
                                                             Margin="0,0,8,0" />
                                                         <TextBlock
@@ -558,7 +558,7 @@
                                                 </Border>
 
                                                 <!--  Repository Settings  -->
-                                                <StackPanel Visibility="Collapsed"
+                                                <StackPanel
                                                     x:Name="GitHubRepoSettings">
                                                     <TextBlock
                                                         FontWeight="SemiBold"
@@ -595,7 +595,7 @@
                                                     Margin="0,0,0,8"
                                                     Text="Self-Hosted Git Server" />
                                                 <TextBlock
-                                                    Foreground="#6B6B6B"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Margin="0,0,0,12"
                                                     Text="Configure your own Git server (GitLab, Gitea, etc.) for managing your Minecraft saves."
                                                     TextWrapping="Wrap" />
@@ -703,7 +703,7 @@
                                     Margin="0,0,0,4"
                                     Text="{local:Localize Key=Setup_Step4_Title}" />
                                 <TextBlock
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="{local:Localize Key=Setup_Step4_DescriptionShort}"
                                     TextWrapping="Wrap" />
                                 <TextBlock
@@ -721,12 +721,12 @@
                                 Height="48"
                                 Width="48">
                                 <Border
-                                    Background="#fafafa"
+                                    Background="{ThemeResource ControlFillColorDefaultBrush}"
                                     CornerRadius="24"
                                     Height="48"
                                     Width="48" />
                                 <Border
-                                    Background="#D1D1D1"
+                                    Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}"
                                     CornerRadius="16"
                                     Height="32"
                                     HorizontalAlignment="Center"
@@ -765,7 +765,7 @@
                                     Margin="0,0,0,4"
                                     Text="{local:Localize Key=Setup_Step5_Title}" />
                                 <TextBlock
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Margin="0,0,0,12"
                                     Text="{local:Localize Key=Setup_Step5_Description}"
                                     TextWrapping="Wrap" />
@@ -816,7 +816,7 @@
                                     Margin="0,0,0,4"
                                     Text="{local:Localize Key=Setup_Step5_Title}" />
                                 <TextBlock
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="{local:Localize Key=Setup_Step5_DescriptionShort}"
                                     TextWrapping="Wrap" />
                                 <TextBlock
@@ -832,8 +832,8 @@
 
                 <!--  Right Panel - Enhanced System Status  -->
                 <Border
-                    Background="#FAFAFA"
-                    BorderBrush="#E1E1E1"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="12"
                     Grid.Column="2"
@@ -853,8 +853,8 @@
 
                         <!--  Overall Progress  -->
                         <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="8"
                             Margin="0,0,0,20"
@@ -872,7 +872,7 @@
                                     x:Name="OverallProgressBar" />
                                 <TextBlock
                                     FontSize="12"
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="{local:Localize Key=Setup_Progress}"
                                     TextAlignment="Center"
                                     x:Name="ProgressText" />
@@ -881,8 +881,8 @@
 
                         <!--  Git Installation Status  -->
                         <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="8"
                             Margin="0,0,0,16"
@@ -911,7 +911,7 @@
                                 </StackPanel>
                                 <TextBlock
                                     FontSize="12"
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="{local:Localize Key=UI_CheckingGitInstallation}"
                                     TextWrapping="Wrap"
                                     x:Name="GitStatusText" />
@@ -920,8 +920,8 @@
 
                         <!--  Git Identity Status  -->
                         <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="8"
                             Margin="0,0,0,16"
@@ -950,7 +950,7 @@
                                 </StackPanel>
                                 <TextBlock
                                     FontSize="12"
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="{local:Localize Key=Status_NotConfigured}"
                                     TextWrapping="Wrap"
                                     x:Name="GitIdentityStatusText" />
@@ -959,8 +959,8 @@
 
                         <!--  Platform Connection Status  -->
                         <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="8"
                             Margin="0,0,0,16"
@@ -989,13 +989,12 @@
                                 </StackPanel>
                                 <TextBlock
                                     FontSize="12"
-                                    Foreground="#6B6B6B"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Text="{local:Localize Key=Status_NotConnected}"
                                     TextWrapping="Wrap"
                                     x:Name="PlatformStatusText" />
                             </StackPanel>
                         </Border>
-
                     </StackPanel>
                 </Border>
             </Grid>
@@ -1007,7 +1006,7 @@
                 Visibility="Collapsed"
                 x:Name="LoadingPanel">
                 <Border
-                    Background="White"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     CornerRadius="8"
                     HorizontalAlignment="Center"
                     Padding="32"
