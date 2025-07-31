@@ -7,8 +7,11 @@ using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
 using GitMC.Utils;
+using GitMC.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Text;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
@@ -37,9 +40,19 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         _onboardingService = new OnboardingService(_gitService, _configurationService);
         _saveAnalyzerService = new SaveAnalyzerService();
 
-        DataContext = this;
+        // Initialize ViewModel
+        ViewModel = new SaveManagementViewModel(
+            _configurationService,
+            _dataStorageService,
+            _gitService,
+            _onboardingService,
+            _saveAnalyzerService);
+
+        DataContext = ViewModel;
         Loaded += SaveManagementPage_Loaded;
     }
+
+    public SaveManagementViewModel ViewModel { get; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -47,8 +60,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         try
         {
-            await LoadManagedSaves().ConfigureAwait(false);
-            UpdateStatistics();
+            await ViewModel.LoadManagedSavesAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -56,6 +68,21 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             Debug.WriteLine($"Error loading saves: {ex.Message}");
             // Could show a message dialog here
         }
+    }
+
+    // Event handlers for DataTemplate
+    private void OpenSave_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
+        {
+            OpenSaveActions(saveInfo);
+        }
+    }
+
+    private void OpenSaveActions(ManagedSaveInfo saveInfo)
+    {
+        FlyoutHelper.ShowSuccessFlyout(null, "Save Actions",
+            $"Opening actions for save: {saveInfo.Name}");
     }
 
     private async Task LoadManagedSaves()
@@ -744,14 +771,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
     private async void AddSaveButton_Click(object sender, RoutedEventArgs e)
     {
-        var loadingPanel = FindName("LoadingPanel") as Grid;
-        var loadingProgressRing = FindName("LoadingProgressRing") as ProgressBar;
-
-        if (loadingPanel != null && loadingProgressRing != null)
-        {
-            loadingPanel.Visibility = Visibility.Visible;
-            loadingProgressRing.IsIndeterminate = true;
-        }
+        ViewModel.IsLoading = true;
 
         try
         {
@@ -772,13 +792,14 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 if (save != null)
                 {
                     // Add to navigation in MainWindow
-                    if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);
+                    if (App.MainWindow is MainWindow mainWindow)
+                        mainWindow.AddSaveToNavigation(save.Name, save.Path);
 
                     // Register this save in our managed saves system
                     await RegisterManagedSave(save).ConfigureAwait(false);
 
-                    // Refresh the saves list and statistics
-                    await LoadManagedSaves().ConfigureAwait(false);
+                    // Refresh the saves list and statistics using ViewModel
+                    await ViewModel.LoadManagedSavesAsync().ConfigureAwait(false);
                 }
                 else
                 {
@@ -796,11 +817,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         }
         finally
         {
-            if (loadingPanel != null && loadingProgressRing != null)
-            {
-                loadingPanel.Visibility = Visibility.Collapsed;
-                loadingProgressRing.IsIndeterminate = false;
-            }
+            ViewModel.IsLoading = false;
         }
     }
 
