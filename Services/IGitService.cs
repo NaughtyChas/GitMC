@@ -35,14 +35,14 @@ public interface IGitService
 
     // Enhanced Git Operations (LibGit2Sharp)
     Task<GitStatus> GetStatusAsync(string? workingDirectory = null);
-    Task<bool> StageFileAsync(string filePath, string? workingDirectory = null);
-    Task<bool> StageAllAsync(string? workingDirectory = null);
-    Task<bool> UnstageFileAsync(string filePath, string? workingDirectory = null);
-    Task<bool> CommitAsync(string message, string? workingDirectory = null);
+    Task<GitOperationResult> StageFileAsync(string filePath, string? workingDirectory = null);
+    Task<GitOperationResult> StageAllAsync(string? workingDirectory = null);
+    Task<GitOperationResult> UnstageFileAsync(string filePath, string? workingDirectory = null);
+    Task<GitOperationResult> CommitAsync(string message, string? workingDirectory = null);
     Task<GitCommit[]> GetCommitHistoryAsync(int count = 50, string? workingDirectory = null);
     Task<string[]> GetBranchesAsync(string? workingDirectory = null);
-    Task<bool> CreateBranchAsync(string branchName, string? workingDirectory = null);
-    Task<bool> CheckoutBranchAsync(string branchName, string? workingDirectory = null);
+    Task<GitOperationResult> CreateBranchAsync(string branchName, string? workingDirectory = null);
+    Task<GitOperationResult> CheckoutBranchAsync(string branchName, string? workingDirectory = null);
     Task<bool> PullAsync(string? remoteName = null, string? branchName = null, string? workingDirectory = null);
     Task<bool> PushAsync(string? remoteName = null, string? branchName = null, string? workingDirectory = null);
     Task<bool> FetchAsync(string? remoteName = null, string? workingDirectory = null);
@@ -59,6 +59,19 @@ public class GitCommandResult
     public string[] OutputLines { get; set; } = Array.Empty<string>();
     public string[] ErrorLines { get; set; } = Array.Empty<string>();
     public string ErrorMessage { get; set; } = string.Empty;
+}
+
+public class GitOperationResult
+{
+    public bool Success { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
+    public string? WarningMessage { get; set; }
+
+    public static GitOperationResult CreateSuccess(string? warning = null)
+        => new() { Success = true, WarningMessage = warning };
+
+    public static GitOperationResult CreateFailure(string errorMessage)
+        => new() { Success = false, ErrorMessage = errorMessage };
 }
 
 public class GitStatus

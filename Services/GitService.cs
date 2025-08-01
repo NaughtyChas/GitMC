@@ -19,7 +19,7 @@ public class GitService : IGitService
         try
         {
             // Use LibGit2Sharp version first, fallback to command line
-            var libgit2Version = LibGit2Sharp.GlobalSettings.Version;
+            var libgit2Version = GlobalSettings.Version;
             return await Task.FromResult($"LibGit2Sharp {libgit2Version} / Git {await GetSystemGitVersionAsync()}");
         }
         catch (Exception ex)
@@ -248,15 +248,12 @@ public class GitService : IGitService
 
         if (Directory.Exists(targetPath))
         {
-            // Try setting directory using system method first for possible exceptions
-            Directory.SetCurrentDirectory(targetPath);
-
-            // Only when we managed to change to the new directory should we add the last to the stack.
+            // Only when we managed to validate the directory should we add the current to the stack.
             if (recordToStack && _directoryStack.LastOrDefault() != _currentDirectory)
                 _directoryStack.Add(_currentDirectory);
 
-            // Get directory again for a precise and unified path expression.
-            _currentDirectory = Directory.GetCurrentDirectory();
+            // Set the internal directory state without affecting the process-wide working directory
+            _currentDirectory = targetPath;
             return true;
         }
 
@@ -301,7 +298,7 @@ public class GitService : IGitService
         }
     }
 
-    public async Task<bool> StageFileAsync(string filePath, string? workingDirectory = null)
+    public async Task<GitOperationResult> StageFileAsync(string filePath, string? workingDirectory = null)
     {
         try
         {
@@ -309,18 +306,67 @@ public class GitService : IGitService
             {
                 var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
+
+                // Check if file exists in working directory
+                var fullPath = Path.IsPathRooted(filePath)
+                    ? filePath
+                    : Path.Combine(repoPath, filePath);
+
+                if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
+                {
+                    throw new LibGit2SharpException($"pathspec '{filePath}' did not match any files");
+                }
+
                 repo.Index.Add(filePath);
                 repo.Index.Write();
             });
-            return true;
+            return GitOperationResult.CreateSuccess();
         }
-        catch (LibGit2SharpException)
+        catch (LibGit2SharpException ex)
         {
-            return false;
+            return GitOperationResult.CreateFailure($"Failed to stage file '{filePath}': {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return GitOperationResult.CreateFailure($"Unexpected error staging file '{filePath}': {ex.Message}");
         }
     }
 
-    public async Task<bool> StageAllAsync(string? workingDirectory = null)
+    public async Task<GitOperationResult> StageAllAsync(string? workingDirectory = null)
+    {
+        try
+        {
+            var result = await Task.Run(() =>
+            {
+                var repoPath = workingDirectory ?? _currentDirectory;
+                using var repo = new Repository(repoPath);
+
+                // Check if there are any changes to stage
+                var status = repo.RetrieveStatus();
+                if (!status.Where(s => s.State.HasFlag(FileStatus.ModifiedInWorkdir) ||
+                                      s.State.HasFlag(FileStatus.NewInWorkdir) ||
+                                      s.State.HasFlag(FileStatus.DeletedFromWorkdir)).Any())
+                {
+                    return GitOperationResult.CreateSuccess("No files to stage");
+                }
+
+                Commands.Stage(repo, "*");
+                repo.Index.Write();
+                return GitOperationResult.CreateSuccess();
+            });
+            return result;
+        }
+        catch (LibGit2SharpException ex)
+        {
+            return GitOperationResult.CreateFailure($"Failed to stage all changes: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return GitOperationResult.CreateFailure($"Unexpected error staging all changes: {ex.Message}");
+        }
+    }
+
+    public async Task<GitOperationResult> UnstageFileAsync(string filePath, string? workingDirectory = null)
     {
         try
         {
@@ -328,18 +374,31 @@ public class GitService : IGitService
             {
                 var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
-                repo.Index.Add("*");
+
+                // Check if file is staged
+                var status = repo.RetrieveStatus();
+                var fileStatus = status.FirstOrDefault(s => s.FilePath == filePath);
+                if (fileStatus == null || (!fileStatus.State.HasFlag(FileStatus.ModifiedInIndex) && !fileStatus.State.HasFlag(FileStatus.NewInIndex)))
+                {
+                    throw new LibGit2SharpException($"No changes staged for file '{filePath}'");
+                }
+
+                Commands.Unstage(repo, filePath);
                 repo.Index.Write();
             });
-            return true;
+            return GitOperationResult.CreateSuccess();
         }
-        catch (LibGit2SharpException)
+        catch (LibGit2SharpException ex)
         {
-            return false;
+            return GitOperationResult.CreateFailure($"Failed to unstage file '{filePath}': {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return GitOperationResult.CreateFailure($"Unexpected error unstaging file '{filePath}': {ex.Message}");
         }
     }
 
-    public async Task<bool> UnstageFileAsync(string filePath, string? workingDirectory = null)
+    public async Task<GitOperationResult> CommitAsync(string message, string? workingDirectory = null)
     {
         try
         {
@@ -347,34 +406,26 @@ public class GitService : IGitService
             {
                 var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
-                repo.Index.Remove(filePath);
-                repo.Index.Write();
-            });
-            return true;
-        }
-        catch (LibGit2SharpException)
-        {
-            return false;
-        }
-    }
 
-    public async Task<bool> CommitAsync(string message, string? workingDirectory = null)
-    {
-        try
-        {
-            await Task.Run(() =>
-            {
-                var repoPath = workingDirectory ?? _currentDirectory;
-                using var repo = new Repository(repoPath);
+                // Check if there are any staged changes
+                var status = repo.RetrieveStatus();
+                if (!status.Where(s => s.State.HasFlag(FileStatus.ModifiedInIndex) || s.State.HasFlag(FileStatus.NewInIndex)).Any())
+                {
+                    throw new LibGit2SharpException("No changes added to commit (use \"git add\" and/or \"git commit -a\")");
+                }
 
                 var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
                 repo.Commit(message, signature, signature);
             });
-            return true;
+            return GitOperationResult.CreateSuccess();
         }
-        catch (LibGit2SharpException)
+        catch (LibGit2SharpException ex)
         {
-            return false;
+            return GitOperationResult.CreateFailure($"Commit failed: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return GitOperationResult.CreateFailure($"Unexpected error during commit: {ex.Message}");
         }
     }
 
@@ -430,7 +481,7 @@ public class GitService : IGitService
         }
     }
 
-    public async Task<bool> CreateBranchAsync(string branchName, string? workingDirectory = null)
+    public async Task<GitOperationResult> CreateBranchAsync(string branchName, string? workingDirectory = null)
     {
         try
         {
@@ -438,17 +489,28 @@ public class GitService : IGitService
             {
                 var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
+
+                // Check if branch already exists
+                if (repo.Branches[branchName] != null)
+                {
+                    throw new LibGit2SharpException($"A branch named '{branchName}' already exists.");
+                }
+
                 repo.CreateBranch(branchName);
             });
-            return true;
+            return GitOperationResult.CreateSuccess();
         }
-        catch (LibGit2SharpException)
+        catch (LibGit2SharpException ex)
         {
-            return false;
+            return GitOperationResult.CreateFailure($"Failed to create branch '{branchName}': {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return GitOperationResult.CreateFailure($"Unexpected error creating branch '{branchName}': {ex.Message}");
         }
     }
 
-    public async Task<bool> CheckoutBranchAsync(string branchName, string? workingDirectory = null)
+    public async Task<GitOperationResult> CheckoutBranchAsync(string branchName, string? workingDirectory = null)
     {
         try
         {
@@ -456,17 +518,31 @@ public class GitService : IGitService
             {
                 var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
+
                 var branch = repo.Branches[branchName];
-                if (branch != null)
+                if (branch == null)
                 {
-                    LibGit2Sharp.Commands.Checkout(repo, branch);
+                    throw new LibGit2SharpException($"pathspec '{branchName}' did not match any file(s) known to git");
                 }
+
+                // Check for uncommitted changes
+                var status = repo.RetrieveStatus();
+                if (status.IsDirty)
+                {
+                    throw new LibGit2SharpException("Your local changes to the following files would be overwritten by checkout. Please commit your changes or stash them before you switch branches.");
+                }
+
+                Commands.Checkout(repo, branch);
             });
-            return true;
+            return GitOperationResult.CreateSuccess();
         }
-        catch (LibGit2SharpException)
+        catch (LibGit2SharpException ex)
         {
-            return false;
+            return GitOperationResult.CreateFailure($"Failed to checkout branch '{branchName}': {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return GitOperationResult.CreateFailure($"Unexpected error checking out branch '{branchName}': {ex.Message}");
         }
     }
 
@@ -482,7 +558,7 @@ public class GitService : IGitService
                 var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
                 var pullOptions = new PullOptions();
 
-                LibGit2Sharp.Commands.Pull(repo, signature, pullOptions);
+                Commands.Pull(repo, signature, pullOptions);
             });
             return true;
         }
@@ -529,7 +605,7 @@ public class GitService : IGitService
                 if (remote != null)
                 {
                     var refSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
-                    LibGit2Sharp.Commands.Fetch(repo, remote.Name, refSpecs, null, null);
+                    Commands.Fetch(repo, remote.Name, refSpecs, null, null);
                 }
             });
             return true;

@@ -244,10 +244,12 @@ public sealed partial class ConsolePage : Page
         try
         {
             // Handle enhanced Git commands with LibGit2Sharp
-            var parts = command.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) return null;
 
-            switch (parts[0])
+            string gitCommand = parts[0].ToLower();
+
+            switch (gitCommand)
             {
                 case "status":
                     return await HandleGitStatus();
@@ -353,18 +355,22 @@ public sealed partial class ConsolePage : Page
             return result;
         }
 
-        bool success = parts[1] == "." || parts[1] == "-A"
+        var addResult = parts[1] == "." || parts[1] == "-A"
             ? await _gitService.StageAllAsync()
             : await _gitService.StageFileAsync(parts[1]);
 
-        if (success)
+        if (addResult.Success)
         {
             AddOutputLine($"Added {(parts[1] == "." ? "all files" : parts[1])} to staging area", "#90EE90");
+            if (!string.IsNullOrEmpty(addResult.WarningMessage))
+            {
+                AddOutputLine($"Warning: {addResult.WarningMessage}", "#FFAA00");
+            }
             result.Success = true;
         }
         else
         {
-            AddOutputLine($"Failed to add {parts[1]}", "#FF6B6B");
+            AddOutputLine($"Failed to add {parts[1]}: {addResult.ErrorMessage}", "#FF6B6B");
             result.Success = false;
         }
 
@@ -385,16 +391,16 @@ public sealed partial class ConsolePage : Page
         }
 
         string message = messageMatch.Groups[1].Value;
-        bool success = await _gitService.CommitAsync(message);
+        var commitResult = await _gitService.CommitAsync(message);
 
-        if (success)
+        if (commitResult.Success)
         {
             AddOutputLine($"Committed changes: {message}", "#90EE90");
             result.Success = true;
         }
         else
         {
-            AddOutputLine("Failed to commit changes", "#FF6B6B");
+            AddOutputLine($"Failed to commit: {commitResult.ErrorMessage}", "#FF6B6B");
             result.Success = false;
         }
 
@@ -449,14 +455,14 @@ public sealed partial class ConsolePage : Page
         else if (parts.Length == 2)
         {
             // Create new branch
-            bool success = await _gitService.CreateBranchAsync(parts[1]);
-            if (success)
+            var createResult = await _gitService.CreateBranchAsync(parts[1]);
+            if (createResult.Success)
             {
                 AddOutputLine($"Created branch '{parts[1]}'", "#90EE90");
             }
             else
             {
-                AddOutputLine($"Failed to create branch '{parts[1]}'", "#FF6B6B");
+                AddOutputLine($"Failed to create branch '{parts[1]}': {createResult.ErrorMessage}", "#FF6B6B");
                 result.Success = false;
             }
         }
@@ -475,15 +481,15 @@ public sealed partial class ConsolePage : Page
             return result;
         }
 
-        bool success = await _gitService.CheckoutBranchAsync(parts[1]);
-        if (success)
+        var checkoutResult = await _gitService.CheckoutBranchAsync(parts[1]);
+        if (checkoutResult.Success)
         {
             AddOutputLine($"Switched to branch '{parts[1]}'", "#90EE90");
             result.Success = true;
         }
         else
         {
-            AddOutputLine($"Failed to checkout branch '{parts[1]}'", "#FF6B6B");
+            AddOutputLine($"Failed to checkout branch '{parts[1]}': {checkoutResult.ErrorMessage}", "#FF6B6B");
             result.Success = false;
         }
 
@@ -671,9 +677,18 @@ public sealed partial class ConsolePage : Page
         if (result.OutputLines.Length == 0 && result.ErrorLines.Length == 0 && result.Success)
             AddOutputLine("Command executed successfully.", "#90EE90");
 
+        // Only display ErrorMessage if it's different from what's already shown in ErrorLines
         if (!result.Success && !string.IsNullOrEmpty(result.ErrorMessage))
         {
-            AddOutputLine(result.ErrorMessage, "#FF6B6B");
+            bool errorMessageAlreadyShown = result.ErrorLines.Any(line =>
+                line.Contains(result.ErrorMessage, StringComparison.OrdinalIgnoreCase) ||
+                result.ErrorMessage.Contains(line, StringComparison.OrdinalIgnoreCase));
+
+            if (!errorMessageAlreadyShown)
+            {
+                AddOutputLine(result.ErrorMessage, "#FF6B6B");
+            }
+
             if (result.ErrorMessage.Contains("not installed", StringComparison.OrdinalIgnoreCase) ||
                 result.ErrorMessage.Contains("not found", StringComparison.OrdinalIgnoreCase))
                 AddOutputLine("Please install Git or ensure it's properly configured.", "#FFAA00");
