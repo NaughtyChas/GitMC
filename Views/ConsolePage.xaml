@@ -151,20 +151,37 @@
                     Padding="16,12">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="30" />
+                            <ColumnDefinition Width="30" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <!--  Command Prompt  -->
-                        <TextBlock
-                            FontFamily="Consolas"
-                            FontSize="13"
-                            Foreground="#00FF00"
+                        <FontIcon
+                            Glyph="&#xEC61;"
+                            Width="24"
+                            Height="24"
+                            VerticalAlignment="Center"
                             Grid.Column="0"
-                            Margin="0,0,8,0"
-                            Text="{local:Localize Key=Console_Prompt}"
-                            VerticalAlignment="Center" />
+                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                            x:Name="CommandStatusIcon" />
+                        
+                        <ProgressRing
+                            Visibility="Collapsed"
+                            IsActive="True"
+                            Width="24"
+                            Height="24"
+                            VerticalAlignment="Center"
+                            Grid.Column="0" 
+                            x:Name="CommandProgressRing" />
+                        
+                        <TextBlock 
+                            Visibility="Collapsed"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Grid.Column="1"
+                            x:Name="StatusCodeText" />
 
                         <!--  Command Input  -->
                         <TextBox
@@ -173,7 +190,8 @@
                             FontFamily="Consolas"
                             FontSize="13"
                             Foreground="White"
-                            Grid.Column="1"
+                            VerticalContentAlignment="Center"
+                            Grid.Column="2"
                             KeyDown="CommandInput_KeyDown"
                             PlaceholderForeground="#6B6B6B"
                             PlaceholderText="{local:Localize Key=Console_Placeholder}"
@@ -185,7 +203,7 @@
                             BorderThickness="0"
                             Click="ExecuteButton_Click"
                             CornerRadius="4"
-                            Grid.Column="2"
+                            Grid.Column="3"
                             Margin="8,0,0,0"
                             Padding="12,6"
                             x:Name="ExecuteButton">
