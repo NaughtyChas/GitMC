@@ -324,8 +324,8 @@
 
         <!--  Top Status Bar  -->
         <Border
-            Background="White"
-            BorderBrush="#E1E1E1"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="8"
             Grid.Row="0"
@@ -355,19 +355,11 @@
                     Spacing="32">
                     <!--  Total Saves  -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Border
-                            Background="#E3F2FD"
-                            CornerRadius="16"
-                            Height="32"
-                            VerticalAlignment="Center"
-                            Width="32">
-                            <FontIcon
-                                FontSize="16"
-                                Foreground="#1976D2"
-                                Glyph="&#xE8B7;"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center" />
-                        </Border>
+                        <FontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            Glyph="&#xE8B7;"
+                            VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock
                                 FontSize="16"
@@ -383,19 +375,11 @@
 
                     <!--  Saves with Changes  -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Border
-                            Background="#FFF3E0"
-                            CornerRadius="16"
-                            Height="32"
-                            VerticalAlignment="Center"
-                            Width="32">
-                            <FontIcon
-                                FontSize="16"
-                                Foreground="#F57C00"
-                                Glyph="&#xE70F;"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center" />
-                        </Border>
+                        <FontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                            Glyph="&#xE70F;"
+                            VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock
                                 FontSize="16"
@@ -411,19 +395,11 @@
 
                     <!--  Remote Updates  -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Border
-                            Background="#E8F5E8"
-                            CornerRadius="16"
-                            Height="32"
-                            VerticalAlignment="Center"
-                            Width="32">
-                            <FontIcon
-                                FontSize="16"
-                                Foreground="#388E3C"
-                                Glyph="&#xE896;"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center" />
-                        </Border>
+                        <FontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                            Glyph="&#xE896;"
+                            VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock
                                 FontSize="16"
@@ -439,19 +415,11 @@
 
                     <!--  Git Status  -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Border
-                            Background="#F3E5F5"
-                            CornerRadius="16"
-                            Height="32"
-                            VerticalAlignment="Center"
-                            Width="32">
-                            <FontIcon
-                                FontSize="16"
-                                Foreground="#7B1FA2"
-                                Glyph="&#xE774;"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center" />
-                        </Border>
+                        <FontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource AccentTextFillColorSecondaryBrush}"
+                            Glyph="&#xE774;"
+                            VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock
                                 FontSize="16"
@@ -467,19 +435,11 @@
 
                     <!--  Total Size  -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Border
-                            Background="#FCE4EC"
-                            CornerRadius="16"
-                            Height="32"
+                        <ImageIcon
+                            Height="20"
+                            Source="../Assets/Icons/db.svg"
                             VerticalAlignment="Center"
-                            Width="32">
-                            <ImageIcon
-                                Height="16"
-                                HorizontalAlignment="Center"
-                                Source="../Assets/Icons/db.svg"
-                                VerticalAlignment="Center"
-                                Width="16" />
-                        </Border>
+                            Width="20" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock
                                 FontSize="16"
@@ -517,8 +477,8 @@
 
             <!--  Left Panel - Your Saves  -->
             <Border
-                Background="White"
-                BorderBrush="#E1E1E1"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="12"
                 Grid.Column="0"
@@ -615,8 +575,8 @@
 
                         <!--  Quick Actions Panel  -->
                         <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="12"
                             Grid.Row="0"
@@ -732,7 +692,7 @@
                                                 </StackPanel>
                                             </StackPanel>
                                             <Border
-                                                Background="#FF6B6B"
+                                                Background="{ThemeResource SystemFillColorCriticalBrush}"
                                                 CornerRadius="10"
                                                 Height="20"
                                                 HorizontalAlignment="Right"
@@ -783,7 +743,7 @@
                                                 </StackPanel>
                                             </StackPanel>
                                             <Border
-                                                Background="#4CAF50"
+                                                Background="{ThemeResource SystemFillColorSuccessBrush}"
                                                 CornerRadius="10"
                                                 Height="20"
                                                 HorizontalAlignment="Right"
@@ -808,8 +768,8 @@
 
                         <!--  Recent Activity Panel  -->
                         <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="12"
                             Grid.Row="2"
@@ -851,12 +811,12 @@
 
         <!--  Loading Panel  -->
         <Grid
-            Background="#80000000"
+            Background="{ThemeResource SystemFillColorSolidNeutralBackgroundBrush}"
             Grid.RowSpan="2"
             Visibility="Collapsed"
             x:Name="LoadingPanel">
             <Border
-                Background="White"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 CornerRadius="8"
                 Height="120"
                 HorizontalAlignment="Center"
