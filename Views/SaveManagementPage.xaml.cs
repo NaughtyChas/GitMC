@@ -26,6 +26,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private readonly NbtService _nbtService;
     private readonly IOnboardingService _onboardingService;
     private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
+    private readonly ManagedSaveService _managedSaveService;
 
     public SaveManagementPage()
     {
@@ -36,6 +37,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         _dataStorageService = new DataStorageService();
         _onboardingService = new OnboardingService(_gitService, _configurationService);
         _minecraftAnalyzerService = new MinecraftAnalyzerService(_nbtService);
+        _managedSaveService = new ManagedSaveService(_dataStorageService);
 
         DataContext = this;
         Loaded += SaveManagementPage_Loaded;
@@ -62,36 +64,13 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         try
         {
-            List<ManagedSaveInfo> managedSaves = await GetManagedSaves();
+            List<ManagedSaveInfo> managedSaves = await _managedSaveService.GetManagedSaves();
             PopulateSavesList(managedSaves);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to load managed saves: {ex.Message}");
         }
-    }
-
-    private async Task<List<ManagedSaveInfo>> GetManagedSaves()
-    {
-        var saves = new List<ManagedSaveInfo>();
-        string managedSavesPath = GetManagedSavesStoragePath();
-
-        if (!Directory.Exists(managedSavesPath)) return saves;
-
-        string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
-        foreach (string jsonFile in jsonFiles)
-            try
-            {
-                string json = await File.ReadAllTextAsync(jsonFile);
-                ManagedSaveInfo? saveInfo = JsonSerializer.Deserialize<ManagedSaveInfo>(json);
-                if (saveInfo != null) saves.Add(saveInfo);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to parse save info from {jsonFile}: {ex.Message}");
-            }
-
-        return saves.OrderByDescending(s => s.LastModified).ToList();
     }
 
     private void PopulateSavesList(List<ManagedSaveInfo> saves)
@@ -509,7 +488,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         try
         {
-            List<ManagedSaveInfo> managedSaves = await GetManagedSaves().ConfigureAwait(false);
+            List<ManagedSaveInfo> managedSaves = await _managedSaveService.GetManagedSaves().ConfigureAwait(false);
 
             // Update the statistics in the status bar
             var totalSavesCount = FindName("TotalSavesCount") as TextBlock;
@@ -701,11 +680,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         try
         {
-            string managedSavesPath = GetManagedSavesStoragePath();
-            if (!Directory.Exists(managedSavesPath)) return 0;
-
-            string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
-            return jsonFiles.Length;
+            return _managedSaveService.GetManagedSavesCount();
         }
         catch
         {
@@ -715,7 +690,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
     private string GetManagedSavesStoragePath()
     {
-        return _dataStorageService.GetManagedSavesDirectory();
+        return _managedSaveService.GetManagedSavesStoragePath();
     }
 
     // Event handlers
@@ -833,26 +808,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         try
         {
-            string managedSavesPath = GetManagedSavesStoragePath();
-
-            if (!Directory.Exists(managedSavesPath)) Directory.CreateDirectory(managedSavesPath);
-
-            string saveId = _minecraftAnalyzerService.GenerateSaveId(save.Name);
-            string saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
-
-            var saveInfo = new ManagedSaveInfo
-            {
-                Id = saveId,
-                Name = save.Name,
-                OriginalPath = save.Path,
-                AddedDate = DateTime.UtcNow,
-                LastModified = DateTime.UtcNow,
-                GitRepository = "",
-                IsGitInitialized = false
-            };
-
-            string json = JsonSerializer.Serialize(saveInfo, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(saveInfoPath, json);
+            await _managedSaveService.RegisterManagedSave(save);
         }
         catch (Exception ex)
         {
