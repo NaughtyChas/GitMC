@@ -1,249 +1,313 @@
 using System.ComponentModel;
-using Windows.Storage;
+using System.Diagnostics;
 
-namespace GitMC.Services
+namespace GitMC.Services;
+
+public class OnboardingService : IOnboardingService
 {
-    public class OnboardingService : IOnboardingService
+    private readonly IConfigurationService _configurationService;
+    private readonly IDataStorageService _dataStorageService;
+    private readonly IGitService _gitService;
+    private OnboardingStep[] _steps = Array.Empty<OnboardingStep>();
+
+    public OnboardingService(IGitService gitService, IConfigurationService configurationService)
     {
-        private readonly IGitService _gitService;
-        private int _currentStepIndex;
-        private OnboardingStepStatus[] _stepStatuses = Array.Empty<OnboardingStepStatus>();
-        private OnboardingStep[] _steps = Array.Empty<OnboardingStep>();
+        _gitService = gitService;
+        _configurationService = configurationService;
+        _dataStorageService = new DataStorageService();
+        InitializeSteps();
 
-        public event PropertyChangedEventHandler? PropertyChanged;
+        // Subscribe to configuration changes to update steps
+        _configurationService.ConfigurationChanged += OnConfigurationChanged;
+    }
 
-        public OnboardingService(IGitService gitService)
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    // Updated method for new configuration system
+    public async Task InitializeAsync()
+    {
+        await _configurationService.LoadAsync();
+        await RefreshAllSteps();
+    }
+
+    // Safe method to set configuration values
+    public async Task SetConfigurationValueAsync(string key, bool value)
+    {
+        switch (key)
         {
-            _gitService = gitService;
-            InitializeSteps();
+            case "LanguageConfigured":
+                _configurationService.IsLanguageConfigured = value;
+                break;
+            case "PlatformConfigured":
+                _configurationService.IsPlatformConfigured = value;
+                break;
+            case "SaveAdded":
+                _configurationService.IsSaveAdded = value;
+                break;
         }
 
-        private void InitializeSteps()
-        {
-            _steps = new[]
-            {
-                new OnboardingStep
-                {
-                    Title = "Configure GitMC",
-                    ShortDescription = "Set your preferred language",
-                    FullDescription = "Not your language? Decide GitMC display language at settings.",
-                    StatusChecker = CheckLanguageConfiguration
-                },
-                new OnboardingStep
-                {
-                    Title = "Install Git",
-                    ShortDescription = "Git version control system",
-                    FullDescription = "Git is required for version control functionality.",
-                    StatusChecker = CheckGitInstallation
-                },
-                new OnboardingStep
-                {
-                    Title = "Configure Git",
-                    ShortDescription = "Mark your changes in the Git system",
-                    FullDescription = "In order to make your save works with version control, you have to provide your credentials. If you wish to connect to any code hosting platform, fill in your platform email and username here.",
-                    StatusChecker = CheckGitConfiguration
-                },
-                new OnboardingStep
-                {
-                    Title = "Connect to Code-Hosting Platform",
-                    ShortDescription = "Optional cloud sync setup",
-                    FullDescription = "Save and sync your save on cloud, you can choose which platform to use, or use GitMC locally.",
-                    StatusChecker = CheckPlatformConnection
-                },
-                new OnboardingStep
-                {
-                    Title = "Add Your Save",
-                    ShortDescription = "Start managing your worlds",
-                    FullDescription = "Now you can manage your save with versioning control! Add your first save or add a Minecraft version folder.",
-                    StatusChecker = CheckSaveAdded
-                }
-            };
+        // Ensure configuration is immediately saved to file
+        await _configurationService.SaveAsync();
 
-            _stepStatuses = new OnboardingStepStatus[_steps.Length];
-            for (int i = 0; i < _stepStatuses.Length; i++)
+        // Refresh steps after configuration change
+        await RefreshAllSteps();
+    }
+
+    // Legacy method kept for compatibility - now just delegates
+    public async Task RefreshApplicationDataCacheAsync()
+    {
+        // No longer needed with file-based configuration
+        await RefreshAllSteps();
+    }
+
+    // Synchronous version for backward compatibility
+    public void SetConfigurationValue(string key, bool value)
+    {
+        _ = SetConfigurationValueAsync(key, value);
+    }
+
+    // Synchronous version for backward compatibility
+    public void RefreshApplicationDataCache()
+    {
+        _ = RefreshApplicationDataCacheAsync();
+    }
+
+    public bool IsOnboardingComplete =>
+        StepStatuses.Length > 0 &&
+        Array.TrueForAll(StepStatuses, status => status == OnboardingStepStatus.Completed);
+
+    public int CurrentStepIndex { get; private set; }
+
+    public OnboardingStepStatus[] StepStatuses { get; private set; } = Array.Empty<OnboardingStepStatus>();
+
+    public bool IsFirstLaunch => !_configurationService.IsFirstLaunchComplete;
+
+    public void MarkFirstLaunchComplete()
+    {
+        _configurationService.IsFirstLaunchComplete = true;
+    }
+
+    public async Task<bool> CheckStepStatus(int stepIndex)
+    {
+        if (stepIndex < 0 || stepIndex >= _steps.Length)
+            return false;
+
+        try
+        {
+            return await _steps[stepIndex].StatusChecker();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task CompleteStep(int stepIndex)
+    {
+        if (stepIndex < 0 || stepIndex >= StepStatuses.Length)
+            return;
+
+        StepStatuses[stepIndex] = OnboardingStepStatus.Completed;
+
+        // Refresh all steps to check actual conditions and update current step
+        await RefreshAllSteps();
+    }
+
+    public async Task MoveToNextStep()
+    {
+        // Find next incomplete step
+        for (int i = CurrentStepIndex + 1; i < StepStatuses.Length; i++)
+            if (StepStatuses[i] != OnboardingStepStatus.Completed)
             {
-                _stepStatuses[i] = i == 0 ? OnboardingStepStatus.Current : OnboardingStepStatus.NotStarted;
+                // Mark previous step as completed if it's verified
+                if (await CheckStepStatus(CurrentStepIndex))
+                    StepStatuses[CurrentStepIndex] = OnboardingStepStatus.Completed;
+
+                CurrentStepIndex = i;
+                StepStatuses[i] = OnboardingStepStatus.Current;
+                break;
+            }
+
+        NotifyPropertyChanged(nameof(CurrentStepIndex));
+        NotifyPropertyChanged(nameof(StepStatuses));
+        NotifyPropertyChanged(nameof(IsOnboardingComplete));
+    }
+
+    public async Task RefreshAllSteps()
+    {
+        bool hasChanges = false;
+
+        // First pass: Update completion status based on actual conditions
+        for (int i = 0; i < _steps.Length; i++)
+        {
+            bool isComplete = await CheckStepStatus(i);
+
+            if (isComplete && StepStatuses[i] != OnboardingStepStatus.Completed)
+            {
+                StepStatuses[i] = OnboardingStepStatus.Completed;
+                hasChanges = true;
             }
         }
 
-        public bool IsOnboardingComplete => 
-            _stepStatuses.Length > 0 && 
-            Array.TrueForAll(_stepStatuses, status => status == OnboardingStepStatus.Completed);
-
-        public int CurrentStepIndex => _currentStepIndex;
-
-        public OnboardingStepStatus[] StepStatuses => _stepStatuses;
-
-        public bool IsFirstLaunch
-        {
-            get
+        // Second pass: Find the current step (first non-completed step)
+        int newCurrentStep = -1;
+        for (int i = 0; i < StepStatuses.Length; i++)
+            if (StepStatuses[i] != OnboardingStepStatus.Completed)
             {
-                try
-                {
-                    var localSettings = ApplicationData.Current.LocalSettings;
-                    return !localSettings.Values.ContainsKey("FirstLaunchComplete");
-                }
-                catch
-                {
-                    return true;
-                }
+                newCurrentStep = i;
+                break;
+            }
+
+        // Update current step if needed
+        if (newCurrentStep != -1)
+        {
+            if (CurrentStepIndex != newCurrentStep)
+            {
+                // Clear old current step
+                if (CurrentStepIndex < StepStatuses.Length &&
+                    StepStatuses[CurrentStepIndex] == OnboardingStepStatus.Current)
+                    StepStatuses[CurrentStepIndex] = OnboardingStepStatus.NotStarted;
+
+                CurrentStepIndex = newCurrentStep;
+                hasChanges = true;
+            }
+
+            if (StepStatuses[newCurrentStep] != OnboardingStepStatus.Current)
+            {
+                StepStatuses[newCurrentStep] = OnboardingStepStatus.Current;
+                hasChanges = true;
             }
         }
 
-        public void MarkFirstLaunchComplete()
+        if (hasChanges)
         {
-            try
-            {
-                var localSettings = ApplicationData.Current.LocalSettings;
-                localSettings.Values["FirstLaunchComplete"] = true;
-            }
-            catch { }
-        }
-
-        public async Task<bool> CheckStepStatus(int stepIndex)
-        {
-            if (stepIndex < 0 || stepIndex >= _steps.Length)
-                return false;
-
-            try
-            {
-                return await _steps[stepIndex].StatusChecker();
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        public async Task CompleteStep(int stepIndex)
-        {
-            if (stepIndex < 0 || stepIndex >= _stepStatuses.Length)
-                return;
-
-            _stepStatuses[stepIndex] = OnboardingStepStatus.Completed;
-            
-            // Move to next step if current
-            if (stepIndex == _currentStepIndex)
-            {
-                await MoveToNextStep();
-            }
-
-            NotifyPropertyChanged(nameof(StepStatuses));
-            NotifyPropertyChanged(nameof(IsOnboardingComplete));
-        }
-
-        public async Task MoveToNextStep()
-        {
-            // Find next incomplete step
-            for (int i = _currentStepIndex + 1; i < _stepStatuses.Length; i++)
-            {
-                if (_stepStatuses[i] != OnboardingStepStatus.Completed)
-                {
-                    // Mark previous step as completed if it's verified
-                    if (await CheckStepStatus(_currentStepIndex))
-                    {
-                        _stepStatuses[_currentStepIndex] = OnboardingStepStatus.Completed;
-                    }
-
-                    _currentStepIndex = i;
-                    _stepStatuses[i] = OnboardingStepStatus.Current;
-                    break;
-                }
-            }
-
             NotifyPropertyChanged(nameof(CurrentStepIndex));
             NotifyPropertyChanged(nameof(StepStatuses));
             NotifyPropertyChanged(nameof(IsOnboardingComplete));
         }
+    }
 
-        public async Task RefreshAllSteps()
+    private async void OnConfigurationChanged(object? sender, string key)
+    {
+        try
         {
-            bool hasChanges = false;
-
-            for (int i = 0; i < _steps.Length; i++)
-            {
-                bool isComplete = await CheckStepStatus(i);
-                var expectedStatus = isComplete ? OnboardingStepStatus.Completed : 
-                                   i == _currentStepIndex ? OnboardingStepStatus.Current : 
-                                   OnboardingStepStatus.NotStarted;
-
-                if (_stepStatuses[i] != expectedStatus)
-                {
-                    _stepStatuses[i] = expectedStatus;
-                    hasChanges = true;
-                }
-            }
-
-            if (hasChanges)
-            {
-                NotifyPropertyChanged(nameof(StepStatuses));
-                NotifyPropertyChanged(nameof(IsOnboardingComplete));
-            }
+            // When configuration changes, refresh the relevant step
+            await RefreshAllSteps();
         }
-
-        // Step-specific checkers
-        private Task<bool> CheckLanguageConfiguration()
+        catch (Exception ex)
         {
-            // Language is considered configured if it's been explicitly set
-            try
-            {
-                var localSettings = ApplicationData.Current.LocalSettings;
-                return Task.FromResult(localSettings.Values.ContainsKey("LanguageConfigured"));
-            }
-            catch
-            {
-                return Task.FromResult(false);
-            }
+            // Log the exception or handle it gracefully to prevent app crash
+            Debug.WriteLine($"Error in OnConfigurationChanged: {ex.Message}");
         }
+    }
 
-        private async Task<bool> CheckGitInstallation()
+    private void InitializeSteps()
+    {
+        _steps = new[]
         {
-            return await _gitService.IsInstalledAsync();
-        }
+            new OnboardingStep
+            {
+                Title = "Configure GitMC",
+                ShortDescription = "Set your preferred language",
+                FullDescription = "Not your language? Decide GitMC display language at settings.",
+                StatusChecker = CheckLanguageConfiguration
+            },
+            new OnboardingStep
+            {
+                Title = "Install Git",
+                ShortDescription = "Git version control system",
+                FullDescription = "Git is required for version control functionality.",
+                StatusChecker = CheckGitInstallation
+            },
+            new OnboardingStep
+            {
+                Title = "Configure Git",
+                ShortDescription = "Mark your changes in the Git system",
+                FullDescription =
+                    "In order to make your save works with version control, you have to provide your credentials. If you wish to connect to any code hosting platform, fill in your platform email and username here.",
+                StatusChecker = CheckGitConfiguration
+            },
+            new OnboardingStep
+            {
+                Title = "Connect to Code-Hosting Platform",
+                ShortDescription = "Optional cloud sync setup",
+                FullDescription =
+                    "Save and sync your save on cloud, you can choose which platform to use, or use GitMC locally.",
+                StatusChecker = CheckPlatformConnection
+            },
+            new OnboardingStep
+            {
+                Title = "Add Your Save",
+                ShortDescription = "Start managing your worlds",
+                FullDescription =
+                    "Now you can manage your save with versioning control! Add your first save or add a Minecraft version folder.",
+                StatusChecker = CheckSaveAdded
+            }
+        };
 
-        private async Task<bool> CheckGitConfiguration()
-        {
-            try
-            {
-                var (userName, userEmail) = await _gitService.GetIdentityAsync();
-                return !string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail);
-            }
-            catch
-            {
-                return false;
-            }
-        }
+        StepStatuses = new OnboardingStepStatus[_steps.Length];
+        for (int i = 0; i < StepStatuses.Length; i++)
+            StepStatuses[i] = i == 0 ? OnboardingStepStatus.Current : OnboardingStepStatus.NotStarted;
+    }
 
-        private Task<bool> CheckPlatformConnection()
-        {
-            // This is optional, so we'll consider it complete if user has chosen "local mode"
-            try
-            {
-                var localSettings = ApplicationData.Current.LocalSettings;
-                return Task.FromResult(localSettings.Values.ContainsKey("PlatformConfigured"));
-            }
-            catch
-            {
-                return Task.FromResult(false);
-            }
-        }
+    // Step-specific checkers
+    private Task<bool> CheckLanguageConfiguration()
+    {
+        return Task.FromResult(_configurationService.IsLanguageConfigured);
+    }
 
-        private Task<bool> CheckSaveAdded()
-        {
-            try
-            {
-                var localSettings = ApplicationData.Current.LocalSettings;
-                return Task.FromResult(localSettings.Values.ContainsKey("SaveAdded"));
-            }
-            catch
-            {
-                return Task.FromResult(false);
-            }
-        }
+    private async Task<bool> CheckGitInstallation()
+    {
+        return await _gitService.IsInstalledAsync();
+    }
 
-        private void NotifyPropertyChanged(string propertyName)
+    private async Task<bool> CheckGitConfiguration()
+    {
+        try
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            (string? userName, string? userEmail) = await _gitService.GetIdentityAsync();
+            return !string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail);
         }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private Task<bool> CheckPlatformConnection()
+    {
+        return Task.FromResult(_configurationService.IsPlatformConfigured);
+    }
+
+    private Task<bool> CheckSaveAdded()
+    {
+        // Check actual managed saves existence instead of just config flag
+        return Task.FromResult(HasActualManagedSaves());
+    }
+
+    private bool HasActualManagedSaves()
+    {
+        try
+        {
+            string managedSavesPath = GetManagedSavesStoragePath();
+            if (!Directory.Exists(managedSavesPath)) return false;
+
+            string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+            return jsonFiles.Length > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private string GetManagedSavesStoragePath()
+    {
+        return _dataStorageService.GetManagedSavesDirectory();
+    }
+
+    private void NotifyPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

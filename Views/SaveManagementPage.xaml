@@ -1,0 +1,932 @@
+<Page
+    Background="{ThemeResource LayerFillColorDefaultBrush}"
+    FontFamily="{StaticResource AppFontFamily}"
+    UseLayoutRounding="True"
+    mc:Ignorable="d"
+    x:Class="GitMC.Views.SaveManagementPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:GitMC.Models"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Page.Resources>
+
+        <!--  Save Card GridView Item Style  -->
+        <Style TargetType="GridViewItem" x:Key="SaveCardGridViewItemStyle">
+            <Setter Property="Margin" Value="0,0,0,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
+
+        <!--  Save Card Data Template  -->
+        <DataTemplate x:DataType="models:ManagedSaveInfo" x:Key="SaveCardDataTemplate">
+            <Border
+                Background="{ThemeResource SystemControlBackgroundAltHighBrush}"
+                BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1"
+                CornerRadius="12"
+                HorizontalAlignment="Stretch"
+                Margin="0,0,0,12"
+                Padding="16"
+                UseLayoutRounding="True">
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Always visible header section -->
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!--  Folder icon with rounded background  -->
+                        <Border
+                            Background="#E3F2FD"
+                            BorderBrush="#C8E6FA"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Grid.Column="0"
+                            Height="40"
+                            Margin="0,0,12,0"
+                            UseLayoutRounding="True"
+                            Width="40">
+                            <FontIcon
+                                FontSize="18"
+                                Foreground="#2196F3"
+                                Glyph="&#xE8B7;"
+                                HorizontalAlignment="Center"
+                                UseLayoutRounding="True"
+                                VerticalAlignment="Center" />
+                        </Border>
+
+                        <!--  Title and path section  -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Margin="0,0,0,4"
+                                Text="{x:Bind Name}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="Wrap"
+                                UseLayoutRounding="True" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                                Text="{x:Bind OriginalPath}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="Wrap"
+                                UseLayoutRounding="True" />
+                        </StackPanel>
+
+                        <!--  Open button (always visible)  -->
+                        <Button
+                            Click="SaveCard_OpenButton_Click"
+                            Content="Open"
+                            Grid.Column="2"
+                            Height="32"
+                            MinWidth="60"
+                            Style="{ThemeResource AccentButtonStyle}"
+                            Tag="{x:Bind}"
+                            UseLayoutRounding="True"
+                            VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- Conditional content based on Git initialization status -->
+                    <Grid Grid.Row="1" Margin="0,16,0,0">
+                        <!-- Setup state when Git is not initialized -->
+                        <StackPanel x:Name="SetupSection" Spacing="16" Visibility="{x:Bind IsGitInitialized, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                            <StackPanel Spacing="8">
+                                <TextBlock
+                                    FontSize="16"
+                                    FontWeight="SemiBold"
+                                    Text="Setting up your save"
+                                    UseLayoutRounding="True" />
+                                <TextBlock
+                                    FontSize="13"
+                                    Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                                    Text="Initialize Git version control to track changes, create backups, and sync across devices. This will enable powerful features like change history, conflict resolution, and collaborative editing."
+                                    TextWrapping="Wrap"
+                                    UseLayoutRounding="True" />
+                            </StackPanel>
+
+                            <!-- Initialize Git button with loading state -->
+                            <Grid>
+                                <Button
+                                    x:Name="InitializeButton"
+                                    Background="#E3F2FD"
+                                    BorderBrush="#2196F3"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Height="40"
+                                    HorizontalAlignment="Stretch"
+                                    Padding="16,8"
+                                    Click="InitializeGitButton_Click"
+                                    Tag="{x:Bind}"
+                                    UseLayoutRounding="True">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                        <FontIcon
+                                            FontSize="16"
+                                            Foreground="#2196F3"
+                                            Glyph="&#xE774;"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Foreground="#2196F3"
+                                            Text="Initialize Git"
+                                            VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Loading state overlay -->
+                                <Border
+                                    x:Name="LoadingOverlay"
+                                    Background="#E3F2FD"
+                                    BorderBrush="#2196F3"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Height="40"
+                                    HorizontalAlignment="Stretch"
+                                    Visibility="Collapsed">
+                                    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+                                        <ProgressRing
+                                            Height="20"
+                                            Width="20"
+                                            Foreground="#2196F3"
+                                            IsActive="True" />
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Foreground="#2196F3"
+                                            Text="Initializing Git..."
+                                            VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Full save info when Git is initialized -->
+                        <Grid x:Name="SaveInfoSection" Visibility="{x:Bind IsGitInitialized, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!--  Status badge  -->
+                            <Border
+                                Background="#FFF4CE"
+                                BorderBrush="#F7E018"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Grid.Row="0"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,16"
+                                Padding="8,4,8,4"
+                                UseLayoutRounding="True">
+                                <TextBlock
+                                    FontSize="10"
+                                    FontWeight="SemiBold"
+                                    Foreground="#8A6914"
+                                    Text="modified"
+                                    UseLayoutRounding="True" />
+                            </Border>
+
+                            <!--  General information display  -->
+                            <Grid Grid.Row="1" Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!--  Branch info  -->
+                                <StackPanel
+                                    Grid.Column="0"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                                    <Image
+                                        Height="16"
+                                        Margin="0,0,8,0"
+                                        Source="ms-appx:///Assets/Icons/branch_grey.svg"
+                                        UseLayoutRounding="True"
+                                        VerticalAlignment="Center"
+                                        Width="16" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontSize="11"
+                                            Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                                            Margin="0,0,0,2"
+                                            Text="Branch"
+                                            UseLayoutRounding="True" />
+                                        <TextBlock
+                                            FontSize="13"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource SystemControlForegroundBaseHighBrush}"
+                                            Text="{x:Bind Branch}"
+                                            UseLayoutRounding="True" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!--  Size info  -->
+                                <StackPanel
+                                    Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                                    <Image
+                                        Height="16"
+                                        Margin="0,0,8,0"
+                                        Source="ms-appx:///Assets/Icons/db_grey.svg"
+                                        UseLayoutRounding="True"
+                                        VerticalAlignment="Center"
+                                        Width="16" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontSize="11"
+                                            Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                                            Margin="0,0,0,2"
+                                            Text="Size"
+                                            UseLayoutRounding="True" />
+                                        <TextBlock
+                                            FontSize="13"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource SystemControlForegroundBaseHighBrush}"
+                                            Text="{x:Bind SizeFormatted}"
+                                            UseLayoutRounding="True" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!--  Commits info  -->
+                                <StackPanel
+                                    Grid.Column="2"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                                    <Image
+                                        Height="16"
+                                        Margin="0,0,8,0"
+                                        Source="ms-appx:///Assets/Icons/commit_grey.svg"
+                                        UseLayoutRounding="True"
+                                        VerticalAlignment="Center"
+                                        Width="16" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontSize="11"
+                                            Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                                            Margin="0,0,0,2"
+                                            Text="Commits"
+                                            UseLayoutRounding="True" />
+                                        <TextBlock
+                                            FontSize="13"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource SystemControlForegroundBaseHighBrush}"
+                                            Text="{x:Bind CommitCount}"
+                                            UseLayoutRounding="True" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!--  Modified info  -->
+                                <StackPanel
+                                    Grid.Column="3"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                                    <FontIcon
+                                        FontSize="16"
+                                        Foreground="#605E5C"
+                                        Glyph="&#xE823;"
+                                        Margin="0,0,8,0"
+                                        UseLayoutRounding="True"
+                                        VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontSize="11"
+                                            Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                                            Margin="0,0,0,2"
+                                            Text="Modified"
+                                            UseLayoutRounding="True" />
+                                        <TextBlock
+                                            FontSize="13"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource SystemControlForegroundBaseHighBrush}"
+                                            Text="{x:Bind LastModifiedFormatted}"
+                                            UseLayoutRounding="True" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+
+                            <!--  Separator  -->
+                            <Border
+                                Background="#E1E1E1"
+                                Grid.Row="2"
+                                Height="1"
+                                Margin="0,0,0,16" />
+
+                            <!--  Git status section  -->
+                            <StackPanel
+                                Grid.Row="3"
+                                Orientation="Horizontal"
+                                Spacing="12">
+                                <TextBlock
+                                    FontSize="14"
+                                    FontWeight="SemiBold"
+                                    Text="Git Status:"
+                                    UseLayoutRounding="True" />
+
+                                <!--  Push badge  -->
+                                <Border
+                                    Background="#E6F3FF"
+                                    BorderBrush="#0078D4"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="8,4,8,4"
+                                    UseLayoutRounding="True">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <FontIcon
+                                            FontSize="10"
+                                            Foreground="#0078D4"
+                                            Glyph="&#xE898;"
+                                            Margin="0,0,4,0"
+                                            UseLayoutRounding="True"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            FontSize="10"
+                                            FontWeight="SemiBold"
+                                            Foreground="#0078D4"
+                                            Text="{x:Bind PendingPushCount}"
+                                            UseLayoutRounding="True"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            FontSize="10"
+                                            FontWeight="SemiBold"
+                                            Foreground="#0078D4"
+                                            Text=" to push"
+                                            UseLayoutRounding="True"
+                                            VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!--  Pull badge  -->
+                                <Border
+                                    Background="#E6F3FF"
+                                    BorderBrush="#0078D4"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="8,4,8,4"
+                                    UseLayoutRounding="True">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <FontIcon
+                                            FontSize="10"
+                                            Foreground="#0078D4"
+                                            Glyph="&#xE896;"
+                                            Margin="0,0,4,0"
+                                            UseLayoutRounding="True"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            FontSize="10"
+                                            FontWeight="SemiBold"
+                                            Foreground="#0078D4"
+                                            Text="{x:Bind PendingPullCount}"
+                                            UseLayoutRounding="True"
+                                            VerticalAlignment="Center" />
+                                        <TextBlock
+                                            FontSize="10"
+                                            FontWeight="SemiBold"
+                                            Foreground="#0078D4"
+                                            Text=" to pull"
+                                            UseLayoutRounding="True"
+                                            VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Top Status Bar  -->
+        <Border
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Grid.Row="0"
+            Margin="24,24,24,16"
+            Padding="20">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!--  Title  -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock
+                        FontSize="20"
+                        FontWeight="SemiBold"
+                        Text="Dashboard"
+                        VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!--  Project Status Stats  -->
+                <StackPanel
+                    Grid.Column="1"
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="32">
+                    <!--  Total Saves  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            Glyph="&#xE8B7;"
+                            VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.SaveCount, Mode=OneWay}"
+                                x:Name="TotalSavesCount" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Saves" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--  Saves with Changes  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                            Glyph="&#xE70F;"
+                            VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="0"
+                                x:Name="SavesWithChangesCount" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Changed" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--  Remote Updates  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                            Glyph="&#xE896;"
+                            VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="0"
+                                x:Name="RemoteUpdatesCount" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Updates" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--  Git Status  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon
+                            FontSize="16"
+                            Foreground="{ThemeResource AccentTextFillColorSecondaryBrush}"
+                            Glyph="&#xE774;"
+                            VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="Ready"
+                                x:Name="GitStatusText" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Git Status" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--  Total Size  -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ImageIcon
+                            Height="20"
+                            Source="../Assets/Icons/db.svg"
+                            VerticalAlignment="Center"
+                            Width="20" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.TotalSizeText, Mode=OneWay}"
+                                x:Name="TotalSizeText" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Total Size" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  Add Save Button  -->
+                <Button
+                    Click="AddSaveButton_Click"
+                    Grid.Column="2"
+                    Style="{StaticResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="14" Glyph="&#xE710;" />
+                        <TextBlock Text="Add Save" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!--  Main Content Layout  -->
+        <Grid Grid.Row="1" Margin="24,0,24,24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.5*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="320" />
+            </Grid.ColumnDefinitions>
+
+            <!--  Left Panel - Your Saves  -->
+            <Border
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Grid.Column="0"
+                Padding="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!--  Header with Actions  -->
+                    <Grid Grid.Row="0" Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <FontIcon
+                                FontSize="18"
+                                Glyph="&#xE8B7;"
+                                Margin="0,0,12,0"
+                                VerticalAlignment="Center" />
+                            <TextBlock
+                                FontSize="18"
+                                FontWeight="SemiBold"
+                                Text="Your Saves"
+                                VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <StackPanel
+                            Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button Click="SyncAllButton_Click" ToolTipService.ToolTip="Sync All Saves">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon FontSize="12" Glyph="&#xE895;" />
+                                    <TextBlock FontSize="12" Text="Sync All" />
+                                </StackPanel>
+                            </Button>
+                            <Button Click="PushAllButton_Click" ToolTipService.ToolTip="Push All Changes">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon FontSize="12" Glyph="&#xE898;" />
+                                    <TextBlock FontSize="12" Text="Push All" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!--  Save Count Info  -->
+                    <TextBlock
+                        FontSize="14"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Grid.Row="1"
+                        Margin="0,0,0,16"
+                        Text="{x:Bind ViewModel.SaveCountText, Mode=OneWay}"
+                        x:Name="SaveCountInfo" />
+
+                    <!--  Saves Grid  -->
+                    <ScrollViewer
+                        Grid.Row="2"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+                        <GridView
+                            HorizontalContentAlignment="Stretch"
+                            ItemContainerStyle="{StaticResource SaveCardGridViewItemStyle}"
+                            ItemTemplate="{StaticResource SaveCardDataTemplate}"
+                            ItemsSource="{x:Bind ViewModel.ManagedSaves}"
+                            SelectionMode="None"
+                            x:Name="SavesGridView">
+                            <GridView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Vertical" />
+                                </ItemsPanelTemplate>
+                            </GridView.ItemsPanel>
+                        </GridView>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!--  Right Sidebar - Quick Actions & Recent Activity  -->
+            <Grid Grid.Column="2">
+                <ScrollViewer
+                    HorizontalScrollBarVisibility="Disabled"
+                    Padding="0,0,8,0"
+                    VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="16" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!--  Quick Actions Panel  -->
+                        <Border
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Grid.Row="0"
+                            Padding="20">
+                            <StackPanel>
+                                <!--  Quick Actions Header  -->
+                                <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
+                                    <FontIcon
+                                        FontSize="16"
+                                        Glyph="&#xE945;"
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center" />
+                                    <TextBlock
+                                        FontSize="16"
+                                        FontWeight="SemiBold"
+                                        Text="Quick Actions"
+                                        VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <!--  Action Buttons  -->
+                                <StackPanel Spacing="8">
+                                    <Button
+                                        Click="CommitAllButton_Click"
+                                        Height="60"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="12,0,0,0"
+                                        x:Name="CommitAllButton">
+                                        <StackPanel
+                                            HorizontalAlignment="Left"
+                                            Margin="16,0,12,0"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                            <ImageIcon
+                                                Height="16"
+                                                Margin="0,0,12,0"
+                                                Source="../Assets/Icons/commit.svg"
+                                                VerticalAlignment="Center"
+                                                Width="16" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    FontWeight="SemiBold"
+                                                    Text="Commit All Changes" />
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Margin="0,2,0,0"
+                                                    Text="Save current changes to Git" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button
+                                        Click="FetchAllButton_Click"
+                                        Height="60"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="12,0,0,0"
+                                        x:Name="FetchAllButton">
+                                        <StackPanel
+                                            HorizontalAlignment="Left"
+                                            Margin="16,0,12,0"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                            <FontIcon
+                                                FontSize="16"
+                                                Glyph="&#xE895;"
+                                                Margin="0,0,12,0"
+                                                VerticalAlignment="Center" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    FontWeight="SemiBold"
+                                                    Text="Fetch All Changes" />
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Margin="0,2,0,0"
+                                                    Text="Check updates from remote repo" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button
+                                        Click="PullAllButton_Click"
+                                        Height="60"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="12,0,0,0"
+                                        x:Name="PullAllButton">
+                                        <Grid>
+                                            <StackPanel
+                                                HorizontalAlignment="Left"
+                                                Margin="16,0,12,0"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    FontSize="16"
+                                                    Glyph="&#xE896;"
+                                                    Margin="0,0,12,0"
+                                                    VerticalAlignment="Center" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock
+                                                        FontSize="14"
+                                                        FontWeight="SemiBold"
+                                                        Text="Pull All Changes" />
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Margin="0,2,0,0"
+                                                        Text="Apply updates from remote repo" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <Border
+                                                Background="{ThemeResource SystemFillColorCriticalBrush}"
+                                                CornerRadius="10"
+                                                Height="20"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,0,16,0"
+                                                MinWidth="20"
+                                                VerticalAlignment="Center"
+                                                Visibility="Collapsed"
+                                                x:Name="PullBadge">
+                                                <TextBlock
+                                                    FontSize="10"
+                                                    Foreground="White"
+                                                    HorizontalAlignment="Center"
+                                                    Text="0"
+                                                    VerticalAlignment="Center"
+                                                    x:Name="PullBadgeText" />
+                                            </Border>
+                                        </Grid>
+                                    </Button>
+
+                                    <Button
+                                        Click="PushAllButton_Click"
+                                        Height="60"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Padding="12,0,0,0"
+                                        x:Name="PushAllButtonSidebar">
+                                        <Grid>
+                                            <StackPanel
+                                                HorizontalAlignment="Left"
+                                                Margin="16,0,12,0"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    FontSize="16"
+                                                    Glyph="&#xE898;"
+                                                    Margin="0,0,12,0"
+                                                    VerticalAlignment="Center" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock
+                                                        FontSize="14"
+                                                        FontWeight="SemiBold"
+                                                        Text="Push All Changes" />
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Margin="0,2,0,0"
+                                                        Text="Upload local commits to remote" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <Border
+                                                Background="{ThemeResource SystemFillColorSuccessBrush}"
+                                                CornerRadius="10"
+                                                Height="20"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,0,16,0"
+                                                MinWidth="20"
+                                                VerticalAlignment="Center"
+                                                Visibility="Collapsed"
+                                                x:Name="PushBadge">
+                                                <TextBlock
+                                                    FontSize="10"
+                                                    Foreground="White"
+                                                    HorizontalAlignment="Center"
+                                                    Text="0"
+                                                    VerticalAlignment="Center"
+                                                    x:Name="PushBadgeText" />
+                                            </Border>
+                                        </Grid>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!--  Recent Activity Panel  -->
+                        <Border
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Grid.Row="2"
+                            Padding="20">
+                            <StackPanel>
+                                <!--  Recent Activity Header  -->
+                                <StackPanel Margin="0,0,0,16" Orientation="Horizontal">
+                                    <FontIcon
+                                        FontSize="16"
+                                        Glyph="&#xE823;"
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center" />
+                                    <TextBlock
+                                        FontSize="16"
+                                        FontWeight="SemiBold"
+                                        Text="Recent Activity"
+                                        VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <!--  Activity List  -->
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="10" x:Name="RecentActivityContainer">
+                                        <!--  Activity items will be populated dynamically  -->
+                                        <TextBlock
+                                            FontSize="13"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            HorizontalAlignment="Center"
+                                            Margin="0,20,0,0"
+                                            Text="No recent activity"
+                                            x:Name="NoActivityText" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!--  Loading Panel  -->
+        <Grid
+            Background="{ThemeResource SystemFillColorSolidNeutralBackgroundBrush}"
+            Grid.RowSpan="2"
+            Visibility="Collapsed"
+            x:Name="LoadingPanel">
+            <Border
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="8"
+                Height="120"
+                HorizontalAlignment="Center"
+                Padding="24"
+                VerticalAlignment="Center"
+                Width="300">
+                <StackPanel HorizontalAlignment="Center" Spacing="16">
+                    <ProgressBar IsIndeterminate="True" x:Name="LoadingProgressRing" />
+                    <TextBlock
+                        FontSize="14"
+                        HorizontalAlignment="Center"
+                        Text="Loading..." />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Page>

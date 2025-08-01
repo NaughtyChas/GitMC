@@ -29,6 +29,9 @@ project.assets.json
 # Rider
 .idea/
 
+# VS Code
+.vscode/
+
 # ReSharper
 _ReSharper*/
 *.[Rr]e[Ss]harper
@@ -44,3 +47,6 @@ TestData/
 # Misc
 *.pfx
 *.log
+
+# IntelliSense
+GlobalSuppressions.cs
