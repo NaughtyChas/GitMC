@@ -48,6 +48,31 @@ public class ManagedSaveService
     }
 
     /// <summary>
+    ///     Gets a specific managed save by ID
+    /// </summary>
+    /// <param name="saveId">Save ID to find</param>
+    /// <returns>Managed save information or null if not found</returns>
+    public async Task<ManagedSaveInfo?> GetSaveByIdAsync(string saveId)
+    {
+        try
+        {
+            string managedSavesPath = GetManagedSavesStoragePath();
+            string saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
+
+            if (!File.Exists(saveInfoPath))
+                return null;
+
+            string json = await File.ReadAllTextAsync(saveInfoPath);
+            return JsonSerializer.Deserialize<ManagedSaveInfo>(json);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to get save by ID {saveId}: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
     ///     Gets the count of managed saves
     /// </summary>
     /// <returns>Number of managed saves</returns>
@@ -82,8 +107,8 @@ public class ManagedSaveService
     /// </summary>
     /// <param name="save">Minecraft save to register</param>
     /// <param name="saveId">Optional custom save ID</param>
-    /// <returns>Task</returns>
-    public async Task RegisterManagedSave(MinecraftSave save, string? saveId = null)
+    /// <returns>The ID of the registered save</returns>
+    public async Task<string> RegisterManagedSave(MinecraftSave save, string? saveId = null)
     {
         try
         {
@@ -124,7 +149,8 @@ public class ManagedSaveService
             // Create JsonSerializerOptions that ignore UI properties
             var jsonOptions = new JsonSerializerOptions
             {
-                WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
             string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
@@ -133,6 +159,8 @@ public class ManagedSaveService
             Debug.WriteLine($"[RegisterManagedSave] About to write file to: {saveInfoPath}");
             await File.WriteAllTextAsync(saveInfoPath, json);
             Debug.WriteLine("[RegisterManagedSave] File written successfully!");
+
+            return actualSaveId;
         }
         catch (Exception ex)
         {

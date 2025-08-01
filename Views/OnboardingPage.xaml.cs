@@ -1,9 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.System;
 using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
@@ -11,6 +8,9 @@ using GitMC.Services;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.System;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -345,20 +345,22 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                 MinecraftSave? save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
-                    // Add to navigation in MainWindow
-                    if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);
-
-                    // Register this save in our managed saves system using the service
+                    // Register this save in our managed saves system using the service first
                     try
                     {
-                        await _managedSaveService.RegisterManagedSave(save);
+                        string saveId = await _managedSaveService.RegisterManagedSave(save);
+
+                        // Add to navigation in MainWindow with the generated save ID
+                        if (App.MainWindow is MainWindow mainWindow)
+                            mainWindow.AddSaveToNavigation(save.Name, saveId);
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Failed to register managed save: {ex.Message}");
-                        // Show warning but continue - save is still added to navigation
-                        FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Save Registration Warning",
-                            "The save was added but there was an issue registering it for management. You may need to add it again later.");
+                        // Show warning but continue - save registration failed
+                        FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Save Registration Error",
+                            "Failed to register the save for management. Please try adding it again.");
+                        return;
                     }
 
                     // Complete step 4 (save will be detected by OnboardingService automatically)
@@ -416,19 +418,22 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                 MinecraftSave? save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
-                    if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);
-
-                    // Register this save in our managed saves system using the service
+                    // Register this save in our managed saves system using the service first
                     try
                     {
-                        await _managedSaveService.RegisterManagedSave(save);
+                        string saveId = await _managedSaveService.RegisterManagedSave(save);
+
+                        // Add to navigation in MainWindow with the generated save ID
+                        if (App.MainWindow is MainWindow mainWindow)
+                            mainWindow.AddSaveToNavigation(save.Name, saveId);
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Failed to register managed save: {ex.Message}");
-                        // Show warning but continue - save is still added to navigation
-                        FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Save Registration Warning",
-                            "The save was added but there was an issue registering it for management. You may need to add it again later.");
+                        // Show warning but continue - save registration failed
+                        FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Save Registration Error",
+                            "Failed to register the save for management. Please try adding it again.");
+                        return;
                     }
 
                     // Complete step 4 (save will be detected by OnboardingService automatically)
