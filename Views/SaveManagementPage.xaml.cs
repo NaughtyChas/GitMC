@@ -84,17 +84,13 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private void SaveCard_OpenButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
-            try
+        {
+            // Navigate to SaveDetailPage instead of opening directory
+            if (App.MainWindow is MainWindow mainWindow)
             {
-                // Open the save directory in File Explorer
-                var psi = new ProcessStartInfo { FileName = saveInfo.OriginalPath, UseShellExecute = true };
-                Process.Start(psi);
+                mainWindow.NavigateToSaveDetail(saveInfo.Id);
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to open save directory: {ex.Message}");
-                // Could show error dialog here
-            }
+        }
     }
 
     private Border CreateSquaredSaveCard(ManagedSaveInfo saveInfo)
@@ -198,9 +194,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             MinWidth = 60,
             Style = Application.Current.Resources["AccentButtonStyle"] as Style,
             VerticalAlignment = VerticalAlignment.Center,
-            UseLayoutRounding = true
+            UseLayoutRounding = true,
+            Tag = saveInfo
         };
-        openButton.Click += (_, _) => ShowSaveActions(saveInfo);
+        openButton.Click += SaveCard_OpenButton_Click;
         Grid.SetColumn(openButton, 3);
 
         headerGrid.Children.Add(iconContainer);
@@ -732,11 +729,12 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 MinecraftSave? save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
-                    // Add to navigation in MainWindow
-                    if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);
+                    // Register this save in our managed saves system first
+                    string saveId = await RegisterManagedSave(save);
 
-                    // Register this save in our managed saves system
-                    await RegisterManagedSave(save);
+                    // Add to navigation in MainWindow with the generated save ID
+                    if (App.MainWindow is MainWindow mainWindow)
+                        mainWindow.AddSaveToNavigation(save.Name, saveId);
 
                     // Refresh the saves list and statistics
                     await LoadManagedSaves();
@@ -857,15 +855,16 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     }
 
     // Helper methods
-    private async Task RegisterManagedSave(MinecraftSave save)
+    private async Task<string> RegisterManagedSave(MinecraftSave save)
     {
         try
         {
-            await _managedSaveService.RegisterManagedSave(save);
+            return await _managedSaveService.RegisterManagedSave(save);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to register managed save: {ex.Message}");
+            throw;
         }
     }
 

@@ -1,13 +1,15 @@
 using System.Diagnostics;
-using Windows.Graphics;
 using GitMC.Models;
 using GitMC.Services;
 using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Graphics;
 
 namespace GitMC.Views;
 
-public partial class MainWindow
+public sealed partial class MainWindow : Window
 {
     private readonly IConfigurationService _configurationService;
     private readonly IDataStorageService _dataStorageService;
@@ -155,11 +157,18 @@ public partial class MainWindow
         ContentFrame.Navigate(pageType);
     }
 
-    public void AddSaveToNavigation(string saveName, string savePath)
+    public void NavigateToSaveDetail(string saveId)
+    {
+        ContentFrame.Navigate(typeof(SaveDetailPage), saveId);
+    }
+
+    public void AddSaveToNavigation(string saveName, string saveId)
     {
         NavView.MenuItems.Add(new NavigationViewItem
         {
-            Content = saveName, Icon = new SymbolIcon(Symbol.Folder), Tag = savePath
+            Content = saveName,
+            Icon = new SymbolIcon(Symbol.Folder),
+            Tag = saveId
         });
     }
 
@@ -168,7 +177,7 @@ public partial class MainWindow
         try
         {
             List<ManagedSaveInfo> managedSaves = await _managedSaveService.GetManagedSaves();
-            foreach (ManagedSaveInfo save in managedSaves) AddSaveToNavigation(save.Name, save.OriginalPath);
+            foreach (ManagedSaveInfo save in managedSaves) AddSaveToNavigation(save.Name, save.Id);
         }
         catch (Exception ex)
         {
@@ -205,7 +214,11 @@ public partial class MainWindow
                     if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
                         ContentFrame.Navigate(typeof(SettingsPage));
                 }
-                // Potentially handle save-specific navigation here
+                else if (!string.IsNullOrEmpty(tag))
+                {
+                    // Handle save-specific navigation - tag should be the save ID
+                    NavigateToSaveDetail(tag);
+                }
             }
         }
     }
@@ -238,7 +251,11 @@ public partial class MainWindow
                     if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
                         ContentFrame.Navigate(typeof(SettingsPage));
                 }
-                // Potentially handle save-specific navigation here
+                else if (!string.IsNullOrEmpty(tag))
+                {
+                    // Handle save-specific navigation - tag should be the save ID
+                    NavigateToSaveDetail(tag);
+                }
             }
         }
     }
