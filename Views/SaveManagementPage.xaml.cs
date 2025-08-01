@@ -1,9 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.UI;
 using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
@@ -14,6 +11,9 @@ using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.UI;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -257,7 +257,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var gitStatusHeader = new TextBlock
         {
-            Text = "Git Status:", FontSize = 14, FontWeight = FontWeights.SemiBold, UseLayoutRounding = true
+            Text = "Git Status:",
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            UseLayoutRounding = true
         };
         gitStatusPanel.Children.Add(gitStatusHeader);
 
@@ -282,7 +285,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
         };
 
         if (!string.IsNullOrEmpty(iconPath))
@@ -370,7 +374,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
         };
 
         var icon = new FontIcon
@@ -487,7 +492,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             var savesWithChangesCount = FindName("SavesWithChangesCount") as TextBlock;
             var remoteUpdatesCount = FindName("RemoteUpdatesCount") as TextBlock;
             var gitStatusText = FindName("GitStatusText") as TextBlock;
-            var totalSizeText = FindName("TotalSizeText") as TextBlock;
 
             // Switch to UI thread for updates
             DispatcherQueue.TryEnqueue(() =>
@@ -497,13 +501,13 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
                 if (savesWithChangesCount != null)
                 {
-                    int changesCount = 0;
+                    int changesCount = managedSaves.Count(s => s.HasPendingChanges);
                     savesWithChangesCount.Text = changesCount.ToString(CultureInfo.InvariantCulture);
                 }
 
                 if (remoteUpdatesCount != null)
                 {
-                    int updatesCount = 0;
+                    int updatesCount = managedSaves.Sum(s => s.PendingPullCount);
                     remoteUpdatesCount.Text = updatesCount.ToString(CultureInfo.InvariantCulture);
                 }
 
@@ -512,16 +516,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                     int gitInitializedSaves = managedSaves.Count(s => s.IsGitInitialized);
                     gitStatusText.Text = gitInitializedSaves > 0 ? "Ready" : "Not Configured";
                 }
-
-                if (totalSizeText != null)
-                    _ = Task.Run(async () =>
-                    {
-                        long totalSize = await CalculateTotalSize(managedSaves).ConfigureAwait(false);
-                        DispatcherQueue.TryEnqueue(() =>
-                        {
-                            totalSizeText.Text = CommonHelpers.FormatFileSize(totalSize);
-                        });
-                    });
 
                 // Update Quick Actions button states
                 UpdateQuickActionButtons(managedSaves);
@@ -771,10 +765,52 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         }
     }
 
-    private void InitializeGitButton_Click(object sender, RoutedEventArgs e)
+    private async void InitializeGitButton_Click(object sender, RoutedEventArgs e)
     {
-        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Git Initialization",
-            "Git initialization feature is coming soon!");
+        if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
+        {
+            try
+            {
+                // Show loading state
+                button.IsEnabled = false;
+                button.Content = "Initializing...";
+
+                // Initialize Git repository
+                bool success = await _gitService.InitializeRepositoryAsync(saveInfo.OriginalPath);
+                
+                if (success)
+                {
+                    // Update the save info to reflect Git initialization
+                    saveInfo.IsGitInitialized = true;
+                    await _managedSaveService.UpdateManagedSave(saveInfo);
+                    
+                    // Refresh the saves list to update UI
+                    await LoadManagedSaves();
+                    
+                    FlyoutHelper.ShowSuccessFlyout(button, "Git Initialized", 
+                        $"Git repository has been successfully initialized for '{saveInfo.Name}'!");
+                }
+                else
+                {
+                    FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Failed", 
+                        "Failed to initialize Git repository. Please try again.");
+                    
+                    // Reset button state
+                    button.IsEnabled = true;
+                    button.Content = "Initialize Git";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize Git: {ex.Message}");
+                FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Error", 
+                    $"An error occurred: {ex.Message}");
+                
+                // Reset button state
+                button.IsEnabled = true;
+                button.Content = "Initialize Git";
+            }
+        }
     }
 
     private void SyncAllButton_Click(object sender, RoutedEventArgs e)
