@@ -1,12 +1,12 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Text.Json;
 using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
 using GitMC.Utils;
+using GitMC.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Media;
@@ -28,6 +28,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
     private readonly ManagedSaveService _managedSaveService;
 
+    public SaveManagementViewModel ViewModel { get; }
+
     public SaveManagementPage()
     {
         InitializeComponent();
@@ -39,6 +41,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         _minecraftAnalyzerService = new MinecraftAnalyzerService(_nbtService);
         _managedSaveService = new ManagedSaveService(_dataStorageService);
 
+        ViewModel = new SaveManagementViewModel();
         DataContext = this;
         Loaded += SaveManagementPage_Loaded;
     }
@@ -64,40 +67,40 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         try
         {
+            ViewModel.IsLoading = true;
             List<ManagedSaveInfo> managedSaves = await _managedSaveService.GetManagedSaves();
-            PopulateSavesList(managedSaves);
+            ViewModel.UpdateManagedSaves(managedSaves);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to load managed saves: {ex.Message}");
         }
+        finally
+        {
+            ViewModel.IsLoading = false;
+        }
     }
 
-    private void PopulateSavesList(List<ManagedSaveInfo> saves)
+    private void SaveCard_OpenButton_Click(object sender, RoutedEventArgs e)
     {
-        var savesGridView = FindName("SavesGridView") as GridView;
-        var saveCountInfo = FindName("SaveCountInfo") as TextBlock;
-
-        if (savesGridView == null || saveCountInfo == null) return;
-
-        // Clear existing items
-        savesGridView.Items.Clear();
-
-        // Update save count info
-        if (saves.Count == 0)
-            saveCountInfo.Text = "No saves managed yet";
-        else
-            saveCountInfo.Text = $"{saves.Count} save{(saves.Count == 1 ? "" : "s")} managed";
-
-        // Add real save cards as squared cards
-        foreach (ManagedSaveInfo save in saves)
+        if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
         {
-            Border saveCard = CreateSquaredSaveCard(save);
-            savesGridView.Items.Add(saveCard);
+            try
+            {
+                // Open the save directory in File Explorer
+                var psi = new ProcessStartInfo
+                {
+                    FileName = saveInfo.OriginalPath,
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to open save directory: {ex.Message}");
+                // Could show error dialog here
+            }
         }
-
-        // Update statistics
-        UpdateStatistics();
     }
 
     private Border CreateSquaredSaveCard(ManagedSaveInfo saveInfo)
