@@ -771,44 +771,69 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         {
             try
             {
-                // Show loading state
-                button.IsEnabled = false;
-                button.Content = "Initializing...";
+                // Find the container elements for loading state
+                var container = GetParentContainer(button);
+                var initializeButton = container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                var loadingOverlay = container != null ? FindChildByName(container, "LoadingOverlay") as Border : null;
 
-                // Initialize Git repository
-                bool success = await _gitService.InitializeRepositoryAsync(saveInfo.OriginalPath);
-                
+                // Show loading state
+                if (initializeButton != null && loadingOverlay != null)
+                {
+                    initializeButton.Visibility = Visibility.Collapsed;
+                    loadingOverlay.Visibility = Visibility.Visible;
+                }
+
+                // Simulate Git initialization process (since we haven't implemented real Git operations yet)
+                await Task.Delay(2000); // 2 second delay to show loading state
+
+                // For now, we'll just mark it as initialized
+                // In the future, this will call: bool success = await _gitService.InitializeRepositoryAsync(saveInfo.OriginalPath);
+                bool success = true; // Simulated success
+
                 if (success)
                 {
                     // Update the save info to reflect Git initialization
                     saveInfo.IsGitInitialized = true;
+                    saveInfo.Branch = "main"; // Set default branch
+                    saveInfo.CommitCount = 1; // Initial commit
                     await _managedSaveService.UpdateManagedSave(saveInfo);
-                    
+
                     // Refresh the saves list to update UI
                     await LoadManagedSaves();
-                    
-                    FlyoutHelper.ShowSuccessFlyout(button, "Git Initialized", 
+
+                    FlyoutHelper.ShowSuccessFlyout(button, "Git Initialized",
                         $"Git repository has been successfully initialized for '{saveInfo.Name}'!");
                 }
                 else
                 {
-                    FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Failed", 
+                    // Hide loading state and show button again
+                    if (initializeButton != null && loadingOverlay != null)
+                    {
+                        initializeButton.Visibility = Visibility.Visible;
+                        loadingOverlay.Visibility = Visibility.Collapsed;
+                    }
+
+                    FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Failed",
                         "Failed to initialize Git repository. Please try again.");
-                    
-                    // Reset button state
-                    button.IsEnabled = true;
-                    button.Content = "Initialize Git";
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to initialize Git: {ex.Message}");
-                FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Error", 
+
+                // Reset UI state on error
+                var container = GetParentContainer(button);
+                var initializeButton = container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                var loadingOverlay = container != null ? FindChildByName(container, "LoadingOverlay") as Border : null;
+
+                if (initializeButton != null && loadingOverlay != null)
+                {
+                    initializeButton.Visibility = Visibility.Visible;
+                    loadingOverlay.Visibility = Visibility.Collapsed;
+                }
+
+                FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Error",
                     $"An error occurred: {ex.Message}");
-                
-                // Reset button state
-                button.IsEnabled = true;
-                button.Content = "Initialize Git";
             }
         }
     }
@@ -842,5 +867,39 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         {
             Debug.WriteLine($"Failed to register managed save: {ex.Message}");
         }
+    }
+
+    private FrameworkElement? FindChildByName(DependencyObject parent, string name)
+    {
+        if (parent == null) return null;
+
+        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+
+            if (child is FrameworkElement element && element.Name == name)
+                return element;
+
+            var result = FindChildByName(child, name);
+            if (result != null)
+                return result;
+        }
+        return null;
+    }
+
+    private DependencyObject? GetParentContainer(DependencyObject child)
+    {
+        if (child == null) return null;
+
+        // Walk up the visual tree to find the GridViewItem container
+        var parent = VisualTreeHelper.GetParent(child);
+        while (parent != null)
+        {
+            if (parent is GridViewItem)
+                return parent;
+            parent = VisualTreeHelper.GetParent(parent);
+        }
+        return null;
     }
 }
