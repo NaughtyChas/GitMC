@@ -1,10 +1,10 @@
 using System.Collections.ObjectModel;
-using Windows.Storage;
-using Windows.Storage.AccessCache;
-using Windows.Storage.Pickers;
 using GitMC.Models;
 using GitMC.Services;
 using GitMC.Utils;
+using Windows.Storage;
+using Windows.Storage.AccessCache;
+using Windows.Storage.Pickers;
 using WinRT.Interop;
 
 namespace GitMC.ViewModels;
