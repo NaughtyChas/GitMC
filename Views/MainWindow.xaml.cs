@@ -13,6 +13,7 @@ public partial class MainWindow
     private readonly IConfigurationService _configurationService;
     private readonly IDataStorageService _dataStorageService;
     private readonly IOnboardingService _onboardingService;
+    private readonly ManagedSaveService _managedSaveService;
 
     public MainWindow()
     {
@@ -23,6 +24,7 @@ public partial class MainWindow
         IGitService gitService = new GitService();
         _configurationService = new ConfigurationService();
         _onboardingService = new OnboardingService(gitService, _configurationService);
+        _managedSaveService = new ManagedSaveService(_dataStorageService);
 
         SetWindowProperties();
         _ = LoadExistingSavesToNavigationAsync(); // Load saved entries on startup
@@ -68,13 +70,8 @@ public partial class MainWindow
     {
         try
         {
-            // Check for managed saves metadata files
-            string managedSavesPath = GetManagedSavesStoragePath();
-            if (!Directory.Exists(managedSavesPath)) return 0;
-
-            // Count JSON metadata files that represent managed saves
-            string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
-            return jsonFiles.Length;
+            // Use the ManagedSaveService to get the count
+            return _managedSaveService.GetManagedSavesCount();
         }
         catch
         {
@@ -88,7 +85,7 @@ public partial class MainWindow
 
     private string GetManagedSavesStoragePath()
     {
-        return _dataStorageService.GetManagedSavesDirectory();
+        return _managedSaveService.GetManagedSavesStoragePath();
     }
 
     private async void SetWindowProperties()
@@ -171,36 +168,13 @@ public partial class MainWindow
     {
         try
         {
-            List<ManagedSaveInfo> managedSaves = await GetManagedSavesAsync();
+            List<ManagedSaveInfo> managedSaves = await _managedSaveService.GetManagedSaves();
             foreach (ManagedSaveInfo save in managedSaves) AddSaveToNavigation(save.Name, save.OriginalPath);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to load existing saves to navigation: {ex.Message}");
         }
-    }
-
-    private async Task<List<ManagedSaveInfo>> GetManagedSavesAsync()
-    {
-        var saves = new List<ManagedSaveInfo>();
-        string managedSavesPath = GetManagedSavesStoragePath();
-
-        if (!Directory.Exists(managedSavesPath)) return saves;
-
-        string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
-        foreach (string jsonFile in jsonFiles)
-            try
-            {
-                string json = await File.ReadAllTextAsync(jsonFile);
-                ManagedSaveInfo? saveInfo = JsonSerializer.Deserialize<ManagedSaveInfo>(json);
-                if (saveInfo != null) saves.Add(saveInfo);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to parse save info from {jsonFile}: {ex.Message}");
-            }
-
-        return saves.OrderByDescending(s => s.LastModified).ToList();
     }
 
 
