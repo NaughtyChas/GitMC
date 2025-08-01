@@ -1,13 +1,13 @@
 using System.Diagnostics;
-using Windows.ApplicationModel.DataTransfer;
-using Windows.System;
-using Windows.UI.Core;
 using GitMC.Services;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.System;
+using Windows.UI.Core;
 
 namespace GitMC.Views;
 
@@ -243,31 +243,443 @@ public sealed partial class ConsolePage : Page
     {
         try
         {
-            GitCommandResult result = await _gitService.ExecuteCommandAsync(command);
+            // Handle enhanced Git commands with LibGit2Sharp
+            var parts = command.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return null;
 
-            // Display output
-            foreach (string line in result.OutputLines) AddOutputLine(line, "#CCCCCC");
-
-            foreach (string line in result.ErrorLines) AddOutputLine(line, "#FF6B6B");
-
-            if (result.OutputLines.Length == 0 && result.ErrorLines.Length == 0 && result.Success)
-                AddOutputLine("Command executed successfully.", "#90EE90");
-
-            if (!result.Success && !string.IsNullOrEmpty(result.ErrorMessage))
+            switch (parts[0])
             {
-                AddOutputLine(result.ErrorMessage, "#FF6B6B");
-                if (result.ErrorMessage.Contains("not installed", StringComparison.OrdinalIgnoreCase) ||
-                    result.ErrorMessage.Contains("not found", StringComparison.OrdinalIgnoreCase))
-                    AddOutputLine("Please install Git or ensure it's properly configured.", "#FFAA00");
+                case "status":
+                    return await HandleGitStatus();
+                case "add":
+                    return await HandleGitAdd(parts);
+                case "commit":
+                    return await HandleGitCommit(command);
+                case "log":
+                    return await HandleGitLog(parts);
+                case "branch":
+                    return await HandleGitBranch(parts);
+                case "checkout":
+                    return await HandleGitCheckout(parts);
+                case "pull":
+                    return await HandleGitPull();
+                case "push":
+                    return await HandleGitPush();
+                case "fetch":
+                    return await HandleGitFetch();
+                case "diff":
+                    return await HandleGitDiff(parts);
+                case "reset":
+                    return await HandleGitReset(parts);
+                case "clone":
+                    return await HandleGitClone(parts);
+                case "merge":
+                    return await HandleGitMerge(parts);
+                default:
+                    // Fallback to command line for unsupported commands
+                    return await ExecuteCommandLineGit(command);
             }
-
-            return result;
         }
         catch (Exception ex)
         {
             AddOutputLine($"Error executing command: {ex.Message}", "#FF6B6B");
             return null;
         }
+    }
+
+    private async Task<GitCommandResult> HandleGitStatus()
+    {
+        var status = await _gitService.GetStatusAsync();
+        var result = new GitCommandResult { Success = true };
+
+        AddOutputLine($"On branch {status.CurrentBranch}", "#CCCCCC");
+
+        if (status.AheadCount > 0 || status.BehindCount > 0)
+        {
+            if (status.AheadCount > 0 && status.BehindCount > 0)
+                AddOutputLine($"Your branch is ahead by {status.AheadCount} and behind by {status.BehindCount} commits.", "#FFAA00");
+            else if (status.AheadCount > 0)
+                AddOutputLine($"Your branch is ahead of 'origin/{status.CurrentBranch}' by {status.AheadCount} commits.", "#FFAA00");
+            else if (status.BehindCount > 0)
+                AddOutputLine($"Your branch is behind 'origin/{status.CurrentBranch}' by {status.BehindCount} commits.", "#FFAA00");
+        }
+
+        if (status.StagedFiles.Length > 0)
+        {
+            AddOutputLine("Changes to be committed:", "#90EE90");
+            foreach (var file in status.StagedFiles)
+                AddOutputLine($"  modified:   {file}", "#90EE90");
+            AddOutputLine("", "#CCCCCC");
+        }
+
+        if (status.ModifiedFiles.Length > 0)
+        {
+            AddOutputLine("Changes not staged for commit:", "#FF6B6B");
+            foreach (var file in status.ModifiedFiles)
+                AddOutputLine($"  modified:   {file}", "#FF6B6B");
+            AddOutputLine("", "#CCCCCC");
+        }
+
+        if (status.DeletedFiles.Length > 0)
+        {
+            AddOutputLine("Deleted files:", "#FF6B6B");
+            foreach (var file in status.DeletedFiles)
+                AddOutputLine($"  deleted:    {file}", "#FF6B6B");
+            AddOutputLine("", "#CCCCCC");
+        }
+
+        if (status.UntrackedFiles.Length > 0)
+        {
+            AddOutputLine("Untracked files:", "#FFAA00");
+            foreach (var file in status.UntrackedFiles)
+                AddOutputLine($"  {file}", "#FFAA00");
+            AddOutputLine("", "#CCCCCC");
+        }
+
+        if (!status.HasChanges)
+            AddOutputLine("nothing to commit, working tree clean", "#90EE90");
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitAdd(string[] parts)
+    {
+        var result = new GitCommandResult();
+
+        if (parts.Length < 2)
+        {
+            AddOutputLine("usage: git add <pathspec>...", "#FF6B6B");
+            result.Success = false;
+            return result;
+        }
+
+        bool success = parts[1] == "." || parts[1] == "-A"
+            ? await _gitService.StageAllAsync()
+            : await _gitService.StageFileAsync(parts[1]);
+
+        if (success)
+        {
+            AddOutputLine($"Added {(parts[1] == "." ? "all files" : parts[1])} to staging area", "#90EE90");
+            result.Success = true;
+        }
+        else
+        {
+            AddOutputLine($"Failed to add {parts[1]}", "#FF6B6B");
+            result.Success = false;
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitCommit(string command)
+    {
+        var result = new GitCommandResult();
+
+        // Extract commit message from command
+        var messageMatch = System.Text.RegularExpressions.Regex.Match(command, @"-m\s+[""'](.+?)[""']");
+        if (!messageMatch.Success)
+        {
+            AddOutputLine("usage: git commit -m \"<message>\"", "#FF6B6B");
+            result.Success = false;
+            return result;
+        }
+
+        string message = messageMatch.Groups[1].Value;
+        bool success = await _gitService.CommitAsync(message);
+
+        if (success)
+        {
+            AddOutputLine($"Committed changes: {message}", "#90EE90");
+            result.Success = true;
+        }
+        else
+        {
+            AddOutputLine("Failed to commit changes", "#FF6B6B");
+            result.Success = false;
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitLog(string[] parts)
+    {
+        var result = new GitCommandResult { Success = true };
+
+        int count = 10; // Default
+        if (parts.Length > 1 && parts[1].StartsWith("--oneline"))
+        {
+            count = 20;
+        }
+
+        var commits = await _gitService.GetCommitHistoryAsync(count);
+
+        foreach (var commit in commits)
+        {
+            if (parts.Length > 1 && parts[1].Contains("oneline"))
+            {
+                AddOutputLine($"{commit.Sha[..7]} {commit.Message}", "#FFAA00");
+            }
+            else
+            {
+                AddOutputLine($"commit {commit.Sha}", "#FFAA00");
+                AddOutputLine($"Author: {commit.AuthorName} <{commit.AuthorEmail}>", "#CCCCCC");
+                AddOutputLine($"Date:   {commit.AuthorDate:ddd MMM dd HH:mm:ss yyyy}", "#CCCCCC");
+                AddOutputLine("", "#CCCCCC");
+                AddOutputLine($"    {commit.Message}", "#CCCCCC");
+                AddOutputLine("", "#CCCCCC");
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitBranch(string[] parts)
+    {
+        var result = new GitCommandResult { Success = true };
+
+        if (parts.Length == 1)
+        {
+            // List branches
+            var branches = await _gitService.GetBranchesAsync();
+            foreach (var branch in branches)
+            {
+                AddOutputLine(branch, branch.StartsWith("*") ? "#90EE90" : "#CCCCCC");
+            }
+        }
+        else if (parts.Length == 2)
+        {
+            // Create new branch
+            bool success = await _gitService.CreateBranchAsync(parts[1]);
+            if (success)
+            {
+                AddOutputLine($"Created branch '{parts[1]}'", "#90EE90");
+            }
+            else
+            {
+                AddOutputLine($"Failed to create branch '{parts[1]}'", "#FF6B6B");
+                result.Success = false;
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitCheckout(string[] parts)
+    {
+        var result = new GitCommandResult();
+
+        if (parts.Length < 2)
+        {
+            AddOutputLine("usage: git checkout <branch>", "#FF6B6B");
+            result.Success = false;
+            return result;
+        }
+
+        bool success = await _gitService.CheckoutBranchAsync(parts[1]);
+        if (success)
+        {
+            AddOutputLine($"Switched to branch '{parts[1]}'", "#90EE90");
+            result.Success = true;
+        }
+        else
+        {
+            AddOutputLine($"Failed to checkout branch '{parts[1]}'", "#FF6B6B");
+            result.Success = false;
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitPull()
+    {
+        var result = new GitCommandResult();
+
+        bool success = await _gitService.PullAsync();
+        if (success)
+        {
+            AddOutputLine("Successfully pulled changes from remote", "#90EE90");
+            result.Success = true;
+        }
+        else
+        {
+            AddOutputLine("Failed to pull changes", "#FF6B6B");
+            result.Success = false;
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitPush()
+    {
+        var result = new GitCommandResult();
+
+        bool success = await _gitService.PushAsync();
+        if (success)
+        {
+            AddOutputLine("Successfully pushed changes to remote", "#90EE90");
+            result.Success = true;
+        }
+        else
+        {
+            AddOutputLine("Failed to push changes", "#FF6B6B");
+            result.Success = false;
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitFetch()
+    {
+        var result = new GitCommandResult();
+
+        bool success = await _gitService.FetchAsync();
+        if (success)
+        {
+            AddOutputLine("Successfully fetched from remote", "#90EE90");
+            result.Success = true;
+        }
+        else
+        {
+            AddOutputLine("Failed to fetch from remote", "#FF6B6B");
+            result.Success = false;
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitDiff(string[] parts)
+    {
+        var result = new GitCommandResult { Success = true };
+
+        string filePath = parts.Length > 1 ? parts[1] : null;
+        string diff = await _gitService.GetDiffAsync(filePath);
+
+        if (!string.IsNullOrEmpty(diff))
+        {
+            var lines = diff.Split('\n');
+            foreach (var line in lines)
+            {
+                string color = "#CCCCCC";
+                if (line.StartsWith("+")) color = "#90EE90";
+                else if (line.StartsWith("-")) color = "#FF6B6B";
+                else if (line.StartsWith("@@")) color = "#00FFFF";
+
+                AddOutputLine(line, color);
+            }
+        }
+        else
+        {
+            AddOutputLine("No differences found", "#CCCCCC");
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitReset(string[] parts)
+    {
+        var result = new GitCommandResult();
+
+        string mode = "mixed";
+        string target = null;
+
+        if (parts.Length > 1)
+        {
+            if (parts[1] == "--hard") mode = "hard";
+            else if (parts[1] == "--soft") mode = "soft";
+            else target = parts[1];
+        }
+
+        if (parts.Length > 2) target = parts[2];
+
+        bool success = await _gitService.ResetAsync(mode, target);
+        if (success)
+        {
+            AddOutputLine($"Reset to {target ?? "HEAD"} ({mode})", "#90EE90");
+            result.Success = true;
+        }
+        else
+        {
+            AddOutputLine("Failed to reset", "#FF6B6B");
+            result.Success = false;
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitClone(string[] parts)
+    {
+        var result = new GitCommandResult();
+
+        if (parts.Length < 3)
+        {
+            AddOutputLine("usage: git clone <url> <directory>", "#FF6B6B");
+            result.Success = false;
+            return result;
+        }
+
+        bool success = await _gitService.CloneAsync(parts[1], parts[2]);
+        if (success)
+        {
+            AddOutputLine($"Successfully cloned repository to {parts[2]}", "#90EE90");
+            result.Success = true;
+        }
+        else
+        {
+            AddOutputLine("Failed to clone repository", "#FF6B6B");
+            result.Success = false;
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> HandleGitMerge(string[] parts)
+    {
+        var result = new GitCommandResult();
+
+        if (parts.Length < 2)
+        {
+            AddOutputLine("usage: git merge <branch>", "#FF6B6B");
+            result.Success = false;
+            return result;
+        }
+
+        bool success = await _gitService.MergeAsync(parts[1]);
+        if (success)
+        {
+            AddOutputLine($"Successfully merged branch '{parts[1]}'", "#90EE90");
+            result.Success = true;
+        }
+        else
+        {
+            AddOutputLine($"Failed to merge branch '{parts[1]}'", "#FF6B6B");
+            result.Success = false;
+        }
+
+        return result;
+    }
+
+    private async Task<GitCommandResult> ExecuteCommandLineGit(string command)
+    {
+        // Fallback to original command line execution for unsupported commands
+        GitCommandResult result = await _gitService.ExecuteCommandAsync(command);
+
+        // Display output
+        foreach (string line in result.OutputLines) AddOutputLine(line, "#CCCCCC");
+
+        foreach (string line in result.ErrorLines) AddOutputLine(line, "#FF6B6B");
+
+        if (result.OutputLines.Length == 0 && result.ErrorLines.Length == 0 && result.Success)
+            AddOutputLine("Command executed successfully.", "#90EE90");
+
+        if (!result.Success && !string.IsNullOrEmpty(result.ErrorMessage))
+        {
+            AddOutputLine(result.ErrorMessage, "#FF6B6B");
+            if (result.ErrorMessage.Contains("not installed", StringComparison.OrdinalIgnoreCase) ||
+                result.ErrorMessage.Contains("not found", StringComparison.OrdinalIgnoreCase))
+                AddOutputLine("Please install Git or ensure it's properly configured.", "#FFAA00");
+        }
+
+        return result;
     }
 
     private void AddOutputLine(string text, string color)
