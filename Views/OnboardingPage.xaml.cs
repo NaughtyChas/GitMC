@@ -24,7 +24,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     private readonly IDataStorageService _dataStorageService;
     private readonly IGitService _gitService;
     private readonly NbtService _nbtService;
-    private readonly SaveAnalyzerService _saveAnalyzerService;
+    private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
     private readonly ManagedSaveService _managedSaveService;
 
     public OnboardingPage()
@@ -34,7 +34,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         _gitService = new GitService();
         _configurationService = new ConfigurationService();
         _dataStorageService = new DataStorageService();
-        _saveAnalyzerService = new SaveAnalyzerService();
+        _minecraftAnalyzerService = new MinecraftAnalyzerService(_nbtService);
         _managedSaveService = new ManagedSaveService(_dataStorageService);
         OnboardingService = new OnboardingService(_gitService, _configurationService);
 
@@ -344,7 +344,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
-                MinecraftSave? save = await _saveAnalyzerService.AnalyzeSaveFolder(folder.Path);
+                MinecraftSave? save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
                     // Add to navigation in MainWindow
@@ -415,7 +415,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             if (folder != null)
             {
                 // For version folders, we might have different validation logic
-                MinecraftSave? save = await _saveAnalyzerService.AnalyzeSaveFolder(folder.Path);
+                MinecraftSave? save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
                     if (App.MainWindow is MainWindow mainWindow) mainWindow.AddSaveToNavigation(save.Name, save.Path);

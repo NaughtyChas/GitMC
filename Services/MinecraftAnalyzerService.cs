@@ -12,6 +12,7 @@ public interface IMinecraftAnalyzerService
     bool ValidateMinecraftSave(string savePath);
     Task<string> ExtractVersionFromNbtInfo(string nbtInfo);
     Task<string> ExtractWorldTypeFromNbtInfo(string nbtInfo);
+    string GenerateSaveId(string saveName);
 }
 
 /// <summary>
@@ -100,5 +101,13 @@ public class MinecraftAnalyzerService : IMinecraftAnalyzerService
         if (nbtInfo.Contains("hardcore") || nbtInfo.Contains("Hardcore"))
             return "Hardcore";
         return "Survival";
+    }
+
+    public string GenerateSaveId(string saveName)
+    {
+        char[] invalidChars = Path.GetInvalidFileNameChars();
+        string safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+        string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        return $"{safeName}_{timestamp}";
     }
 }

@@ -25,7 +25,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private readonly IGitService _gitService;
     private readonly NbtService _nbtService;
     private readonly IOnboardingService _onboardingService;
-    private readonly SaveAnalyzerService _saveAnalyzerService;
+    private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
 
     public SaveManagementPage()
     {
@@ -35,7 +35,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         _configurationService = new ConfigurationService();
         _dataStorageService = new DataStorageService();
         _onboardingService = new OnboardingService(_gitService, _configurationService);
-        _saveAnalyzerService = new SaveAnalyzerService();
+        _minecraftAnalyzerService = new MinecraftAnalyzerService(_nbtService);
 
         DataContext = this;
         Loaded += SaveManagementPage_Loaded;
@@ -768,7 +768,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
-                MinecraftSave? save = await _saveAnalyzerService.AnalyzeSaveFolder(folder.Path);
+                MinecraftSave? save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
                     // Add to navigation in MainWindow
@@ -837,7 +837,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
             if (!Directory.Exists(managedSavesPath)) Directory.CreateDirectory(managedSavesPath);
 
-            string saveId = _saveAnalyzerService.GenerateSaveId(save.Name);
+            string saveId = _minecraftAnalyzerService.GenerateSaveId(save.Name);
             string saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
 
             var saveInfo = new ManagedSaveInfo
