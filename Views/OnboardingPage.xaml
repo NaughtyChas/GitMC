@@ -376,19 +376,189 @@
                                     Margin="0,0,0,12"
                                     Text="{local:Localize Key=Setup_Step3_Description}"
                                     TextWrapping="Wrap" />
-                                <Button
-                                    Click="GitConfigButton_Click"
-                                    HorizontalAlignment="Left"
-                                    Padding="12,8"
-                                    x:Name="GitConfigButton">
-                                    <StackPanel Orientation="Horizontal">
-                                        <FontIcon
-                                            FontSize="12"
-                                            Glyph="&#xE713;"
-                                            Margin="0,0,6,0" />
-                                        <TextBlock Text="{local:Localize Key=Setup_Step3_Button}" />
+
+                                <!--  Git Configuration Panel with Border  -->
+                                <Border
+                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Margin="0,0,0,12"
+                                    Padding="16">
+                                    <StackPanel>
+                                        <!--  Git Identity Configuration  -->
+                                        <StackPanel>
+                                            <TextBlock
+                                                FontWeight="SemiBold"
+                                                Margin="0,0,0,8"
+                                                Text="Configure Git Identity" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Margin="0,0,0,12"
+                                                Text="Set your name and email address for Git commits. This information will be used to identify you as the author of changes."
+                                                TextWrapping="Wrap" />
+
+                                            <!--  Current Git Status  -->
+                                            <Border
+                                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                CornerRadius="8"
+                                                Margin="0,0,0,12"
+                                                Padding="12"
+                                                x:Name="GitConfigStatusPanel">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                        <FontIcon
+                                                            FontSize="16"
+                                                            Foreground="#FF8C00"
+                                                            Glyph="&#xE946;"
+                                                            Margin="0,0,8,0"
+                                                            x:Name="GitConfigStatusIcon" />
+                                                        <TextBlock
+                                                            Text="Git identity not configured"
+                                                            VerticalAlignment="Center"
+                                                            x:Name="GitConfigStatusText" />
+                                                    </StackPanel>
+                                                    <!--  Current Identity Display (when configured)  -->
+                                                    <StackPanel Visibility="Collapsed" x:Name="CurrentIdentityPanel">
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Text="Current configuration:"
+                                                            Margin="24,4,0,2" />
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Margin="24,0,0,2"
+                                                            x:Name="CurrentUserNameText" />
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Margin="24,0,0,0"
+                                                            x:Name="CurrentUserEmailText" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!--  Configuration Form  -->
+                                            <StackPanel x:Name="GitConfigFormPanel">
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock
+                                                        Grid.Column="0"
+                                                        Grid.Row="0"
+                                                        Margin="0,0,12,0"
+                                                        Text="Full Name:"
+                                                        VerticalAlignment="Center"
+                                                        Width="80" />
+                                                    <TextBox
+                                                        Grid.Column="1"
+                                                        Grid.Row="0"
+                                                        PlaceholderText="Enter your full name"
+                                                        x:Name="GitUserNameBox" />
+
+                                                    <TextBlock
+                                                        Grid.Column="0"
+                                                        Grid.Row="1"
+                                                        Margin="0,8,12,0"
+                                                        Text="Email:"
+                                                        VerticalAlignment="Center"
+                                                        Width="80" />
+                                                    <TextBox
+                                                        Grid.Column="1"
+                                                        Grid.Row="1"
+                                                        Margin="0,8,0,0"
+                                                        PlaceholderText="your.email@example.com"
+                                                        x:Name="GitUserEmailBox" />
+                                                </Grid>
+
+                                                <!--  Validation Messages  -->
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    Foreground="#D13438"
+                                                    Margin="0,4,0,8"
+                                                    TextWrapping="Wrap"
+                                                    Visibility="Collapsed"
+                                                    x:Name="GitConfigValidationText" />
+
+                                                <!--  Info Box  -->
+                                                <Border
+                                                    Background="#FFF4CE"
+                                                    BorderBrush="#FFD700"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Margin="0,0,0,12"
+                                                    Padding="8">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <FontIcon
+                                                            FontSize="14"
+                                                            Foreground="#B8860B"
+                                                            Glyph="&#xE946;"
+                                                            Margin="0,0,8,0" />
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            Foreground="#8B4513"
+                                                            Text="This information will be used to identify you in Git commit history. Use your real name and email address."
+                                                            TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!--  Action Buttons  -->
+                                        <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                                            <Button
+                                                Click="SaveGitConfigButton_Click"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,0,8,0"
+                                                Padding="12,8"
+                                                Style="{StaticResource AccentButtonStyle}"
+                                                x:Name="SaveGitConfigButton">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <FontIcon
+                                                        FontSize="12"
+                                                        Glyph="&#xE74E;"
+                                                        Margin="0,0,6,0" />
+                                                    <TextBlock Text="Save Configuration" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button
+                                                Click="TestGitConfigButton_Click"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,0,8,0"
+                                                Padding="12,8"
+                                                x:Name="TestGitConfigButton">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <FontIcon
+                                                        FontSize="12"
+                                                        Glyph="&#xE8A7;"
+                                                        Margin="0,0,6,0" />
+                                                    <TextBlock Text="Test Configuration" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button
+                                                Click="SkipGitConfigButton_Click"
+                                                HorizontalAlignment="Left"
+                                                Padding="12,8"
+                                                x:Name="SkipGitConfigButton">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <FontIcon
+                                                        FontSize="12"
+                                                        Glyph="&#xE72A;"
+                                                        Margin="0,0,6,0" />
+                                                    <TextBlock Text="Skip for Now" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
                                     </StackPanel>
-                                </Button>
+                                </Border>
                             </StackPanel>
 
                             <!--  Step 3 Collapsed Content  -->

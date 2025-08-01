@@ -143,16 +143,15 @@ public class GitService : IGitService
     {
         try
         {
-            await Task.Run(() =>
-            {
-                using var repo = new Repository(_currentDirectory);
-                repo.Config.Set("user.name", userName);
-                repo.Config.Set("user.email", userEmail);
-            });
-            return true;
+            // For global Git configuration, use command line since LibGit2Sharp doesn't easily support global config
+            var nameResult = await ExecuteCommandAsync($"config --global user.name \"{userName}\"");
+            var emailResult = await ExecuteCommandAsync($"config --global user.email \"{userEmail}\"");
+
+            return nameResult.Success && emailResult.Success;
         }
-        catch (LibGit2SharpException)
+        catch (Exception ex)
         {
+            Debug.WriteLine($"Error configuring Git identity: {ex.Message}");
             return false;
         }
     }
@@ -161,13 +160,18 @@ public class GitService : IGitService
     {
         try
         {
-            return await Task.Run(() =>
-            {
-                using var repo = new Repository(_currentDirectory);
-                var userName = repo.Config.Get<string>("user.name")?.Value;
-                var userEmail = repo.Config.Get<string>("user.email")?.Value;
-                return (userName, userEmail);
-            });
+            // Get global Git configuration using command line
+            var nameResult = await ExecuteCommandAsync("config --global user.name");
+            var emailResult = await ExecuteCommandAsync("config --global user.email");
+
+            string? userName = nameResult.Success && nameResult.OutputLines.Length > 0
+                ? nameResult.OutputLines[0].Trim()
+                : null;
+            string? userEmail = emailResult.Success && emailResult.OutputLines.Length > 0
+                ? emailResult.OutputLines[0].Trim()
+                : null;
+
+            return (userName, userEmail);
         }
         catch
         {
