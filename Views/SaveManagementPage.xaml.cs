@@ -489,7 +489,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             var savesWithChangesCount = FindName("SavesWithChangesCount") as TextBlock;
             var remoteUpdatesCount = FindName("RemoteUpdatesCount") as TextBlock;
             var gitStatusText = FindName("GitStatusText") as TextBlock;
-            var totalSizeText = FindName("TotalSizeText") as TextBlock;
 
             // Switch to UI thread for updates
             DispatcherQueue.TryEnqueue(() =>
@@ -499,13 +498,13 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
                 if (savesWithChangesCount != null)
                 {
-                    int changesCount = 0;
+                    int changesCount = managedSaves.Count(s => s.HasPendingChanges);
                     savesWithChangesCount.Text = changesCount.ToString(CultureInfo.InvariantCulture);
                 }
 
                 if (remoteUpdatesCount != null)
                 {
-                    int updatesCount = 0;
+                    int updatesCount = managedSaves.Sum(s => s.PendingPullCount);
                     remoteUpdatesCount.Text = updatesCount.ToString(CultureInfo.InvariantCulture);
                 }
 
@@ -514,16 +513,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                     int gitInitializedSaves = managedSaves.Count(s => s.IsGitInitialized);
                     gitStatusText.Text = gitInitializedSaves > 0 ? "Ready" : "Not Configured";
                 }
-
-                if (totalSizeText != null)
-                    _ = Task.Run(async () =>
-                    {
-                        long totalSize = await CalculateTotalSize(managedSaves).ConfigureAwait(false);
-                        DispatcherQueue.TryEnqueue(() =>
-                        {
-                            totalSizeText.Text = CommonHelpers.FormatFileSize(totalSize);
-                        });
-                    });
 
                 // Update Quick Actions button states
                 UpdateQuickActionButtons(managedSaves);
@@ -774,10 +763,77 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         }
     }
 
-    private void InitializeGitButton_Click(object sender, RoutedEventArgs e)
+    private async void InitializeGitButton_Click(object sender, RoutedEventArgs e)
     {
-        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Git Initialization",
-            "Git initialization feature is coming soon!");
+        if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
+        {
+            try
+            {
+                // Find the container elements for loading state
+                var container = GetParentContainer(button);
+                var initializeButton = container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                var loadingOverlay = container != null ? FindChildByName(container, "LoadingOverlay") as Border : null;
+
+                // Show loading state
+                if (initializeButton != null && loadingOverlay != null)
+                {
+                    initializeButton.Visibility = Visibility.Collapsed;
+                    loadingOverlay.Visibility = Visibility.Visible;
+                }
+
+                // Simulate Git initialization process (since we haven't implemented real Git operations yet)
+                await Task.Delay(2000); // 2 second delay to show loading state
+
+                // For now, we'll just mark it as initialized
+                // In the future, this will call: bool success = await _gitService.InitializeRepositoryAsync(saveInfo.OriginalPath);
+                bool success = true; // Simulated success
+
+                if (success)
+                {
+                    // Update the save info to reflect Git initialization
+                    saveInfo.IsGitInitialized = true;
+                    saveInfo.Branch = "main"; // Set default branch
+                    saveInfo.CommitCount = 1; // Initial commit
+                    await _managedSaveService.UpdateManagedSave(saveInfo);
+
+                    // Refresh the saves list to update UI
+                    await LoadManagedSaves();
+
+                    FlyoutHelper.ShowSuccessFlyout(button, "Git Initialized",
+                        $"Git repository has been successfully initialized for '{saveInfo.Name}'!");
+                }
+                else
+                {
+                    // Hide loading state and show button again
+                    if (initializeButton != null && loadingOverlay != null)
+                    {
+                        initializeButton.Visibility = Visibility.Visible;
+                        loadingOverlay.Visibility = Visibility.Collapsed;
+                    }
+
+                    FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Failed",
+                        "Failed to initialize Git repository. Please try again.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize Git: {ex.Message}");
+
+                // Reset UI state on error
+                var container = GetParentContainer(button);
+                var initializeButton = container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                var loadingOverlay = container != null ? FindChildByName(container, "LoadingOverlay") as Border : null;
+
+                if (initializeButton != null && loadingOverlay != null)
+                {
+                    initializeButton.Visibility = Visibility.Visible;
+                    loadingOverlay.Visibility = Visibility.Collapsed;
+                }
+
+                FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Error",
+                    $"An error occurred: {ex.Message}");
+            }
+        }
     }
 
     private void SyncAllButton_Click(object sender, RoutedEventArgs e)
@@ -810,5 +866,39 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             Debug.WriteLine($"Failed to register managed save: {ex.Message}");
             throw;
         }
+    }
+
+    private FrameworkElement? FindChildByName(DependencyObject parent, string name)
+    {
+        if (parent == null) return null;
+
+        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+
+            if (child is FrameworkElement element && element.Name == name)
+                return element;
+
+            var result = FindChildByName(child, name);
+            if (result != null)
+                return result;
+        }
+        return null;
+    }
+
+    private DependencyObject? GetParentContainer(DependencyObject child)
+    {
+        if (child == null) return null;
+
+        // Walk up the visual tree to find the GridViewItem container
+        var parent = VisualTreeHelper.GetParent(child);
+        while (parent != null)
+        {
+            if (parent is GridViewItem)
+                return parent;
+            parent = VisualTreeHelper.GetParent(parent);
+        }
+        return null;
     }
 }

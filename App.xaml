@@ -6,7 +6,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:GitMC.Converters">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -14,6 +15,11 @@
                 <!--  Other merged dictionaries here  -->
             </ResourceDictionary.MergedDictionaries>
             <!--  Other app resources here  -->
+
+            <!--  Converters  -->
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+
             <Color x:Key="Primary">#512BD4</Color>
 
             <!--  Font Families for better Chinese character support  -->

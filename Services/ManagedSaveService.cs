@@ -37,7 +37,11 @@ public class ManagedSaveService
                 string json = await File.ReadAllTextAsync(jsonFile);
                 ManagedSaveInfo? saveInfo = JsonSerializer.Deserialize<ManagedSaveInfo>(json);
                 if (saveInfo != null)
+                {
+                    // Update size and last modified time with current values
+                    await UpdateSaveInfoWithCurrentData(saveInfo);
                     saves.Add(saveInfo);
+                }
             }
             catch (Exception ex)
             {
@@ -69,6 +73,37 @@ public class ManagedSaveService
         {
             Debug.WriteLine($"Failed to get save by ID {saveId}: {ex.Message}");
             return null;
+        }
+    }
+
+    /// <summary>
+    ///     Updates save info with current data from the filesystem
+    /// </summary>
+    /// <param name="saveInfo">Save info to update</param>
+    private async Task UpdateSaveInfoWithCurrentData(ManagedSaveInfo saveInfo)
+    {
+        try
+        {
+            if (Directory.Exists(saveInfo.OriginalPath))
+            {
+                var directoryInfo = new DirectoryInfo(saveInfo.OriginalPath);
+
+                // Update last modified time
+                saveInfo.LastModified = directoryInfo.LastWriteTime;
+
+                // Update size - calculate folder size asynchronously
+                saveInfo.Size = await Task.Run(() => GitMC.Utils.CommonHelpers.CalculateFolderSize(directoryInfo));
+            }
+            else
+            {
+                // Directory doesn't exist anymore - mark as missing
+                saveInfo.Size = 0;
+                Debug.WriteLine($"Save directory not found: {saveInfo.OriginalPath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to update save info for {saveInfo.Name}: {ex.Message}");
         }
     }
 
@@ -167,6 +202,43 @@ public class ManagedSaveService
             Debug.WriteLine($"[RegisterManagedSave] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
             Debug.WriteLine($"[RegisterManagedSave] Stack trace: {ex.StackTrace}");
             throw; // Re-throw the exception so the caller can handle it appropriately
+        }
+    }
+
+    /// <summary>
+    ///     Updates an existing managed save
+    /// </summary>
+    /// <param name="saveInfo">Save info to update</param>
+    /// <returns>Task</returns>
+    public async Task UpdateManagedSave(ManagedSaveInfo saveInfo)
+    {
+        try
+        {
+            string managedSavesPath = GetManagedSavesStoragePath();
+            string saveInfoPath = Path.Combine(managedSavesPath, $"{saveInfo.Id}.json");
+
+            if (File.Exists(saveInfoPath))
+            {
+                // Create JsonSerializerOptions that ignore UI properties
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
+                await File.WriteAllTextAsync(saveInfoPath, json);
+                Debug.WriteLine($"[UpdateManagedSave] Updated save info for: {saveInfo.Name}");
+            }
+            else
+            {
+                Debug.WriteLine($"[UpdateManagedSave] Save info file not found: {saveInfoPath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[UpdateManagedSave] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+            throw;
         }
     }
 
