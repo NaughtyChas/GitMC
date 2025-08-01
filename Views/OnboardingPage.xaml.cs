@@ -1,18 +1,16 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.Text.Json;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.System;
 using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
-using GitMC.Utils;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.System;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -23,9 +21,9 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     private readonly IConfigurationService _configurationService;
     private readonly IDataStorageService _dataStorageService;
     private readonly IGitService _gitService;
-    private readonly NbtService _nbtService;
-    private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
     private readonly ManagedSaveService _managedSaveService;
+    private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
+    private readonly NbtService _nbtService;
 
     public OnboardingPage()
     {

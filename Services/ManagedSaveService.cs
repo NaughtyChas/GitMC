@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using GitMC.Models;
 
 namespace GitMC.Services;
@@ -30,7 +32,6 @@ public class ManagedSaveService
 
         string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
         foreach (string jsonFile in jsonFiles)
-        {
             try
             {
                 string json = await File.ReadAllTextAsync(jsonFile);
@@ -42,7 +43,6 @@ public class ManagedSaveService
             {
                 Debug.WriteLine($"Failed to parse save info from {jsonFile}: {ex.Message}");
             }
-        }
 
         return saves.OrderByDescending(s => s.LastModified).ToList();
     }
@@ -96,7 +96,7 @@ public class ManagedSaveService
             {
                 Debug.WriteLine($"[RegisterManagedSave] Directory doesn't exist, creating: {managedSavesPath}");
                 Directory.CreateDirectory(managedSavesPath);
-                Debug.WriteLine($"[RegisterManagedSave] Directory created successfully");
+                Debug.WriteLine("[RegisterManagedSave] Directory created successfully");
             }
 
             string actualSaveId = saveId ?? GenerateSaveId(save.Name);
@@ -119,13 +119,12 @@ public class ManagedSaveService
                 GameVersion = save.GameVersion,
                 WorldIcon = save.WorldIcon
             };
-            Debug.WriteLine($"[RegisterManagedSave] Created save info object");
+            Debug.WriteLine("[RegisterManagedSave] Created save info object");
 
             // Create JsonSerializerOptions that ignore UI properties
             var jsonOptions = new JsonSerializerOptions
             {
-                WriteIndented = true,
-                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+                WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
             string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
@@ -133,7 +132,7 @@ public class ManagedSaveService
 
             Debug.WriteLine($"[RegisterManagedSave] About to write file to: {saveInfoPath}");
             await File.WriteAllTextAsync(saveInfoPath, json);
-            Debug.WriteLine($"[RegisterManagedSave] File written successfully!");
+            Debug.WriteLine("[RegisterManagedSave] File written successfully!");
         }
         catch (Exception ex)
         {
@@ -152,7 +151,7 @@ public class ManagedSaveService
     {
         char[] invalidChars = Path.GetInvalidFileNameChars();
         string safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-        string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
         return $"{safeName}_{timestamp}";
     }
 }

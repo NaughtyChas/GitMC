@@ -1,9 +1,7 @@
 using System.Text.Json.Serialization;
 using GitMC.Constants;
 using GitMC.Utils;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
-using Windows.UI;
 
 namespace GitMC.Models;
 
@@ -12,6 +10,14 @@ namespace GitMC.Models;
 /// </summary>
 public class ManagedSaveInfo
 {
+    // Status badge properties
+    public enum SaveStatus
+    {
+        Clear,
+        Modified,
+        Conflict
+    }
+
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
@@ -31,21 +37,12 @@ public class ManagedSaveInfo
     public int PendingPullCount { get; set; }
     public int ConflictCount { get; set; }
 
-    // Status badge properties
-    public enum SaveStatus
-    {
-        Clear,
-        Modified,
-        Conflict
-    }
-
     public SaveStatus CurrentStatus { get; set; } = SaveStatus.Clear;
 
     // Computed properties
-    [JsonIgnore]
-    public string SizeFormatted => CommonHelpers.FormatFileSize(Size);
-    [JsonIgnore]
-    public string LastModifiedFormatted => CommonHelpers.FormatRelativeTime(LastModified);
+    [JsonIgnore] public string SizeFormatted => CommonHelpers.FormatFileSize(Size);
+
+    [JsonIgnore] public string LastModifiedFormatted => CommonHelpers.FormatRelativeTime(LastModified);
 
     // Status badge computed properties
     [JsonIgnore]
@@ -98,42 +95,38 @@ public class ManagedSaveInfo
     }
 
     [JsonIgnore]
-    public bool ShowStatusTextOnly => IsGitInitialized && ConflictCount == 0 && PendingPushCount == 0 && PendingPullCount == 0;
-    [JsonIgnore]
-    public bool ShowPushBadge => IsGitInitialized && PendingPushCount > 0;
-    [JsonIgnore]
-    public bool ShowPullBadge => IsGitInitialized && PendingPullCount > 0;
-    [JsonIgnore]
-    public bool ShowConflictBadge => IsGitInitialized && ConflictCount > 0;
+    public bool ShowStatusTextOnly =>
+        IsGitInitialized && ConflictCount == 0 && PendingPushCount == 0 && PendingPullCount == 0;
 
-    [JsonIgnore]
-    public string PushStatusText => PendingPushCount == 1 ? "1 to push" : $"{PendingPushCount} to push";
-    [JsonIgnore]
-    public string PullStatusText => PendingPullCount == 1 ? "1 to pull" : $"{PendingPullCount} to pull";
-    [JsonIgnore]
-    public string ConflictStatusText => ConflictCount == 1 ? "1 conflict" : $"{ConflictCount} conflicts";
+    [JsonIgnore] public bool ShowPushBadge => IsGitInitialized && PendingPushCount > 0;
+
+    [JsonIgnore] public bool ShowPullBadge => IsGitInitialized && PendingPullCount > 0;
+
+    [JsonIgnore] public bool ShowConflictBadge => IsGitInitialized && ConflictCount > 0;
+
+    [JsonIgnore] public string PushStatusText => PendingPushCount == 1 ? "1 to push" : $"{PendingPushCount} to push";
+
+    [JsonIgnore] public string PullStatusText => PendingPullCount == 1 ? "1 to pull" : $"{PendingPullCount} to pull";
+
+    [JsonIgnore] public string ConflictStatusText => ConflictCount == 1 ? "1 conflict" : $"{ConflictCount} conflicts";
 
     // Conflict badge properties (using warning style for conflicts)
-    [JsonIgnore]
-    public SolidColorBrush ConflictBadgeBackground => new SolidColorBrush(ColorConstants.BadgeColors.WarningBackground);
-    [JsonIgnore]
-    public SolidColorBrush ConflictBadgeText => new SolidColorBrush(ColorConstants.BadgeColors.WarningText);
+    [JsonIgnore] public SolidColorBrush ConflictBadgeBackground => new(ColorConstants.BadgeColors.WarningBackground);
+
+    [JsonIgnore] public SolidColorBrush ConflictBadgeText => new(ColorConstants.BadgeColors.WarningText);
 
     // Folder icon properties
-    [JsonIgnore]
-    public SolidColorBrush FolderIconBackground => new SolidColorBrush(ColorConstants.IconColors.FolderBackground);
-    [JsonIgnore]
-    public SolidColorBrush FolderIconBorder => new SolidColorBrush(ColorConstants.IconColors.FolderBorder);
-    [JsonIgnore]
-    public SolidColorBrush FolderIconForeground => new SolidColorBrush(ColorConstants.IconColors.FolderIcon);
+    [JsonIgnore] public SolidColorBrush FolderIconBackground => new(ColorConstants.IconColors.FolderBackground);
+
+    [JsonIgnore] public SolidColorBrush FolderIconBorder => new(ColorConstants.IconColors.FolderBorder);
+
+    [JsonIgnore] public SolidColorBrush FolderIconForeground => new(ColorConstants.IconColors.FolderIcon);
 
     // Separator properties
-    [JsonIgnore]
-    public SolidColorBrush SeparatorBackground => new SolidColorBrush(ColorConstants.InfoPanelColors.SeparatorBackground);
+    [JsonIgnore] public SolidColorBrush SeparatorBackground => new(ColorConstants.InfoPanelColors.SeparatorBackground);
 
     // Info panel properties
-    [JsonIgnore]
-    public SolidColorBrush InfoIconColor => new SolidColorBrush(ColorConstants.InfoPanelColors.SecondaryIconText);
-    [JsonIgnore]
-    public SolidColorBrush InfoTextColor => new SolidColorBrush(ColorConstants.InfoPanelColors.SecondaryIconText);
+    [JsonIgnore] public SolidColorBrush InfoIconColor => new(ColorConstants.InfoPanelColors.SecondaryIconText);
+
+    [JsonIgnore] public SolidColorBrush InfoTextColor => new(ColorConstants.InfoPanelColors.SecondaryIconText);
 }

@@ -20,7 +20,8 @@ public class DataStorageService : IDataStorageService
 
         if (string.IsNullOrEmpty(exeDirectory))
         {
-            Debug.WriteLine("[DataStorageService] Warning: Could not determine executable directory, using current directory");
+            Debug.WriteLine(
+                "[DataStorageService] Warning: Could not determine executable directory, using current directory");
             exeDirectory = Environment.CurrentDirectory;
         }
 

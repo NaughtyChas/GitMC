@@ -1,3 +1,4 @@
+using System.Globalization;
 using GitMC.Models;
 using GitMC.Utils;
 
@@ -107,7 +108,7 @@ public class MinecraftAnalyzerService : IMinecraftAnalyzerService
     {
         char[] invalidChars = Path.GetInvalidFileNameChars();
         string safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-        string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
         return $"{safeName}_{timestamp}";
     }
 }

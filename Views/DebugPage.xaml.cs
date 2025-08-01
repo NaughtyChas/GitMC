@@ -1,10 +1,10 @@
-using GitMC.Services;
-using GitMC.Tests;
-using GitMC.Utils;
 using Windows.ApplicationModel.Core;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.UI.Core;
+using GitMC.Services;
+using GitMC.Tests;
+using GitMC.Utils;
 using WinRT.Interop;
 
 namespace GitMC.Views;

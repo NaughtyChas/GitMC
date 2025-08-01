@@ -7,9 +7,9 @@ namespace GitMC.ViewModels;
 
 public class SaveManagementViewModel : INotifyPropertyChanged
 {
+    private bool _isLoading;
     private ObservableCollection<ManagedSaveInfo> _managedSaves = new();
     private string _saveCountText = "No saves managed yet";
-    private bool _isLoading;
 
     public ObservableCollection<ManagedSaveInfo> ManagedSaves
     {
@@ -52,10 +52,7 @@ public class SaveManagementViewModel : INotifyPropertyChanged
     public void UpdateManagedSaves(List<ManagedSaveInfo> saves)
     {
         ManagedSaves.Clear();
-        foreach (var save in saves)
-        {
-            ManagedSaves.Add(save);
-        }
+        foreach (ManagedSaveInfo save in saves) ManagedSaves.Add(save);
         UpdateSaveCountText();
     }
 
@@ -67,4 +64,3 @@ public class SaveManagementViewModel : INotifyPropertyChanged
             SaveCountText = $"{ManagedSaves.Count} save{(ManagedSaves.Count == 1 ? "" : "s")} managed";
     }
 }
-

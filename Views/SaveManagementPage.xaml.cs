@@ -1,6 +1,9 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.UI;
 using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
@@ -11,9 +14,6 @@ using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.UI;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -23,12 +23,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private readonly IConfigurationService _configurationService;
     private readonly IDataStorageService _dataStorageService;
     private readonly IGitService _gitService;
+    private readonly ManagedSaveService _managedSaveService;
+    private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
     private readonly NbtService _nbtService;
     private readonly IOnboardingService _onboardingService;
-    private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
-    private readonly ManagedSaveService _managedSaveService;
-
-    public SaveManagementViewModel ViewModel { get; }
 
     public SaveManagementPage()
     {
@@ -45,6 +43,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         DataContext = this;
         Loaded += SaveManagementPage_Loaded;
     }
+
+    public SaveManagementViewModel ViewModel { get; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -84,15 +84,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private void SaveCard_OpenButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
-        {
             try
             {
                 // Open the save directory in File Explorer
-                var psi = new ProcessStartInfo
-                {
-                    FileName = saveInfo.OriginalPath,
-                    UseShellExecute = true
-                };
+                var psi = new ProcessStartInfo { FileName = saveInfo.OriginalPath, UseShellExecute = true };
                 Process.Start(psi);
             }
             catch (Exception ex)
@@ -100,7 +95,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 Debug.WriteLine($"Failed to open save directory: {ex.Message}");
                 // Could show error dialog here
             }
-        }
     }
 
     private Border CreateSquaredSaveCard(ManagedSaveInfo saveInfo)
@@ -263,10 +257,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var gitStatusHeader = new TextBlock
         {
-            Text = "Git Status:",
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            UseLayoutRounding = true
+            Text = "Git Status:", FontSize = 14, FontWeight = FontWeights.SemiBold, UseLayoutRounding = true
         };
         gitStatusPanel.Children.Add(gitStatusHeader);
 
@@ -291,8 +282,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
         };
 
         if (!string.IsNullOrEmpty(iconPath))
@@ -380,8 +370,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
         };
 
         var icon = new FontIcon
