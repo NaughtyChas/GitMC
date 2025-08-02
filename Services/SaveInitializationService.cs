@@ -43,6 +43,14 @@ public class SaveInitializationService : ISaveInitializationService
 
     public async Task<bool> InitializeSaveAsync(string savePath, IProgress<SaveInitStep>? progress = null)
     {
+        // Validate Git identity is configured before proceeding
+        var (userName, userEmail) = await _gitService.GetIdentityAsync();
+        if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(userEmail))
+        {
+            throw new InvalidOperationException(
+                "Git identity is not configured. Please configure your Git identity in the onboarding process before initializing a save.");
+        }
+
         var steps = GetInitializationSteps();
 
         try

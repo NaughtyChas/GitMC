@@ -548,22 +548,6 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         }
     }
 
-    private async void SkipGitConfigButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            // Mark step as completed even without configuration
-            await OnboardingService.CompleteStep(2); // Step 3 is index 2
-            await OnboardingService.MoveToNextStep(); // Move to next step
-
-            FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Step Skipped",
-                "Git identity configuration has been skipped. You can configure it later in Settings.");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error skipping Git configuration: {ex.Message}");
-        }
-    }
 
     private async void AddSaveButton_Click(object sender, RoutedEventArgs e)
     {

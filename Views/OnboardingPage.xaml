@@ -543,19 +543,7 @@
                                                     <TextBlock Text="Test Configuration" />
                                                 </StackPanel>
                                             </Button>
-                                            <Button
-                                                Click="SkipGitConfigButton_Click"
-                                                HorizontalAlignment="Left"
-                                                Padding="12,8"
-                                                x:Name="SkipGitConfigButton">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <FontIcon
-                                                        FontSize="12"
-                                                        Glyph="&#xE72A;"
-                                                        Margin="0,0,6,0" />
-                                                    <TextBlock Text="Skip for Now" />
-                                                </StackPanel>
-                                            </Button>
+
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
