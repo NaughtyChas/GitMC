@@ -62,6 +62,13 @@ public interface INbtService
     Task ConvertSnbtToNbtAsync(string snbtContent, string outputPath);
 
     /// <summary>
+    ///     Convert SNBT file to NBT file (synchronous)
+    /// </summary>
+    /// <param name="inputPath">Input SNBT file path</param>
+    /// <param name="outputPath">Output NBT file path</param>
+    void ConvertSnbtToNbt(string inputPath, string outputPath);
+
+    /// <summary>
     ///     Validate if the file is a valid NBT file
     /// </summary>
     /// <param name="filePath">File path</param>

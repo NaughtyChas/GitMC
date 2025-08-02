@@ -1,18 +1,18 @@
 using System.Collections.ObjectModel;
-using System.IO;
+using System.Text;
 using System.Text.Json;
 using GitMC.Models;
 
 namespace GitMC.Services;
 
 /// <summary>
-/// Service for managing save initialization process
+///     Service for managing save initialization process
 /// </summary>
 public class SaveInitializationService : ISaveInitializationService
 {
+    private readonly IDataStorageService _dataStorageService;
     private readonly IGitService _gitService;
     private readonly INbtService _nbtService;
-    private readonly IDataStorageService _dataStorageService;
 
     public SaveInitializationService(
         IGitService gitService,
@@ -44,14 +44,12 @@ public class SaveInitializationService : ISaveInitializationService
     public async Task<bool> InitializeSaveAsync(string savePath, IProgress<SaveInitStep>? progress = null)
     {
         // Validate Git identity is configured before proceeding
-        var (userName, userEmail) = await _gitService.GetIdentityAsync();
+        (string? userName, string? userEmail) = await _gitService.GetIdentityAsync();
         if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(userEmail))
-        {
             throw new InvalidOperationException(
                 "Git identity is not configured. Please configure your Git identity in the onboarding process before initializing a save.");
-        }
 
-        var steps = GetInitializationSteps();
+        ObservableCollection<SaveInitStep> steps = GetInitializationSteps();
 
         try
         {
@@ -106,11 +104,11 @@ public class SaveInitializationService : ISaveInitializationService
             await ExecuteStepAsync(steps[6], progress, async () =>
             {
                 steps[6].Message = "Creating initial commit...";
-                var stageResult = await _gitService.StageAllAsync(savePath);
+                GitOperationResult stageResult = await _gitService.StageAllAsync(savePath);
                 if (!stageResult.Success)
                     throw new InvalidOperationException($"Failed to stage files: {stageResult.ErrorMessage}");
 
-                var commitResult =
+                GitOperationResult commitResult =
                     await _gitService.CommitAsync("Initial import: SNBT snapshot of all world chunks", savePath);
                 return commitResult.Success;
             });
@@ -120,7 +118,7 @@ public class SaveInitializationService : ISaveInitializationService
         catch (Exception ex)
         {
             // Mark current step as failed
-            var currentStep = steps.FirstOrDefault(s => s.Status == SaveInitStepStatus.InProgress);
+            SaveInitStep? currentStep = steps.FirstOrDefault(s => s.Status == SaveInitStepStatus.InProgress);
             if (currentStep != null)
             {
                 currentStep.Status = SaveInitStepStatus.Failed;
@@ -212,7 +210,7 @@ public class SaveInitializationService : ISaveInitializationService
         });
 
         // Verify that key files were copied
-        var expectedFiles = new[] { "level.dat", "level.dat_old" };
+        string[] expectedFiles = { "level.dat", "level.dat_old" };
         foreach (string expectedFile in expectedFiles)
         {
             string sourcePath = Path.Combine(savePath, expectedFile);
@@ -235,10 +233,7 @@ public class SaveInitializationService : ISaveInitializationService
         Directory.CreateDirectory(target.FullName);
 
         // Copy files
-        foreach (FileInfo file in source.GetFiles())
-        {
-            file.CopyTo(Path.Combine(target.FullName, file.Name), true);
-        }
+        foreach (FileInfo file in source.GetFiles()) file.CopyTo(Path.Combine(target.FullName, file.Name), true);
 
         // Copy subdirectories
         foreach (DirectoryInfo subDir in source.GetDirectories())
@@ -286,10 +281,7 @@ public class SaveInitializationService : ISaveInitializationService
     {
         try
         {
-            if (directory.Exists)
-            {
-                files.AddRange(directory.GetFiles(pattern, SearchOption.AllDirectories));
-            }
+            if (directory.Exists) files.AddRange(directory.GetFiles(pattern, SearchOption.AllDirectories));
         }
         catch (UnauthorizedAccessException)
         {
@@ -439,7 +431,7 @@ public class SaveInitializationService : ISaveInitializationService
     }}
 }}";
 
-            await File.WriteAllTextAsync(snbtPath, emptyFileSnbtContent, System.Text.Encoding.UTF8);
+            await File.WriteAllTextAsync(snbtPath, emptyFileSnbtContent, Encoding.UTF8);
 
             // Empty files are never multi-chunk
             return (false, 0);
@@ -452,7 +444,7 @@ public class SaveInitializationService : ISaveInitializationService
             {
                 await File.WriteAllTextAsync(snbtPath,
                     $"// Empty file: {Path.GetFileName(filePath)}\n{{}}",
-                    System.Text.Encoding.UTF8);
+                    Encoding.UTF8);
             }
             catch
             {
@@ -471,10 +463,7 @@ public class SaveInitializationService : ISaveInitializationService
         try
         {
             // Verify file exists
-            if (!File.Exists(filePath))
-            {
-                return (false, 0);
-            }
+            if (!File.Exists(filePath)) return (false, 0);
 
             string snbtPath = filePath + ".snbt";
 
@@ -510,7 +499,7 @@ public class SaveInitializationService : ISaveInitializationService
                     }}
                 }}";
 
-                await File.WriteAllTextAsync(snbtPath, errorSnbtContent, System.Text.Encoding.UTF8);
+                await File.WriteAllTextAsync(snbtPath, errorSnbtContent, Encoding.UTF8);
             }
 
             // Verify SNBT file was created (should always exist now)
@@ -524,21 +513,20 @@ public class SaveInitializationService : ISaveInitializationService
 {{
     ""Error"": ""Failed to process file: {fileName}""
 }}";
-                await File.WriteAllTextAsync(snbtPath, fallbackContent, System.Text.Encoding.UTF8);
+                await File.WriteAllTextAsync(snbtPath, fallbackContent, Encoding.UTF8);
             }
 
             // Check for multi-chunk content if it's an MCA/MCC file
             if ((extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
                  extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase)) &&
                 File.Exists(snbtPath))
-            {
                 // Read first part of file to check for multi-chunk indicators
                 using (var fileStream = new FileStream(snbtPath, FileMode.Open, FileAccess.Read))
-                using (var reader = new StreamReader(fileStream, System.Text.Encoding.UTF8, bufferSize: 8192))
+                using (var reader = new StreamReader(fileStream, Encoding.UTF8, bufferSize: 8192))
                 {
                     char[] buffer = new char[2048]; // Read first 2KB
                     int charsRead = await reader.ReadAsync(buffer, 0, buffer.Length);
-                    string headerText = new string(buffer, 0, charsRead);
+                    string headerText = new(buffer, 0, charsRead);
 
                     // Look for chunk indicators
                     if (headerText.Contains("# Chunk"))
@@ -559,7 +547,6 @@ public class SaveInitializationService : ISaveInitializationService
                         }
                     }
                 }
-            }
 
             return (isMultiChunk, chunkCount);
         }
@@ -568,7 +555,6 @@ public class SaveInitializationService : ISaveInitializationService
             // Even if processing fails, ensure SNBT file exists
             string snbtPath = filePath + ".snbt";
             if (!File.Exists(snbtPath))
-            {
                 try
                 {
                     var fileInfo = new FileInfo(filePath);
@@ -584,7 +570,7 @@ public class SaveInitializationService : ISaveInitializationService
         ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}""
     }}
 }}";
-                    await File.WriteAllTextAsync(snbtPath, errorSnbtContent, System.Text.Encoding.UTF8);
+                    await File.WriteAllTextAsync(snbtPath, errorSnbtContent, Encoding.UTF8);
                 }
                 catch
                 {
@@ -592,14 +578,13 @@ public class SaveInitializationService : ISaveInitializationService
                     try
                     {
                         await File.WriteAllTextAsync(snbtPath,
-                            $"// Error processing {Path.GetFileName(filePath)}\n{{}}", System.Text.Encoding.UTF8);
+                            $"// Error processing {Path.GetFileName(filePath)}\n{{}}", Encoding.UTF8);
                     }
                     catch
                     {
                         // If we can't even create the file, give up on this one
                     }
                 }
-            }
 
             // Return false values but don't prevent the process from continuing
             return (false, 0);

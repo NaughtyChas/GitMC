@@ -929,6 +929,11 @@ public class NbtService : INbtService
         }
     }
 
+    public void ConvertSnbtToNbt(string inputPath, string outputPath)
+    {
+        ConvertSnbtToNbtFile(inputPath, outputPath);
+    }
+
     private async Task ConvertRegionFileToSnbt(string inputPath, string outputPath)
     {
         try

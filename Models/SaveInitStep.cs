@@ -4,13 +4,13 @@ using System.Runtime.CompilerServices;
 namespace GitMC.Models;
 
 /// <summary>
-/// Represents a step in the save initialization process
+///     Represents a step in the save initialization process
 /// </summary>
 public class SaveInitStep : INotifyPropertyChanged
 {
-    private SaveInitStepStatus _status = SaveInitStepStatus.Pending;
-    private string _message = string.Empty;
     private int _currentProgress;
+    private string _message = string.Empty;
+    private SaveInitStepStatus _status = SaveInitStepStatus.Pending;
     private int _totalProgress;
 
     public string Name { get; set; } = string.Empty;
@@ -52,7 +52,7 @@ public class SaveInitStep : INotifyPropertyChanged
     public bool HasProgress => TotalProgress > 0;
 
     /// <summary>
-    /// Display name that includes progress for "Extracting chunks" step when in progress
+    ///     Display name that includes progress for "Extracting chunks" step when in progress
     /// </summary>
     public string DisplayName =>
         IsInProgress && HasProgress && Name == "Extracting chunks"
@@ -123,7 +123,7 @@ public class SaveInitStep : INotifyPropertyChanged
 }
 
 /// <summary>
-/// Status of a save initialization step
+///     Status of a save initialization step
 /// </summary>
 public enum SaveInitStepStatus
 {

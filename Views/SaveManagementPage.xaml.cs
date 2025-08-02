@@ -2,6 +2,11 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.UI;
 using GitMC.Constants;
 using GitMC.Extensions;
 using GitMC.Helpers;
@@ -11,29 +16,24 @@ using GitMC.Utils;
 using GitMC.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Text;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.UI;
 using WinRT.Interop;
 
 namespace GitMC.Views;
 
 public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 {
-    private readonly IServiceAggregator _services;
     private readonly ManagedSaveService _managedSaveService;
     private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
-
-    // Initialize steps collection for UI binding
-    private ObservableCollection<SaveInitStep> _initSteps = new();
+    private readonly IServiceAggregator _services;
+    private ManagedSaveInfo? _currentInitializingSave;
 
     // Cancellation support
     private CancellationTokenSource? _initCancellationTokenSource;
-    private ManagedSaveInfo? _currentInitializingSave;
+
+    // Initialize steps collection for UI binding
+    private ObservableCollection<SaveInitStep> _initSteps = new();
 
     public SaveManagementPage()
     {
@@ -64,7 +64,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
@@ -278,10 +278,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var gitStatusHeader = new TextBlock
         {
-            Text = "Git Status:",
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            UseLayoutRounding = true
+            Text = "Git Status:", FontSize = 14, FontWeight = FontWeights.SemiBold, UseLayoutRounding = true
         };
         gitStatusPanel.Children.Add(gitStatusHeader);
 
@@ -306,8 +303,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
         };
 
         if (!string.IsNullOrEmpty(iconPath))
@@ -395,8 +391,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
         };
 
         var icon = new FontIcon
@@ -789,7 +784,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private async void InitializeGitButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
-        {
             try
             {
                 // Set up cancellation support
@@ -797,14 +791,24 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 _currentInitializingSave = saveInfo;
 
                 // Find the container elements for initialization UI
-                var container = GetParentContainer(button);
-                var initializeButton = container != null ? FindChildByName(container, "InitializeButton") as Button : null;
-                var initializationPanel = container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
-                var setupDescriptionSection = container != null ? FindChildByName(container, "SetupDescriptionSection") as StackPanel : null;
-                var progressBar = container != null ? FindChildByName(container, "InitializationProgressBar") as ProgressBar : null;
-                var progressStepText = container != null ? FindChildByName(container, "ProgressStepText") as TextBlock : null;
-                var overallProgressRing = container != null ? FindChildByName(container, "OverallProgressRing") as ProgressRing : null;
-                var stepsContainer = container != null ? FindChildByName(container, "StepsContainer") as StackPanel : null;
+                DependencyObject? container = GetParentContainer(button);
+                Button? initializeButton =
+                    container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                Border? initializationPanel =
+                    container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
+                StackPanel? setupDescriptionSection = container != null
+                    ? FindChildByName(container, "SetupDescriptionSection") as StackPanel
+                    : null;
+                ProgressBar? progressBar = container != null
+                    ? FindChildByName(container, "InitializationProgressBar") as ProgressBar
+                    : null;
+                TextBlock? progressStepText =
+                    container != null ? FindChildByName(container, "ProgressStepText") as TextBlock : null;
+                ProgressRing? overallProgressRing = container != null
+                    ? FindChildByName(container, "OverallProgressRing") as ProgressRing
+                    : null;
+                StackPanel? stepsContainer =
+                    container != null ? FindChildByName(container, "StepsContainer") as StackPanel : null;
 
                 // Initialize the steps collection
                 InitSteps = _services.SaveInitialization.GetInitializationSteps();
@@ -824,18 +828,15 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 }
 
                 // Hide the description section during initialization
-                if (setupDescriptionSection != null)
-                {
-                    setupDescriptionSection.Visibility = Visibility.Collapsed;
-                }
+                if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Collapsed;
 
                 // Create step UI elements programmatically
                 if (stepsContainer != null)
                 {
                     stepsContainer.Children.Clear();
-                    foreach (var step in InitSteps)
+                    foreach (SaveInitStep step in InitSteps)
                     {
-                        var stepGrid = CreateStepUI(step);
+                        Grid stepGrid = CreateStepUI(step);
                         stepsContainer.Children.Add(stepGrid);
                     }
                 }
@@ -844,7 +845,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 var progress = new Progress<SaveInitStep>(step =>
                 {
                     // Update the step in the collection
-                    var existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
+                    SaveInitStep? existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
                     if (existingStep != null)
                     {
                         existingStep.Status = step.Status;
@@ -855,11 +856,9 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                         // Update the corresponding UI element
                         if (stepsContainer != null)
                         {
-                            var stepIndex = InitSteps.IndexOf(existingStep);
+                            int stepIndex = InitSteps.IndexOf(existingStep);
                             if (stepIndex >= 0 && stepIndex < stepsContainer.Children.Count)
-                            {
                                 UpdateStepUI(stepsContainer.Children[stepIndex] as Grid, existingStep);
-                            }
                         }
                     }
 
@@ -872,14 +871,17 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                         progressBar.Value = completedSteps;
 
                         // Calculate overall percentage
-                        double overallPercentage = InitSteps.Count > 0 ? (double)completedSteps / InitSteps.Count * 100 : 0;
+                        double overallPercentage =
+                            InitSteps.Count > 0 ? (double)completedSteps / InitSteps.Count * 100 : 0;
 
                         // Show current step number correctly with percentage
                         if (inProgressSteps > 0)
                         {
                             // Find the current step that's in progress
-                            int currentStepIndex = InitSteps.IndexOf(InitSteps.First(s => s.Status == SaveInitStepStatus.InProgress)) + 1;
-                            progressStepText.Text = $"Step {currentStepIndex} of {InitSteps.Count} ({overallPercentage:F0}%)";
+                            int currentStepIndex =
+                                InitSteps.IndexOf(InitSteps.First(s => s.Status == SaveInitStepStatus.InProgress)) + 1;
+                            progressStepText.Text =
+                                $"Step {currentStepIndex} of {InitSteps.Count} ({overallPercentage:F0}%)";
                         }
                         else if (completedSteps == InitSteps.Count)
                         {
@@ -887,7 +889,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                         }
                         else
                         {
-                            progressStepText.Text = $"Step {completedSteps + 1} of {InitSteps.Count} ({overallPercentage:F0}%)";
+                            progressStepText.Text =
+                                $"Step {completedSteps + 1} of {InitSteps.Count} ({overallPercentage:F0}%)";
                         }
                     }
                 });
@@ -896,10 +899,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 bool success = await _services.SaveInitialization.InitializeSaveAsync(saveInfo.OriginalPath, progress);
 
                 // Stop the overall progress ring
-                if (overallProgressRing != null)
-                {
-                    overallProgressRing.IsActive = false;
-                }
+                if (overallProgressRing != null) overallProgressRing.IsActive = false;
 
                 if (success)
                 {
@@ -925,10 +925,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                     }
 
                     // Show the description section again
-                    if (setupDescriptionSection != null)
-                    {
-                        setupDescriptionSection.Visibility = Visibility.Visible;
-                    }
+                    if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Visible;
 
                     FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Failed",
                         "Failed to initialize Git repository. Please check the logs for details.");
@@ -939,10 +936,14 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 Debug.WriteLine($"Failed to initialize Git: {ex.Message}");
 
                 // Reset UI state on error
-                var container = GetParentContainer(button);
-                var initializeButton = container != null ? FindChildByName(container, "InitializeButton") as Button : null;
-                var initializationPanel = container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
-                var setupDescriptionSection = container != null ? FindChildByName(container, "SetupDescriptionSection") as StackPanel : null;
+                DependencyObject? container = GetParentContainer(button);
+                Button? initializeButton =
+                    container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                Border? initializationPanel =
+                    container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
+                StackPanel? setupDescriptionSection = container != null
+                    ? FindChildByName(container, "SetupDescriptionSection") as StackPanel
+                    : null;
 
                 if (initializeButton != null && initializationPanel != null)
                 {
@@ -951,23 +952,16 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 }
 
                 // Show the description section again
-                if (setupDescriptionSection != null)
-                {
-                    setupDescriptionSection.Visibility = Visibility.Visible;
-                }
+                if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Visible;
 
                 FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Error",
                     $"An error occurred: {ex.Message}");
             }
-        }
     }
 
     private Grid CreateStepUI(SaveInitStep step)
     {
-        var grid = new Grid
-        {
-            Margin = new Thickness(0, 0, 0, 6)
-        };
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 6) };
 
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1007,12 +1001,12 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         // Parse color string to Color and apply to both icon and progress ring
         if (step.StatusColor.StartsWith("#"))
         {
-            var colorStr = step.StatusColor.Substring(1);
+            string colorStr = step.StatusColor.Substring(1);
             if (colorStr.Length == 6)
             {
-                var r = Convert.ToByte(colorStr.Substring(0, 2), 16);
-                var g = Convert.ToByte(colorStr.Substring(2, 2), 16);
-                var b = Convert.ToByte(colorStr.Substring(4, 2), 16);
+                byte r = Convert.ToByte(colorStr.Substring(0, 2), 16);
+                byte g = Convert.ToByte(colorStr.Substring(2, 2), 16);
+                byte b = Convert.ToByte(colorStr.Substring(4, 2), 16);
                 var brush = new SolidColorBrush(Color.FromArgb(255, r, g, b));
                 icon.Foreground = brush;
                 progressRing.Foreground = brush;
@@ -1056,7 +1050,14 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         grid.Children.Add(descriptionText);
 
         // Store references for easy updating
-        grid.Tag = new { Icon = icon, ProgressRing = progressRing, StepNameText = stepNameText, DescriptionText = descriptionText, IconContainer = iconContainer };
+        grid.Tag = new
+        {
+            Icon = icon,
+            ProgressRing = progressRing,
+            StepNameText = stepNameText,
+            DescriptionText = descriptionText,
+            IconContainer = iconContainer
+        };
 
         return grid;
     }
@@ -1065,11 +1066,11 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         if (stepGrid?.Tag is { } tag)
         {
-            var properties = tag.GetType().GetProperties();
-            var iconProperty = properties.FirstOrDefault(p => p.Name == "Icon");
-            var progressRingProperty = properties.FirstOrDefault(p => p.Name == "ProgressRing");
-            var stepNameTextProperty = properties.FirstOrDefault(p => p.Name == "StepNameText");
-            var descriptionTextProperty = properties.FirstOrDefault(p => p.Name == "DescriptionText");
+            PropertyInfo[] properties = tag.GetType().GetProperties();
+            PropertyInfo? iconProperty = properties.FirstOrDefault(p => p.Name == "Icon");
+            PropertyInfo? progressRingProperty = properties.FirstOrDefault(p => p.Name == "ProgressRing");
+            PropertyInfo? stepNameTextProperty = properties.FirstOrDefault(p => p.Name == "StepNameText");
+            PropertyInfo? descriptionTextProperty = properties.FirstOrDefault(p => p.Name == "DescriptionText");
 
             // Update icon
             if (iconProperty?.GetValue(tag) is FontIcon icon)
@@ -1080,12 +1081,12 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 // Update icon color
                 if (step.StatusColor.StartsWith("#"))
                 {
-                    var colorStr = step.StatusColor.Substring(1);
+                    string colorStr = step.StatusColor.Substring(1);
                     if (colorStr.Length == 6)
                     {
-                        var r = Convert.ToByte(colorStr.Substring(0, 2), 16);
-                        var g = Convert.ToByte(colorStr.Substring(2, 2), 16);
-                        var b = Convert.ToByte(colorStr.Substring(4, 2), 16);
+                        byte r = Convert.ToByte(colorStr.Substring(0, 2), 16);
+                        byte g = Convert.ToByte(colorStr.Substring(2, 2), 16);
+                        byte b = Convert.ToByte(colorStr.Substring(4, 2), 16);
                         icon.Foreground = new SolidColorBrush(Color.FromArgb(255, r, g, b));
                     }
                 }
@@ -1100,12 +1101,12 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 // Update progress ring color
                 if (step.StatusColor.StartsWith("#"))
                 {
-                    var colorStr = step.StatusColor.Substring(1);
+                    string colorStr = step.StatusColor.Substring(1);
                     if (colorStr.Length == 6)
                     {
-                        var r = Convert.ToByte(colorStr.Substring(0, 2), 16);
-                        var g = Convert.ToByte(colorStr.Substring(2, 2), 16);
-                        var b = Convert.ToByte(colorStr.Substring(4, 2), 16);
+                        byte r = Convert.ToByte(colorStr.Substring(0, 2), 16);
+                        byte g = Convert.ToByte(colorStr.Substring(2, 2), 16);
+                        byte b = Convert.ToByte(colorStr.Substring(4, 2), 16);
                         progressRing.Foreground = new SolidColorBrush(Color.FromArgb(255, r, g, b));
                     }
                 }
@@ -1113,10 +1114,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
             // Update step name text with DisplayName (includes progress for extracting chunks)
             if (stepNameTextProperty?.GetValue(tag) is TextBlock stepNameText)
-            {
                 // Use DisplayName which includes progress information for "Extracting chunks" step
                 stepNameText.Text = step.DisplayName;
-            }
 
             // Update description text
             if (descriptionTextProperty?.GetValue(tag) is TextBlock descriptionText)
@@ -1170,18 +1169,19 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         if (parent == null) return null;
 
-        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        int childCount = VisualTreeHelper.GetChildrenCount(parent);
         for (int i = 0; i < childCount; i++)
         {
-            var child = VisualTreeHelper.GetChild(parent, i);
+            DependencyObject? child = VisualTreeHelper.GetChild(parent, i);
 
             if (child is FrameworkElement element && element.Name == name)
                 return element;
 
-            var result = FindChildByName(child, name);
+            FrameworkElement? result = FindChildByName(child, name);
             if (result != null)
                 return result;
         }
+
         return null;
     }
 
@@ -1190,7 +1190,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         if (child == null) return null;
 
         // Walk up the visual tree to find the GridViewItem container
-        var parent = VisualTreeHelper.GetParent(child);
+        DependencyObject? parent = VisualTreeHelper.GetParent(child);
         while (parent != null)
         {
             if (parent is GridViewItem)
@@ -1204,24 +1204,26 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private async void CancelInitButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button)
-        {
             try
             {
                 // Cancel the ongoing initialization
                 _initCancellationTokenSource?.Cancel();
 
                 // Find the container elements
-                var container = GetParentContainer(button);
-                var initializeButton = container != null ? FindChildByName(container, "InitializeButton") as Button : null;
-                var initializationPanel = container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
-                var setupDescriptionSection = container != null ? FindChildByName(container, "SetupDescriptionSection") as StackPanel : null;
-                var overallProgressRing = container != null ? FindChildByName(container, "OverallProgressRing") as ProgressRing : null;
+                DependencyObject? container = GetParentContainer(button);
+                Button? initializeButton =
+                    container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                Border? initializationPanel =
+                    container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
+                StackPanel? setupDescriptionSection = container != null
+                    ? FindChildByName(container, "SetupDescriptionSection") as StackPanel
+                    : null;
+                ProgressRing? overallProgressRing = container != null
+                    ? FindChildByName(container, "OverallProgressRing") as ProgressRing
+                    : null;
 
                 // Stop the overall progress ring
-                if (overallProgressRing != null)
-                {
-                    overallProgressRing.IsActive = false;
-                }
+                if (overallProgressRing != null) overallProgressRing.IsActive = false;
 
                 // Reset UI state
                 if (initializeButton != null && initializationPanel != null)
@@ -1231,10 +1233,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 }
 
                 // Show the description section again
-                if (setupDescriptionSection != null)
-                {
-                    setupDescriptionSection.Visibility = Visibility.Visible;
-                }
+                if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Visible;
 
                 // Revert any changes made during initialization if needed
                 if (_currentInitializingSave != null)
@@ -1256,7 +1255,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 FlyoutHelper.ShowErrorFlyout(button, "Error",
                     "An error occurred while cancelling initialization.");
             }
-        }
     }
 
     private Task RevertInitializationChanges(ManagedSaveInfo saveInfo)
@@ -1266,17 +1264,11 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             // This would revert any changes made during initialization
             // For now, we'll just ensure the .git folder is removed if it exists
             string gitPath = Path.Combine(saveInfo.OriginalPath, ".git");
-            if (Directory.Exists(gitPath))
-            {
-                Directory.Delete(gitPath, true);
-            }
+            if (Directory.Exists(gitPath)) Directory.Delete(gitPath, true);
 
             // Remove any other GitMC-created files/folders
             string gitignorePath = Path.Combine(saveInfo.OriginalPath, ".gitignore");
-            if (File.Exists(gitignorePath))
-            {
-                File.Delete(gitignorePath);
-            }
+            if (File.Exists(gitignorePath)) File.Delete(gitignorePath);
         }
         catch (Exception ex)
         {

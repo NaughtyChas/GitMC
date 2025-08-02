@@ -1,13 +1,15 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 using GitMC.Services;
 using GitMC.Utils;
+using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.UI;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -25,6 +27,7 @@ public sealed partial class SaveTranslatorPage : Page
     private PerformanceCounter? _memoryCounter;
     private DispatcherTimer? _performanceTimer;
     private string? _selectedSavePath;
+    private string? _selectedGitMcPath;
 
     public SaveTranslatorPage()
     {
@@ -868,4 +871,278 @@ public sealed partial class SaveTranslatorPage : Page
 
         base.OnNavigatedFrom(e);
     }
+
+    #region Reverse Translation Event Handlers
+
+    private async void BrowseGitMcButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folderPicker = new FolderPicker();
+            folderPicker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            folderPicker.FileTypeFilter.Add("*");
+
+            // Get the current window's handle
+            Window? window = App.MainWindow;
+            IntPtr hwnd = WindowNative.GetWindowHandle(window);
+            InitializeWithWindow.Initialize(folderPicker, hwnd);
+
+            StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
+            if (folder != null)
+            {
+                _selectedGitMcPath = folder.Path;
+                GitMcPathTextBox.Text = _selectedGitMcPath;
+
+                await ValidateGitMcFolder(_selectedGitMcPath).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in BrowseGitMcButton_Click: {ex.Message}");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                GitMcValidationText.Text = $"Error selecting folder: {ex.Message}";
+                GitMcValidationText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+            });
+        }
+    }
+
+    private async Task ValidateGitMcFolder(string folderPath)
+    {
+        try
+        {
+            // Check if it's a valid GitMC folder structure
+            var regionFolder = Path.Combine(folderPath, "region");
+
+            bool hasRegionFolder = Directory.Exists(regionFolder);
+            bool hasSnbtFiles = false;
+
+            if (hasRegionFolder)
+            {
+                hasSnbtFiles = Directory.GetFiles(regionFolder, "*.snbt", SearchOption.AllDirectories).Length > 0;
+            }
+
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (hasRegionFolder && hasSnbtFiles)
+                {
+                    GitMcValidationText.Text = "✓ Valid GitMC folder detected";
+                    GitMcValidationText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green);
+                    GitMcValidationText.Visibility = Visibility.Visible;
+                    StartReverseTranslationButton.IsEnabled = true;
+                }
+                else
+                {
+                    var issues = new List<string>();
+                    if (!hasRegionFolder) issues.Add("No region folder found");
+                    if (!hasSnbtFiles) issues.Add("No SNBT files found");
+
+                    GitMcValidationText.Text = $"✗ Invalid GitMC folder: {string.Join(", ", issues)}";
+                    GitMcValidationText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+                    GitMcValidationText.Visibility = Visibility.Visible;
+                    StartReverseTranslationButton.IsEnabled = false;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error validating GitMC folder: {ex.Message}");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                GitMcValidationText.Text = $"Validation error: {ex.Message}";
+                GitMcValidationText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+                GitMcValidationText.Visibility = Visibility.Visible;
+                StartReverseTranslationButton.IsEnabled = false;
+            });
+        }
+    }
+
+    private async void StartReverseTranslationButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedGitMcPath))
+        {
+            return;
+        }
+
+        try
+        {
+            _cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = _cancellationTokenSource.Token;
+
+            // Disable UI elements
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                StartReverseTranslationButton.IsEnabled = false;
+                BrowseGitMcButton.IsEnabled = false;
+                ReverseTranslationProgressBar.Visibility = Visibility.Visible;
+                ReverseTranslationProgressText.Visibility = Visibility.Visible;
+                ReverseTranslationProgressText.Text = "Preparing reverse translation...";
+            });
+
+            // Create output folder
+            var outputFolder = Path.Combine(Path.GetDirectoryName(_selectedGitMcPath)!,
+                Path.GetFileName(_selectedGitMcPath) + "_restored");
+
+            if (Directory.Exists(outputFolder))
+            {
+                Directory.Delete(outputFolder, true);
+            }
+            Directory.CreateDirectory(outputFolder);
+
+            LogMessage($"Starting reverse translation from: {_selectedGitMcPath}");
+            LogMessage($"Output folder: {outputFolder}");
+
+            await PerformReverseTranslation(_selectedGitMcPath, outputFolder, cancellationToken);
+
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ReverseTranslationProgressText.Text = "✓ Reverse translation completed successfully!";
+                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green);
+            });
+
+            LogMessage($"Reverse translation completed. Restored save available at: {outputFolder}");
+        }
+        catch (OperationCanceledException)
+        {
+            LogMessage("Reverse translation was cancelled.");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ReverseTranslationProgressText.Text = "Reverse translation cancelled.";
+                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in reverse translation: {ex.Message}");
+            LogMessage($"Error during reverse translation: {ex.Message}");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ReverseTranslationProgressText.Text = $"✗ Error: {ex.Message}";
+                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+            });
+        }
+        finally
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                StartReverseTranslationButton.IsEnabled = true;
+                BrowseGitMcButton.IsEnabled = true;
+                ReverseTranslationProgressBar.Visibility = Visibility.Collapsed;
+            });
+        }
+    }
+
+    private async Task PerformReverseTranslation(string gitMcPath, string outputPath, CancellationToken cancellationToken)
+    {
+        var regionFolder = Path.Combine(gitMcPath, "region");
+        var outputRegionFolder = Path.Combine(outputPath, "region");
+        Directory.CreateDirectory(outputRegionFolder);
+
+        // Copy non-region files first
+        await CopyNonRegionFiles(gitMcPath, outputPath, cancellationToken);
+
+        // Get all SNBT files in the region folder
+        var snbtFiles = Directory.GetFiles(regionFolder, "*.snbt", SearchOption.AllDirectories);
+        var totalFiles = snbtFiles.Length;
+        var processedFiles = 0;
+
+        LogMessage($"Found {totalFiles} SNBT files to convert back to NBT format");
+
+        var parallelOptions = new ParallelOptions
+        {
+            CancellationToken = cancellationToken,
+            MaxDegreeOfParallelism = Environment.ProcessorCount
+        };
+
+        await Task.Run(() =>
+        {
+            Parallel.ForEach(snbtFiles, parallelOptions, snbtFile =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    // Calculate relative path and output path
+                    var relativePath = Path.GetRelativePath(regionFolder, snbtFile);
+                    var outputFile = Path.Combine(outputRegionFolder, relativePath);
+
+                    // Change extension from .snbt to original extension
+                    outputFile = Path.ChangeExtension(outputFile, null); // Remove .snbt
+
+                    // Ensure output directory exists
+                    var outputDir = Path.GetDirectoryName(outputFile);
+                    if (!string.IsNullOrEmpty(outputDir))
+                    {
+                        Directory.CreateDirectory(outputDir);
+                    }
+
+                    // Convert SNBT back to NBT
+                    _nbtService.ConvertSnbtToNbt(snbtFile, outputFile);
+
+                    var completed = Interlocked.Increment(ref processedFiles);
+
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        ReverseTranslationProgressText.Text = $"Converting files... ({completed}/{totalFiles})";
+                        ReverseTranslationProgressBar.Value = (double)completed / totalFiles * 100;
+                    });
+                }
+                catch (Exception ex)
+                {
+                    LogMessage($"Error converting {snbtFile}: {ex.Message}");
+                }
+            });
+        }, cancellationToken);
+
+        LogMessage($"Reverse translation completed. Converted {processedFiles} files.");
+    }
+
+    private async Task CopyNonRegionFiles(string sourcePath, string outputPath, CancellationToken cancellationToken)
+    {
+        var allEntries = Directory.GetFileSystemEntries(sourcePath, "*", SearchOption.TopDirectoryOnly);
+
+        foreach (var entry in allEntries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var entryName = Path.GetFileName(entry);
+
+            // Skip region folder (we handle it separately) and git folder
+            if (entryName.Equals("region", StringComparison.OrdinalIgnoreCase) ||
+                entryName.Equals(".git", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var outputEntry = Path.Combine(outputPath, entryName);
+
+            if (Directory.Exists(entry))
+            {
+                // Copy directory recursively
+                await Task.Run(() => CopyDirectory(entry, outputEntry), cancellationToken);
+            }
+            else
+            {
+                // Copy file
+                File.Copy(entry, outputEntry, true);
+            }
+        }
+    }
+
+    private static void CopyDirectory(string sourceDir, string destinationDir)
+    {
+        Directory.CreateDirectory(destinationDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            var destFile = Path.Combine(destinationDir, Path.GetFileName(file));
+            File.Copy(file, destFile, true);
+        }
+
+        foreach (var subDir in Directory.GetDirectories(sourceDir))
+        {
+            var destSubDir = Path.Combine(destinationDir, Path.GetDirectoryName(subDir)!);
+            CopyDirectory(subDir, destSubDir);
+        }
+    }
+
+    #endregion
 }

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using GitMC.Models;
+using GitMC.Utils;
 
 namespace GitMC.Services;
 
@@ -67,7 +68,7 @@ public class ManagedSaveService
                 saveInfo.LastModified = directoryInfo.LastWriteTime;
 
                 // Update size - calculate folder size asynchronously
-                saveInfo.Size = await Task.Run(() => GitMC.Utils.CommonHelpers.CalculateFolderSize(directoryInfo));
+                saveInfo.Size = await Task.Run(() => CommonHelpers.CalculateFolderSize(directoryInfo));
             }
             else
             {
@@ -159,8 +160,7 @@ public class ManagedSaveService
             // Create JsonSerializerOptions that ignore UI properties
             var jsonOptions = new JsonSerializerOptions
             {
-                WriteIndented = true,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
             string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
@@ -195,8 +195,7 @@ public class ManagedSaveService
                 // Create JsonSerializerOptions that ignore UI properties
                 var jsonOptions = new JsonSerializerOptions
                 {
-                    WriteIndented = true,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                    WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
                 };
 
                 string json = JsonSerializer.Serialize(saveInfo, jsonOptions);

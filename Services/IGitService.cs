@@ -25,10 +25,11 @@ public interface IGitService
     string GetCurrentDirectory();
 
     /// <summary>
-    /// Get the previous directory in the directory stack.
+    ///     Get the previous directory in the directory stack.
     /// </summary>
     /// <returns>The previous directory if existing, otherwise null.</returns>
     string? GetPreviousDirectory();
+
     void PopDirectory();
     bool ChangeToInitialDirectory();
     bool ChangeDirectory(string path, bool recordToStack = true);
@@ -68,10 +69,14 @@ public class GitOperationResult
     public string? WarningMessage { get; set; }
 
     public static GitOperationResult CreateSuccess(string? warning = null)
-        => new() { Success = true, WarningMessage = warning };
+    {
+        return new GitOperationResult { Success = true, WarningMessage = warning };
+    }
 
     public static GitOperationResult CreateFailure(string errorMessage)
-        => new() { Success = false, ErrorMessage = errorMessage };
+    {
+        return new GitOperationResult { Success = false, ErrorMessage = errorMessage };
+    }
 }
 
 public class GitStatus
@@ -81,7 +86,10 @@ public class GitStatus
     public string[] StagedFiles { get; set; } = Array.Empty<string>();
     public string[] DeletedFiles { get; set; } = Array.Empty<string>();
     public string CurrentBranch { get; set; } = string.Empty;
-    public bool HasChanges => ModifiedFiles.Length > 0 || UntrackedFiles.Length > 0 || StagedFiles.Length > 0 || DeletedFiles.Length > 0;
+
+    public bool HasChanges => ModifiedFiles.Length > 0 || UntrackedFiles.Length > 0 || StagedFiles.Length > 0 ||
+                              DeletedFiles.Length > 0;
+
     public int AheadCount { get; set; }
     public int BehindCount { get; set; }
 }

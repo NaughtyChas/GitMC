@@ -1,13 +1,14 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.System;
+using Windows.UI.Core;
 using GitMC.Services;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Windows.ApplicationModel.DataTransfer;
-using Windows.System;
-using Windows.UI.Core;
 
 namespace GitMC.Views;
 
@@ -181,11 +182,13 @@ public sealed partial class ConsolePage : Page
             ExecuteButton.IsEnabled = true;
             CommandStatusIcon.Visibility = Visibility.Visible;
             CommandStatusIcon.Glyph = succeeded ? "\uEC61" : "\uEB90";
-            StatusCodeText.Visibility = statusCode != null && statusCode != 0 ? Visibility.Visible : Visibility.Collapsed;
+            StatusCodeText.Visibility =
+                statusCode != null && statusCode != 0 ? Visibility.Visible : Visibility.Collapsed;
             StatusCodeText.Text = statusCode?.ToString();
             StatusCodeText.Foreground = CommandStatusIcon.Foreground
-                = Application.Current.Resources[succeeded ? "SystemFillColorSuccessBrush" : "SystemFillColorCriticalBrush"]
-                as SolidColorBrush;
+                = Application.Current.Resources[
+                        succeeded ? "SystemFillColorSuccessBrush" : "SystemFillColorCriticalBrush"]
+                    as SolidColorBrush;
             CommandProgressRing.Visibility = Visibility.Collapsed;
             CommandInput.Focus(FocusState.Programmatic);
         }
@@ -244,7 +247,7 @@ public sealed partial class ConsolePage : Page
         try
         {
             // Handle enhanced Git commands with LibGit2Sharp
-            var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string[] parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) return null;
 
             string gitCommand = parts[0].ToLower();
@@ -291,7 +294,7 @@ public sealed partial class ConsolePage : Page
 
     private async Task<GitCommandResult> HandleGitStatus()
     {
-        var status = await _gitService.GetStatusAsync();
+        GitStatus status = await _gitService.GetStatusAsync();
         var result = new GitCommandResult { Success = true };
 
         AddOutputLine($"On branch {status.CurrentBranch}", "#CCCCCC");
@@ -299,17 +302,22 @@ public sealed partial class ConsolePage : Page
         if (status.AheadCount > 0 || status.BehindCount > 0)
         {
             if (status.AheadCount > 0 && status.BehindCount > 0)
-                AddOutputLine($"Your branch is ahead by {status.AheadCount} and behind by {status.BehindCount} commits.", "#FFAA00");
+                AddOutputLine(
+                    $"Your branch is ahead by {status.AheadCount} and behind by {status.BehindCount} commits.",
+                    "#FFAA00");
             else if (status.AheadCount > 0)
-                AddOutputLine($"Your branch is ahead of 'origin/{status.CurrentBranch}' by {status.AheadCount} commits.", "#FFAA00");
+                AddOutputLine(
+                    $"Your branch is ahead of 'origin/{status.CurrentBranch}' by {status.AheadCount} commits.",
+                    "#FFAA00");
             else if (status.BehindCount > 0)
-                AddOutputLine($"Your branch is behind 'origin/{status.CurrentBranch}' by {status.BehindCount} commits.", "#FFAA00");
+                AddOutputLine($"Your branch is behind 'origin/{status.CurrentBranch}' by {status.BehindCount} commits.",
+                    "#FFAA00");
         }
 
         if (status.StagedFiles.Length > 0)
         {
             AddOutputLine("Changes to be committed:", "#90EE90");
-            foreach (var file in status.StagedFiles)
+            foreach (string file in status.StagedFiles)
                 AddOutputLine($"  modified:   {file}", "#90EE90");
             AddOutputLine("", "#CCCCCC");
         }
@@ -317,7 +325,7 @@ public sealed partial class ConsolePage : Page
         if (status.ModifiedFiles.Length > 0)
         {
             AddOutputLine("Changes not staged for commit:", "#FF6B6B");
-            foreach (var file in status.ModifiedFiles)
+            foreach (string file in status.ModifiedFiles)
                 AddOutputLine($"  modified:   {file}", "#FF6B6B");
             AddOutputLine("", "#CCCCCC");
         }
@@ -325,7 +333,7 @@ public sealed partial class ConsolePage : Page
         if (status.DeletedFiles.Length > 0)
         {
             AddOutputLine("Deleted files:", "#FF6B6B");
-            foreach (var file in status.DeletedFiles)
+            foreach (string file in status.DeletedFiles)
                 AddOutputLine($"  deleted:    {file}", "#FF6B6B");
             AddOutputLine("", "#CCCCCC");
         }
@@ -333,7 +341,7 @@ public sealed partial class ConsolePage : Page
         if (status.UntrackedFiles.Length > 0)
         {
             AddOutputLine("Untracked files:", "#FFAA00");
-            foreach (var file in status.UntrackedFiles)
+            foreach (string file in status.UntrackedFiles)
                 AddOutputLine($"  {file}", "#FFAA00");
             AddOutputLine("", "#CCCCCC");
         }
@@ -355,7 +363,7 @@ public sealed partial class ConsolePage : Page
             return result;
         }
 
-        var addResult = parts[1] == "." || parts[1] == "-A"
+        GitOperationResult addResult = parts[1] == "." || parts[1] == "-A"
             ? await _gitService.StageAllAsync()
             : await _gitService.StageFileAsync(parts[1]);
 
@@ -363,9 +371,7 @@ public sealed partial class ConsolePage : Page
         {
             AddOutputLine($"Added {(parts[1] == "." ? "all files" : parts[1])} to staging area", "#90EE90");
             if (!string.IsNullOrEmpty(addResult.WarningMessage))
-            {
                 AddOutputLine($"Warning: {addResult.WarningMessage}", "#FFAA00");
-            }
             result.Success = true;
         }
         else
@@ -382,7 +388,7 @@ public sealed partial class ConsolePage : Page
         var result = new GitCommandResult();
 
         // Extract commit message from command
-        var messageMatch = System.Text.RegularExpressions.Regex.Match(command, @"-m\s+[""'](.+?)[""']");
+        Match messageMatch = Regex.Match(command, @"-m\s+[""'](.+?)[""']");
         if (!messageMatch.Success)
         {
             AddOutputLine("usage: git commit -m \"<message>\"", "#FF6B6B");
@@ -391,7 +397,7 @@ public sealed partial class ConsolePage : Page
         }
 
         string message = messageMatch.Groups[1].Value;
-        var commitResult = await _gitService.CommitAsync(message);
+        GitOperationResult commitResult = await _gitService.CommitAsync(message);
 
         if (commitResult.Success)
         {
@@ -412,15 +418,11 @@ public sealed partial class ConsolePage : Page
         var result = new GitCommandResult { Success = true };
 
         int count = 10; // Default
-        if (parts.Length > 1 && parts[1].StartsWith("--oneline"))
-        {
-            count = 20;
-        }
+        if (parts.Length > 1 && parts[1].StartsWith("--oneline")) count = 20;
 
-        var commits = await _gitService.GetCommitHistoryAsync(count);
+        GitCommit[] commits = await _gitService.GetCommitHistoryAsync(count);
 
-        foreach (var commit in commits)
-        {
+        foreach (GitCommit commit in commits)
             if (parts.Length > 1 && parts[1].Contains("oneline"))
             {
                 AddOutputLine($"{commit.Sha[..7]} {commit.Message}", "#FFAA00");
@@ -434,7 +436,6 @@ public sealed partial class ConsolePage : Page
                 AddOutputLine($"    {commit.Message}", "#CCCCCC");
                 AddOutputLine("", "#CCCCCC");
             }
-        }
 
         return result;
     }
@@ -446,16 +447,13 @@ public sealed partial class ConsolePage : Page
         if (parts.Length == 1)
         {
             // List branches
-            var branches = await _gitService.GetBranchesAsync();
-            foreach (var branch in branches)
-            {
-                AddOutputLine(branch, branch.StartsWith("*") ? "#90EE90" : "#CCCCCC");
-            }
+            string[] branches = await _gitService.GetBranchesAsync();
+            foreach (string branch in branches) AddOutputLine(branch, branch.StartsWith("*") ? "#90EE90" : "#CCCCCC");
         }
         else if (parts.Length == 2)
         {
             // Create new branch
-            var createResult = await _gitService.CreateBranchAsync(parts[1]);
+            GitOperationResult createResult = await _gitService.CreateBranchAsync(parts[1]);
             if (createResult.Success)
             {
                 AddOutputLine($"Created branch '{parts[1]}'", "#90EE90");
@@ -481,7 +479,7 @@ public sealed partial class ConsolePage : Page
             return result;
         }
 
-        var checkoutResult = await _gitService.CheckoutBranchAsync(parts[1]);
+        GitOperationResult checkoutResult = await _gitService.CheckoutBranchAsync(parts[1]);
         if (checkoutResult.Success)
         {
             AddOutputLine($"Switched to branch '{parts[1]}'", "#90EE90");
@@ -562,8 +560,8 @@ public sealed partial class ConsolePage : Page
 
         if (!string.IsNullOrEmpty(diff))
         {
-            var lines = diff.Split('\n');
-            foreach (var line in lines)
+            string[] lines = diff.Split('\n');
+            foreach (string line in lines)
             {
                 string color = "#CCCCCC";
                 if (line.StartsWith("+")) color = "#90EE90";
@@ -684,10 +682,7 @@ public sealed partial class ConsolePage : Page
                 line.Contains(result.ErrorMessage, StringComparison.OrdinalIgnoreCase) ||
                 result.ErrorMessage.Contains(line, StringComparison.OrdinalIgnoreCase));
 
-            if (!errorMessageAlreadyShown)
-            {
-                AddOutputLine(result.ErrorMessage, "#FF6B6B");
-            }
+            if (!errorMessageAlreadyShown) AddOutputLine(result.ErrorMessage, "#FF6B6B");
 
             if (result.ErrorMessage.Contains("not installed", StringComparison.OrdinalIgnoreCase) ||
                 result.ErrorMessage.Contains("not found", StringComparison.OrdinalIgnoreCase))

@@ -138,7 +138,7 @@
             </StackPanel>
 
             <!--  Operation buttons  -->
-            <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,24,0,0">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,24,0,0">
                 <Button
                     Click="StartTranslationButton_Click"
                     Content="{ext:Localize Key=SaveTranslator_StartTranslation}"
@@ -148,13 +148,80 @@
                     Style="{StaticResource AccentButtonStyle}"
                     x:Name="StartTranslationButton" />
                 <Button
+                    Click="OpenOutputFolderButton_Click"
+                    Content="Open Output"
+                    Grid.Column="2"
+                    IsEnabled="False"
+                    Margin="0,0,8,0"
+                    x:Name="OpenOutputFolderButton" />
+                <Button
                     Click="CancelButton_Click"
                     Content="{ext:Localize Key=UI_Cancel}"
-                    Grid.Column="2"
+                    Grid.Column="3"
                     IsEnabled="False"
                     Margin="0,0,8,0"
                     x:Name="CancelButton" />
             </Grid>
+
+            <!--  Separator  -->
+            <Border
+                Background="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                Height="1"
+                Margin="0,32,0,24" />
+
+            <!--  Reverse Translation Section  -->
+            <StackPanel Spacing="16">
+                <TextBlock
+                    Style="{StaticResource TitleTextBlockStyle}"
+                    Text="Reverse Translation (GitMC → Minecraft Save)" />
+
+                <!--  Select GitMC Folder  -->
+                <StackPanel Spacing="12">
+                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Select GitMC Folder" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox
+                            Grid.Column="0"
+                            IsReadOnly="True"
+                            PlaceholderText="Select a GitMC folder to convert back to Minecraft save..."
+                            x:Name="GitMcPathTextBox" />
+                        <Button
+                            Click="BrowseGitMcButton_Click"
+                            Content="{ext:Localize Key=UI_Browse}"
+                            Grid.Column="1"
+                            Margin="8,0,0,0"
+                            x:Name="BrowseGitMcButton" />
+                    </Grid>
+                    <TextBlock
+                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                        Text="No GitMC folder selected"
+                        Visibility="Collapsed"
+                        x:Name="GitMcValidationText" />
+                </StackPanel>
+
+                <!--  Reverse Translation Progress  -->
+                <StackPanel Spacing="12">
+                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Reverse Translation Progress" />
+                    <ProgressBar
+                        Maximum="100"
+                        Value="0"
+                        x:Name="ReverseTranslationProgressBar" />
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Text="Ready to convert GitMC back to Minecraft save"
+                        x:Name="ReverseTranslationProgressText" />
+                </StackPanel>
+
+                <!--  Reverse Translation Button  -->
+                <Grid>
+                    <Button
+                        Click="StartReverseTranslationButton_Click"
+                        Content="Convert GitMC to Minecraft Save"
+                        HorizontalAlignment="Center"
+                        IsEnabled="False"
+                        Style="{StaticResource AccentButtonStyle}"
+                        x:Name="StartReverseTranslationButton" />
+                </Grid>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>

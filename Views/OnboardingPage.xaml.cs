@@ -1,6 +1,9 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.System;
 using GitMC.Constants;
 using GitMC.Helpers;
 using GitMC.Models;
@@ -8,9 +11,6 @@ using GitMC.Services;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.System;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -90,7 +90,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             if (statusText == null) return;
 
             // Get current Git identity
-            var (userName, userEmail) = await _gitService.GetIdentityAsync();
+            (string? userName, string? userEmail) = await _gitService.GetIdentityAsync();
 
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
             {
@@ -122,10 +122,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                     statusIcon.Foreground = new SolidColorBrush(ColorConstants.WarningOrange);
                 }
 
-                if (currentIdentityPanel != null)
-                {
-                    currentIdentityPanel.Visibility = Visibility.Collapsed;
-                }
+                if (currentIdentityPanel != null) currentIdentityPanel.Visibility = Visibility.Collapsed;
             }
         }
         catch (Exception ex)
@@ -493,7 +490,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             if (statusText == null) return;
 
             // Get current Git identity
-            var (userName, userEmail) = await _gitService.GetIdentityAsync();
+            (string? userName, string? userEmail) = await _gitService.GetIdentityAsync();
 
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
             {
@@ -528,10 +525,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                     statusIcon.Foreground = new SolidColorBrush(ColorConstants.WarningOrange);
                 }
 
-                if (currentIdentityPanel != null)
-                {
-                    currentIdentityPanel.Visibility = Visibility.Collapsed;
-                }
+                if (currentIdentityPanel != null) currentIdentityPanel.Visibility = Visibility.Collapsed;
 
                 FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Git Configuration Test",
                     "Git identity is not configured. Please set your name and email address.");

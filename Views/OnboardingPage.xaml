@@ -406,7 +406,7 @@
                                                 Padding="12"
                                                 x:Name="GitConfigStatusPanel">
                                                 <StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                    <StackPanel Margin="0,0,0,4" Orientation="Horizontal">
                                                         <FontIcon
                                                             FontSize="16"
                                                             Foreground="#FF8C00"
@@ -423,8 +423,8 @@
                                                         <TextBlock
                                                             FontSize="12"
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            Text="Current configuration:"
-                                                            Margin="24,4,0,2" />
+                                                            Margin="24,4,0,2"
+                                                            Text="Current configuration:" />
                                                         <TextBlock
                                                             FontSize="12"
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"

@@ -1,12 +1,13 @@
 using System.Diagnostics;
 using LibGit2Sharp;
+using Version = LibGit2Sharp.Version;
 
 namespace GitMC.Services;
 
 public class GitService : IGitService
 {
-    private readonly string _initialDirectory;
     private readonly List<string> _directoryStack = [];
+    private readonly string _initialDirectory;
     private string _currentDirectory;
 
     public GitService()
@@ -19,7 +20,7 @@ public class GitService : IGitService
         try
         {
             // Use LibGit2Sharp version first, fallback to command line
-            var libgit2Version = GlobalSettings.Version;
+            Version? libgit2Version = GlobalSettings.Version;
             return await Task.FromResult($"LibGit2Sharp {libgit2Version} / Git {await GetSystemGitVersionAsync()}");
         }
         catch (Exception ex)
@@ -27,25 +28,6 @@ public class GitService : IGitService
             Debug.WriteLine($"An error occurred while getting Git version: {ex.Message}");
             return "LibGit2Sharp Available / Git " + await GetSystemGitVersionAsync();
         }
-    }
-
-    private async Task<string> GetSystemGitVersionAsync()
-    {
-        try
-        {
-            GitCommandResult result = await ExecuteCommandAsync("--version");
-            if (result.Success && result.OutputLines.Length > 0)
-            {
-                string output = result.OutputLines[0];
-                string[] parts = output.Split(' ');
-                return parts.Length >= 3 ? parts[2] : "Unknown";
-            }
-        }
-        catch
-        {
-            // Ignore errors
-        }
-        return "Not Found";
     }
 
     public async Task<bool> IsInstalledAsync()
@@ -144,8 +126,8 @@ public class GitService : IGitService
         try
         {
             // For global Git configuration, use command line since LibGit2Sharp doesn't easily support global config
-            var nameResult = await ExecuteCommandAsync($"config --global user.name \"{userName}\"");
-            var emailResult = await ExecuteCommandAsync($"config --global user.email \"{userEmail}\"");
+            GitCommandResult nameResult = await ExecuteCommandAsync($"config --global user.name \"{userName}\"");
+            GitCommandResult emailResult = await ExecuteCommandAsync($"config --global user.email \"{userEmail}\"");
 
             return nameResult.Success && emailResult.Success;
         }
@@ -161,8 +143,8 @@ public class GitService : IGitService
         try
         {
             // Get global Git configuration using command line
-            var nameResult = await ExecuteCommandAsync("config --global user.name");
-            var emailResult = await ExecuteCommandAsync("config --global user.email");
+            GitCommandResult nameResult = await ExecuteCommandAsync("config --global user.name");
+            GitCommandResult emailResult = await ExecuteCommandAsync("config --global user.email");
 
             string? userName = nameResult.Success && nameResult.OutputLines.Length > 0
                 ? nameResult.OutputLines[0].Trim()
@@ -185,7 +167,7 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
                 repo.Network.Remotes.Add(name, url);
             });
@@ -203,7 +185,7 @@ public class GitService : IGitService
         {
             return await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
                 return repo.Network.Remotes
                     .Select(r => $"{r.Name}\t{r.Url} (fetch)")
@@ -216,9 +198,15 @@ public class GitService : IGitService
         }
     }
 
-    public string GetCurrentDirectory() => _currentDirectory;
+    public string GetCurrentDirectory()
+    {
+        return _currentDirectory;
+    }
 
-    public string? GetPreviousDirectory() => _directoryStack.Count > 0 ? _directoryStack.Last() : null;
+    public string? GetPreviousDirectory()
+    {
+        return _directoryStack.Count > 0 ? _directoryStack.Last() : null;
+    }
 
     public void PopDirectory()
     {
@@ -226,7 +214,10 @@ public class GitService : IGitService
             _directoryStack.RemoveAt(_directoryStack.Count - 1);
     }
 
-    public bool ChangeToInitialDirectory() => ChangeDirectory(_initialDirectory);
+    public bool ChangeToInitialDirectory()
+    {
+        return ChangeDirectory(_initialDirectory);
+    }
 
     public bool ChangeDirectory(string path, bool recordToStack = true)
     {
@@ -271,24 +262,35 @@ public class GitService : IGitService
         {
             return await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
-                var status = repo.RetrieveStatus();
+                RepositoryStatus? status = repo.RetrieveStatus();
 
                 var gitStatus = new GitStatus
                 {
                     CurrentBranch = repo.Head.FriendlyName,
-                    ModifiedFiles = status.Where(s => s.State.HasFlag(FileStatus.ModifiedInWorkdir)).Select(s => s.FilePath).ToArray(),
-                    StagedFiles = status.Where(s => s.State.HasFlag(FileStatus.ModifiedInIndex) || s.State.HasFlag(FileStatus.NewInIndex)).Select(s => s.FilePath).ToArray(),
-                    UntrackedFiles = status.Where(s => s.State.HasFlag(FileStatus.NewInWorkdir)).Select(s => s.FilePath).ToArray(),
-                    DeletedFiles = status.Where(s => s.State.HasFlag(FileStatus.DeletedFromWorkdir) || s.State.HasFlag(FileStatus.DeletedFromIndex)).Select(s => s.FilePath).ToArray()
+                    ModifiedFiles =
+                        status.Where(s => s.State.HasFlag(FileStatus.ModifiedInWorkdir)).Select(s => s.FilePath)
+                            .ToArray(),
+                    StagedFiles =
+                        status.Where(s =>
+                                s.State.HasFlag(FileStatus.ModifiedInIndex) || s.State.HasFlag(FileStatus.NewInIndex))
+                            .Select(s => s.FilePath).ToArray(),
+                    UntrackedFiles =
+                        status.Where(s => s.State.HasFlag(FileStatus.NewInWorkdir)).Select(s => s.FilePath)
+                            .ToArray(),
+                    DeletedFiles =
+                        status.Where(s =>
+                            s.State.HasFlag(FileStatus.DeletedFromWorkdir) ||
+                            s.State.HasFlag(FileStatus.DeletedFromIndex)).Select(s => s.FilePath).ToArray()
                 };
 
                 // Get ahead/behind counts if tracking branch exists
-                var trackingBranch = repo.Head.TrackedBranch;
+                Branch? trackingBranch = repo.Head.TrackedBranch;
                 if (trackingBranch != null)
                 {
-                    var divergence = repo.ObjectDatabase.CalculateHistoryDivergence(repo.Head.Tip, trackingBranch.Tip);
+                    HistoryDivergence? divergence =
+                        repo.ObjectDatabase.CalculateHistoryDivergence(repo.Head.Tip, trackingBranch.Tip);
                     gitStatus.AheadCount = divergence?.AheadBy ?? 0;
                     gitStatus.BehindCount = divergence?.BehindBy ?? 0;
                 }
@@ -308,18 +310,16 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if file exists in working directory
-                var fullPath = Path.IsPathRooted(filePath)
+                string fullPath = Path.IsPathRooted(filePath)
                     ? filePath
                     : Path.Combine(repoPath, filePath);
 
                 if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
-                {
                     throw new LibGit2SharpException($"pathspec '{filePath}' did not match any files");
-                }
 
                 repo.Index.Add(filePath);
                 repo.Index.Write();
@@ -340,19 +340,17 @@ public class GitService : IGitService
     {
         try
         {
-            var result = await Task.Run(() =>
+            GitOperationResult result = await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if there are any changes to stage
-                var status = repo.RetrieveStatus();
+                RepositoryStatus? status = repo.RetrieveStatus();
                 if (!status.Where(s => s.State.HasFlag(FileStatus.ModifiedInWorkdir) ||
-                                      s.State.HasFlag(FileStatus.NewInWorkdir) ||
-                                      s.State.HasFlag(FileStatus.DeletedFromWorkdir)).Any())
-                {
+                                       s.State.HasFlag(FileStatus.NewInWorkdir) ||
+                                       s.State.HasFlag(FileStatus.DeletedFromWorkdir)).Any())
                     return GitOperationResult.CreateSuccess("No files to stage");
-                }
 
                 Commands.Stage(repo, "*");
                 repo.Index.Write();
@@ -376,16 +374,15 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if file is staged
-                var status = repo.RetrieveStatus();
-                var fileStatus = status.FirstOrDefault(s => s.FilePath == filePath);
-                if (fileStatus == null || (!fileStatus.State.HasFlag(FileStatus.ModifiedInIndex) && !fileStatus.State.HasFlag(FileStatus.NewInIndex)))
-                {
+                RepositoryStatus? status = repo.RetrieveStatus();
+                StatusEntry? fileStatus = status.FirstOrDefault(s => s.FilePath == filePath);
+                if (fileStatus == null || (!fileStatus.State.HasFlag(FileStatus.ModifiedInIndex) &&
+                                           !fileStatus.State.HasFlag(FileStatus.NewInIndex)))
                     throw new LibGit2SharpException($"No changes staged for file '{filePath}'");
-                }
 
                 Commands.Unstage(repo, filePath);
                 repo.Index.Write();
@@ -408,17 +405,18 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if there are any staged changes
-                var status = repo.RetrieveStatus();
-                if (!status.Where(s => s.State.HasFlag(FileStatus.ModifiedInIndex) || s.State.HasFlag(FileStatus.NewInIndex)).Any())
-                {
-                    throw new LibGit2SharpException("No changes added to commit (use \"git add\" and/or \"git commit -a\")");
-                }
+                RepositoryStatus? status = repo.RetrieveStatus();
+                if (!status.Where(s =>
+                            s.State.HasFlag(FileStatus.ModifiedInIndex) || s.State.HasFlag(FileStatus.NewInIndex))
+                        .Any())
+                    throw new LibGit2SharpException(
+                        "No changes added to commit (use \"git add\" and/or \"git commit -a\")");
 
-                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                Signature? signature = repo.Config.BuildSignature(DateTimeOffset.Now);
                 repo.Commit(message, signature, signature);
             });
             return GitOperationResult.CreateSuccess();
@@ -439,7 +437,7 @@ public class GitService : IGitService
         {
             return await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 return repo.Head.Commits
@@ -470,7 +468,7 @@ public class GitService : IGitService
         {
             return await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 return repo.Branches
@@ -491,14 +489,12 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if branch already exists
                 if (repo.Branches[branchName] != null)
-                {
                     throw new LibGit2SharpException($"A branch named '{branchName}' already exists.");
-                }
 
                 repo.CreateBranch(branchName);
             });
@@ -520,21 +516,18 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                var branch = repo.Branches[branchName];
+                Branch? branch = repo.Branches[branchName];
                 if (branch == null)
-                {
                     throw new LibGit2SharpException($"pathspec '{branchName}' did not match any file(s) known to git");
-                }
 
                 // Check for uncommitted changes
-                var status = repo.RetrieveStatus();
+                RepositoryStatus? status = repo.RetrieveStatus();
                 if (status.IsDirty)
-                {
-                    throw new LibGit2SharpException("Your local changes to the following files would be overwritten by checkout. Please commit your changes or stash them before you switch branches.");
-                }
+                    throw new LibGit2SharpException(
+                        "Your local changes to the following files would be overwritten by checkout. Please commit your changes or stash them before you switch branches.");
 
                 Commands.Checkout(repo, branch);
             });
@@ -546,20 +539,22 @@ public class GitService : IGitService
         }
         catch (Exception ex)
         {
-            return GitOperationResult.CreateFailure($"Unexpected error checking out branch '{branchName}': {ex.Message}");
+            return GitOperationResult.CreateFailure(
+                $"Unexpected error checking out branch '{branchName}': {ex.Message}");
         }
     }
 
-    public async Task<bool> PullAsync(string? remoteName = null, string? branchName = null, string? workingDirectory = null)
+    public async Task<bool> PullAsync(string? remoteName = null, string? branchName = null,
+        string? workingDirectory = null)
     {
         try
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                Signature? signature = repo.Config.BuildSignature(DateTimeOffset.Now);
                 var pullOptions = new PullOptions();
 
                 Commands.Pull(repo, signature, pullOptions);
@@ -572,19 +567,20 @@ public class GitService : IGitService
         }
     }
 
-    public async Task<bool> PushAsync(string? remoteName = null, string? branchName = null, string? workingDirectory = null)
+    public async Task<bool> PushAsync(string? remoteName = null, string? branchName = null,
+        string? workingDirectory = null)
     {
         try
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                var remote = repo.Network.Remotes[remoteName ?? "origin"];
+                Remote? remote = repo.Network.Remotes[remoteName ?? "origin"];
                 if (remote != null)
                 {
-                    var pushRefSpec = $"refs/heads/{branchName ?? repo.Head.FriendlyName}";
+                    string pushRefSpec = $"refs/heads/{branchName ?? repo.Head.FriendlyName}";
                     repo.Network.Push(remote, pushRefSpec);
                 }
             });
@@ -602,13 +598,13 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                var remote = repo.Network.Remotes[remoteName ?? "origin"];
+                Remote? remote = repo.Network.Remotes[remoteName ?? "origin"];
                 if (remote != null)
                 {
-                    var refSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
+                    IEnumerable<string> refSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
                     Commands.Fetch(repo, remote.Name, refSpecs, null, null);
                 }
             });
@@ -626,15 +622,12 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
-                var branch = repo.Branches[branchName];
-                if (branch != null)
-                {
-                    repo.Merge(branch, signature);
-                }
+                Signature? signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                Branch? branch = repo.Branches[branchName];
+                if (branch != null) repo.Merge(branch, signature);
             });
             return true;
         }
@@ -650,10 +643,10 @@ public class GitService : IGitService
         {
             return await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                var diff = string.IsNullOrEmpty(filePath)
+                Patch? diff = string.IsNullOrEmpty(filePath)
                     ? repo.Diff.Compare<Patch>()
                     : repo.Diff.Compare<Patch>(new[] { filePath });
 
@@ -672,21 +665,18 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                var repoPath = workingDirectory ?? _currentDirectory;
+                string repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                var resetMode = mode.ToLower() switch
+                ResetMode resetMode = mode.ToLower() switch
                 {
                     "soft" => ResetMode.Soft,
                     "hard" => ResetMode.Hard,
                     _ => ResetMode.Mixed
                 };
 
-                var commit = string.IsNullOrEmpty(target) ? repo.Head.Tip : repo.Lookup<Commit>(target);
-                if (commit != null)
-                {
-                    repo.Reset(resetMode, commit);
-                }
+                Commit? commit = string.IsNullOrEmpty(target) ? repo.Head.Tip : repo.Lookup<Commit>(target);
+                if (commit != null) repo.Reset(resetMode, commit);
             });
             return true;
         }
@@ -703,10 +693,7 @@ public class GitService : IGitService
             await Task.Run(() =>
             {
                 var cloneOptions = new CloneOptions();
-                if (!string.IsNullOrEmpty(branchName))
-                {
-                    cloneOptions.BranchName = branchName;
-                }
+                if (!string.IsNullOrEmpty(branchName)) cloneOptions.BranchName = branchName;
 
                 Repository.Clone(url, targetPath, cloneOptions);
             });
@@ -716,5 +703,25 @@ public class GitService : IGitService
         {
             return false;
         }
+    }
+
+    private async Task<string> GetSystemGitVersionAsync()
+    {
+        try
+        {
+            GitCommandResult result = await ExecuteCommandAsync("--version");
+            if (result.Success && result.OutputLines.Length > 0)
+            {
+                string output = result.OutputLines[0];
+                string[] parts = output.Split(' ');
+                return parts.Length >= 3 ? parts[2] : "Unknown";
+            }
+        }
+        catch
+        {
+            // Ignore errors
+        }
+
+        return "Not Found";
     }
 }

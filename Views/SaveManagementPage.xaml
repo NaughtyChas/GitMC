@@ -219,7 +219,7 @@
                                             </Button>
                                         </Grid>
 
-                                        <!--  Progress Bar -->
+                                        <!--  Progress Bar  -->
                                         <ProgressBar
                                             Foreground="#2196F3"
                                             Height="4"
