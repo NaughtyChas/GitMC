@@ -87,7 +87,7 @@
                         <TextBlock
                             FontSize="12"
                             Opacity="0.8"
-                            Text="Standard MCA converts each file to an SNBT file, chunk-based mode creates separate SNBT files for each chunk."
+                            Text="Standard MCA converts each file to an SNBT file, chunk-based mode creates separate SNBT files for each chunk"
                             TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
