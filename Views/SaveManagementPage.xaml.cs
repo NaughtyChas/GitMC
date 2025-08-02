@@ -849,6 +849,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                     {
                         existingStep.Status = step.Status;
                         existingStep.Message = step.Message;
+                        existingStep.CurrentProgress = step.CurrentProgress;
+                        existingStep.TotalProgress = step.TotalProgress;
 
                         // Update the corresponding UI element
                         if (stepsContainer != null)
@@ -1112,6 +1114,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             // Update step name text with DisplayName (includes progress for extracting chunks)
             if (stepNameTextProperty?.GetValue(tag) is TextBlock stepNameText)
             {
+                // Use DisplayName which includes progress information for "Extracting chunks" step
                 stepNameText.Text = step.DisplayName;
             }
 

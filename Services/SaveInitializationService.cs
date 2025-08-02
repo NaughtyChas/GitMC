@@ -208,6 +208,7 @@ public class SaveInitializationService : ISaveInitializationService
         if (!Directory.Exists(regionPath))
         {
             step.Message = "No region files found, skipping chunk extraction";
+            progress?.Report(step);
             return;
         }
 
@@ -218,14 +219,15 @@ public class SaveInitializationService : ISaveInitializationService
         // Update step with progress info
         step.CurrentProgress = 0;
         step.TotalProgress = totalFiles;
+        step.Message = $"Starting extraction of {totalFiles} region files...";
+        progress?.Report(step);
 
         foreach (string mcaFile in mcaFiles)
         {
             string fileName = Path.GetFileNameWithoutExtension(mcaFile);
             string outputDir = Path.Combine(gitMcRegionPath, fileName + ".mca");
 
-            // Update progress information
-            step.CurrentProgress = processedFiles;
+            // Update progress information before processing
             step.Message = $"Processing {fileName}";
             progress?.Report(step);
 
@@ -238,6 +240,9 @@ public class SaveInitializationService : ISaveInitializationService
                     step.Message = $"Skipping empty or corrupted file: {fileName}";
                     progress?.Report(step);
                     processedFiles++;
+                    // Update progress after skipping
+                    step.CurrentProgress = processedFiles;
+                    progress?.Report(step);
                     continue;
                 }
 
@@ -256,10 +261,17 @@ public class SaveInitializationService : ISaveInitializationService
             }
 
             processedFiles++;
+            // Update progress after processing each file
+            step.CurrentProgress = processedFiles;
+            progress?.Report(step);
+
+            // Small delay to allow UI updates
+            await Task.Delay(50);
         }
 
         // Final update with completion status
         step.CurrentProgress = processedFiles;
         step.Message = $"Completed processing {processedFiles}/{totalFiles} region files";
+        progress?.Report(step);
     }
 }
