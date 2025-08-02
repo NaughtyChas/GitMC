@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Text.Json;
 using GitMC.Models;
 
@@ -27,36 +28,16 @@ public class SaveInitializationService : ISaveInitializationService
     {
         return new ObservableCollection<SaveInitStep>
         {
+            new() { Name = "Setting up storage structure", Description = "Creating GitMC directory structure" },
+            new() { Name = "Copying files", Description = "Copying save files to GitMC directory" },
+            new() { Name = "Extracting chunks", Description = "Converting files to SNBT format" },
+            new() { Name = "Setting up repo", Description = "Initializing Git repository" },
             new()
             {
-                Name = "Setting up repo",
-                Description = "Initializing Git repository"
+                Name = "Setting up gitignore", Description = "Configuring files to exclude from version control"
             },
-            new()
-            {
-                Name = "Setting up storage structure",
-                Description = "Creating GitMC directory structure"
-            },
-            new()
-            {
-                Name = "Setting up gitignore",
-                Description = "Configuring files to exclude from version control"
-            },
-            new()
-            {
-                Name = "Preparing manifest",
-                Description = "Creating initial manifest file"
-            },
-            new()
-            {
-                Name = "Extracting chunks",
-                Description = "Converting region files to SNBT format"
-            },
-            new()
-            {
-                Name = "Initial commit",
-                Description = "Creating first version snapshot"
-            }
+            new() { Name = "Preparing manifest", Description = "Creating initial manifest file" },
+            new() { Name = "Initial commit", Description = "Creating first version snapshot" }
         };
     }
 
@@ -66,54 +47,63 @@ public class SaveInitializationService : ISaveInitializationService
 
         try
         {
-            // Step 1: Initialize Git repository
+            // Step 1: Create GitMC directory structure (moved first)
             await ExecuteStepAsync(steps[0], progress, async () =>
             {
-                steps[0].Message = "Initializing Git repository...";
-                return await _gitService.InitializeRepositoryAsync(savePath);
-            });
-
-            // Step 2: Create GitMC directory structure
-            await ExecuteStepAsync(steps[1], progress, async () =>
-            {
-                steps[1].Message = "Creating GitMC directory structure...";
+                steps[0].Message = "Creating GitMC directory structure...";
                 await CreateGitMcStructure(savePath);
                 return true;
             });
 
-            // Step 3: Create .gitignore file
+            // Step 2: Copy all files (moved before git init)
+            await ExecuteStepAsync(steps[1], progress, async () =>
+            {
+                steps[1].Message = "Copying save files to GitMC directory...";
+                await CopyAllFiles(savePath, steps[1], progress);
+                return true;
+            });
+
+            // Step 3: Extract chunks to SNBT (moved before git init)
             await ExecuteStepAsync(steps[2], progress, async () =>
             {
-                steps[2].Message = "Creating .gitignore file...";
+                steps[2].Message = "Converting files to SNBT format...";
+                await ExtractChunksToSnbt(savePath, steps[2], progress);
+                return true;
+            });
+
+            // Step 4: Initialize Git repository (moved after translation)
+            await ExecuteStepAsync(steps[3], progress, async () =>
+            {
+                steps[3].Message = "Initializing Git repository...";
+                return await _gitService.InitializeRepositoryAsync(savePath);
+            });
+
+            // Step 5: Create .gitignore file
+            await ExecuteStepAsync(steps[4], progress, async () =>
+            {
+                steps[4].Message = "Creating .gitignore file...";
                 await CreateGitIgnoreFile(savePath);
                 return true;
             });
 
-            // Step 4: Create manifest file
-            await ExecuteStepAsync(steps[3], progress, async () =>
+            // Step 6: Create manifest file
+            await ExecuteStepAsync(steps[5], progress, async () =>
             {
-                steps[3].Message = "Creating manifest file...";
+                steps[5].Message = "Creating manifest file...";
                 await CreateManifestFile(savePath);
                 return true;
             });
 
-            // Step 5: Extract chunks to SNBT
-            await ExecuteStepAsync(steps[4], progress, async () =>
+            // Step 7: Initial commit
+            await ExecuteStepAsync(steps[6], progress, async () =>
             {
-                steps[4].Message = "Converting region files to SNBT...";
-                await ExtractChunksToSnbt(savePath, steps[4], progress);
-                return true;
-            });
-
-            // Step 6: Initial commit
-            await ExecuteStepAsync(steps[5], progress, async () =>
-            {
-                steps[5].Message = "Creating initial commit...";
+                steps[6].Message = "Creating initial commit...";
                 var stageResult = await _gitService.StageAllAsync(savePath);
                 if (!stageResult.Success)
                     throw new InvalidOperationException($"Failed to stage files: {stageResult.ErrorMessage}");
 
-                var commitResult = await _gitService.CommitAsync("Initial import: SNBT snapshot of all world chunks", savePath);
+                var commitResult =
+                    await _gitService.CommitAsync("Initial import: SNBT snapshot of all world chunks", savePath);
                 return commitResult.Success;
             });
 
@@ -129,6 +119,7 @@ public class SaveInitializationService : ISaveInitializationService
                 currentStep.Message = $"Failed: {ex.Message}";
                 progress?.Report(currentStep);
             }
+
             return false;
         }
     }
@@ -164,22 +155,22 @@ public class SaveInitializationService : ISaveInitializationService
     private async Task CreateGitIgnoreFile(string savePath)
     {
         string gitIgnoreContent = """
-            # Ignore Minecraft runtime files and logs
-            session.lock
-            *.log
-            logs/
+                                  # Ignore Minecraft runtime files and logs
+                                  session.lock
+                                  *.log
+                                  logs/
 
-            # Ignore temporary files
-            *.tmp
-            *.temp
+                                  # Ignore temporary files
+                                  *.tmp
+                                  *.temp
 
-            # Ignore player data that changes frequently
-            playerdata/
-            stats/
+                                  # Ignore player data that changes frequently
+                                  playerdata/
+                                  stats/
 
-            # Keep GitMC directory
-            !GitMC/
-            """;
+                                  # Keep GitMC directory
+                                  !GitMC/
+                                  """;
 
         string gitIgnorePath = Path.Combine(savePath, ".gitignore");
         await File.WriteAllTextAsync(gitIgnorePath, gitIgnoreContent);
@@ -200,32 +191,147 @@ public class SaveInitializationService : ISaveInitializationService
         await File.WriteAllTextAsync(manifestPath, manifestJson);
     }
 
+    private async Task CopyAllFiles(string savePath, SaveInitStep step, IProgress<SaveInitStep>? progress)
+    {
+        string gitMcPath = Path.Combine(savePath, "GitMC");
+
+        step.Message = "Copying save files to GitMC directory...";
+        progress?.Report(step);
+
+        await Task.Run(() =>
+        {
+            CopyDirectory(new DirectoryInfo(savePath), new DirectoryInfo(gitMcPath));
+        });
+
+        // Verify that key files were copied
+        var expectedFiles = new[] { "level.dat", "level.dat_old" };
+        foreach (string expectedFile in expectedFiles)
+        {
+            string sourcePath = Path.Combine(savePath, expectedFile);
+            string targetPath = Path.Combine(gitMcPath, expectedFile);
+
+            if (File.Exists(sourcePath) && !File.Exists(targetPath))
+            {
+                step.Message = $"Warning: Failed to copy {expectedFile}";
+                progress?.Report(step);
+                await Task.Delay(500); // Show warning briefly
+            }
+        }
+
+        step.Message = "File copy complete";
+        progress?.Report(step);
+    }
+
+    private void CopyDirectory(DirectoryInfo source, DirectoryInfo target)
+    {
+        Directory.CreateDirectory(target.FullName);
+
+        // Copy files
+        foreach (FileInfo file in source.GetFiles())
+        {
+            file.CopyTo(Path.Combine(target.FullName, file.Name), true);
+        }
+
+        // Copy subdirectories
+        foreach (DirectoryInfo subDir in source.GetDirectories())
+        {
+            // Skip GitMC directory to avoid infinite recursion
+            if (subDir.Name.Equals("GitMC", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            CopyDirectory(subDir, target.CreateSubdirectory(subDir.Name));
+        }
+    }
+
+    private async Task<List<FileInfo>> ScanForFiles(string savePath)
+    {
+        var files = new List<FileInfo>();
+        var gitMcDirectory = new DirectoryInfo(Path.Combine(savePath, "GitMC"));
+
+        await Task.Run(() =>
+        {
+            if (gitMcDirectory.Exists)
+            {
+                // Region files (.mca, .mcc)
+                ScanDirectory(gitMcDirectory, "*.mca", files);
+                ScanDirectory(gitMcDirectory, "*.mcc", files);
+
+                // Data files (.dat)
+                ScanDirectory(gitMcDirectory, "*.dat", files);
+
+                // NBT files (.nbt)
+                ScanDirectory(gitMcDirectory, "*.nbt", files);
+
+                // World data (level.dat, level.dat_old) - check both source and GitMC
+                var levelDat = new FileInfo(Path.Combine(savePath, "GitMC", "level.dat"));
+                if (levelDat.Exists) files.Add(levelDat);
+
+                var levelDatOld = new FileInfo(Path.Combine(savePath, "GitMC", "level.dat_old"));
+                if (levelDatOld.Exists) files.Add(levelDatOld);
+            }
+        });
+
+        return files;
+    }
+
+    private void ScanDirectory(DirectoryInfo directory, string pattern, List<FileInfo> files)
+    {
+        try
+        {
+            if (directory.Exists)
+            {
+                files.AddRange(directory.GetFiles(pattern, SearchOption.AllDirectories));
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Skip directories we can't access
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Skip non-existent directories
+        }
+    }
+
     private async Task ExtractChunksToSnbt(string savePath, SaveInitStep step, IProgress<SaveInitStep>? progress)
     {
-        string regionPath = Path.Combine(savePath, "region");
-        string gitMcRegionPath = Path.Combine(savePath, "GitMC", "region");
+        string gitMcPath = Path.Combine(savePath, "GitMC");
 
-        if (!Directory.Exists(regionPath))
+        // Verify GitMC directory exists
+        if (!Directory.Exists(gitMcPath))
         {
-            step.Message = "No region files found, skipping chunk extraction";
+            step.Message = "Error: GitMC directory not found after copy step";
             progress?.Report(step);
             return;
         }
 
-        var mcaFiles = Directory.GetFiles(regionPath, "*.mca");
-        int totalFiles = mcaFiles.Length;
+        step.Message = "Scanning for files to process...";
+        progress?.Report(step);
+
+        // Scan for files to process (same logic as SaveTranslatorPage)
+        List<FileInfo> filesToProcess = await ScanForFiles(savePath);
+
+        if (filesToProcess.Count == 0)
+        {
+            step.Message = "No files found to process - this may indicate copy step failed";
+            progress?.Report(step);
+            return;
+        }
+
+        int totalFiles = filesToProcess.Count;
         int processedFiles = 0;
+        int multiChunkFiles = 0;
+        int totalChunksProcessed = 0;
 
         // Update step with progress info
         step.CurrentProgress = 0;
         step.TotalProgress = totalFiles;
-        step.Message = $"Starting extraction of {totalFiles} region files...";
+        step.Message = $"Starting conversion of {totalFiles} files...";
         progress?.Report(step);
 
-        foreach (string mcaFile in mcaFiles)
+        foreach (FileInfo fileInfo in filesToProcess)
         {
-            string fileName = Path.GetFileNameWithoutExtension(mcaFile);
-            string outputDir = Path.Combine(gitMcRegionPath, fileName + ".mca");
+            string fileName = fileInfo.Name;
 
             // Update progress information before processing
             step.Message = $"Processing {fileName}";
@@ -233,24 +339,51 @@ public class SaveInitializationService : ISaveInitializationService
 
             try
             {
-                // Check if file is empty or very small before processing
-                var fileInfo = new FileInfo(mcaFile);
-                if (fileInfo.Length < 8192) // MCA header is 8KB, files smaller than this are likely empty or corrupted
+                // Verify file exists before processing
+                if (!File.Exists(fileInfo.FullName))
                 {
-                    step.Message = $"Skipping empty or corrupted file: {fileName}";
+                    step.Message = $"Warning: File not found: {fileName}";
                     progress?.Report(step);
                     processedFiles++;
-                    // Update progress after skipping
                     step.CurrentProgress = processedFiles;
                     progress?.Report(step);
+                    await Task.Delay(500); // Show warning briefly
                     continue;
                 }
 
-                Directory.CreateDirectory(outputDir);
+                // Process file to SNBT (no back-conversion) - handle ALL files including empty ones
+                (bool IsMultiChunk, int ChunkCount) chunkInfo;
 
-                // Use INbtService to convert MCA to SNBT
-                string snbtOutputPath = Path.Combine(outputDir, "region.snbt");
-                await _nbtService.ConvertToSnbtAsync(mcaFile, snbtOutputPath);
+                if (fileInfo.Length <= 0)
+                {
+                    // Handle empty files - create corresponding SNBT file
+                    step.Message = $"Processing empty file: {fileName}";
+                    progress?.Report(step);
+                    chunkInfo = await ProcessEmptyFileToSnbt(fileInfo.FullName, fileInfo.Extension);
+                }
+                else
+                {
+                    // Handle normal files
+                    chunkInfo = await ProcessFileToSnbt(fileInfo.FullName, fileInfo.Extension);
+                }
+
+                if (chunkInfo.IsMultiChunk)
+                {
+                    multiChunkFiles++;
+                    totalChunksProcessed += chunkInfo.ChunkCount;
+                }
+
+                // Delete original file after successful conversion (including empty files)
+                try
+                {
+                    File.Delete(fileInfo.FullName);
+                }
+                catch (Exception ex)
+                {
+                    step.Message = $"Warning: Could not delete original file {fileName}: {ex.Message}";
+                    progress?.Report(step);
+                    await Task.Delay(500); // Show warning briefly
+                }
             }
             catch (Exception ex)
             {
@@ -271,7 +404,197 @@ public class SaveInitializationService : ISaveInitializationService
 
         // Final update with completion status
         step.CurrentProgress = processedFiles;
-        step.Message = $"Completed processing {processedFiles}/{totalFiles} region files";
+        step.Message =
+            $"Completed: {processedFiles}/{totalFiles} files, {multiChunkFiles} multi-chunk, {totalChunksProcessed} total chunks";
         progress?.Report(step);
+    }
+
+    private async Task<(bool IsMultiChunk, int ChunkCount)> ProcessEmptyFileToSnbt(string filePath, string extension)
+    {
+        try
+        {
+            string snbtPath = filePath + ".snbt";
+            string fileName = Path.GetFileName(filePath);
+
+            // Create SNBT content for empty file
+            string emptyFileSnbtContent = $@"// Empty file: {fileName}
+// File size: 0 bytes
+// Original path: {filePath}
+
+{{
+    ""EmptyFile"": {{
+        ""OriginalFile"": ""{fileName}"",
+        ""FileSize"": 0L,
+        ""Extension"": ""{extension}"",
+        ""Note"": ""This file was empty in the original save"",
+        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}""
+    }}
+}}";
+
+            await File.WriteAllTextAsync(snbtPath, emptyFileSnbtContent, System.Text.Encoding.UTF8);
+
+            // Empty files are never multi-chunk
+            return (false, 0);
+        }
+        catch (Exception)
+        {
+            // If we can't create the SNBT file, try a minimal fallback
+            string snbtPath = filePath + ".snbt";
+            try
+            {
+                await File.WriteAllTextAsync(snbtPath,
+                    $"// Empty file: {Path.GetFileName(filePath)}\n{{}}",
+                    System.Text.Encoding.UTF8);
+            }
+            catch
+            {
+                // If even the fallback fails, return false but don't crash
+            }
+
+            return (false, 0);
+        }
+    }
+
+    private async Task<(bool IsMultiChunk, int ChunkCount)> ProcessFileToSnbt(string filePath, string extension)
+    {
+        bool isMultiChunk = false;
+        int chunkCount = 0;
+
+        try
+        {
+            // Verify file exists
+            if (!File.Exists(filePath))
+            {
+                return (false, 0);
+            }
+
+            string snbtPath = filePath + ".snbt";
+
+            // Convert to SNBT only (no back-conversion)
+            var progressCallback = new Progress<string>(message =>
+            {
+                // Only log errors, not detailed progress to avoid UI spam
+                if (message.Contains("error") || message.Contains("failed") || message.Contains("ERROR"))
+                {
+                    // We could log this, but for initialization we keep it simple
+                }
+            });
+
+            try
+            {
+                await _nbtService.ConvertToSnbtAsync(filePath, snbtPath, progressCallback);
+            }
+            catch (Exception ex)
+            {
+                // If conversion fails, create a basic SNBT file indicating the issue
+                var fileInfo = new FileInfo(filePath);
+                string errorSnbtContent = $@"// Failed to convert: {Path.GetFileName(filePath)}
+                // File size: {fileInfo.Length} bytes
+                // Error: {ex.Message}
+                // Original path: {filePath}
+
+                {{
+                    ""ConversionError"": {{
+                        ""OriginalFile"": ""{Path.GetFileName(filePath)}"",
+                        ""FileSize"": {fileInfo.Length}L,
+                        ""ErrorMessage"": ""{ex.Message.Replace("\"", "\\\"")}"",
+                        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}""
+                    }}
+                }}";
+
+                await File.WriteAllTextAsync(snbtPath, errorSnbtContent, System.Text.Encoding.UTF8);
+            }
+
+            // Verify SNBT file was created (should always exist now)
+            if (!File.Exists(snbtPath))
+            {
+                // Last resort: create minimal SNBT file
+                string fileName = Path.GetFileName(filePath);
+                string fallbackContent = $@"// File: {fileName}
+// Note: Conversion failed and fallback creation also failed
+
+{{
+    ""Error"": ""Failed to process file: {fileName}""
+}}";
+                await File.WriteAllTextAsync(snbtPath, fallbackContent, System.Text.Encoding.UTF8);
+            }
+
+            // Check for multi-chunk content if it's an MCA/MCC file
+            if ((extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
+                 extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase)) &&
+                File.Exists(snbtPath))
+            {
+                // Read first part of file to check for multi-chunk indicators
+                using (var fileStream = new FileStream(snbtPath, FileMode.Open, FileAccess.Read))
+                using (var reader = new StreamReader(fileStream, System.Text.Encoding.UTF8, bufferSize: 8192))
+                {
+                    char[] buffer = new char[2048]; // Read first 2KB
+                    int charsRead = await reader.ReadAsync(buffer, 0, buffer.Length);
+                    string headerText = new string(buffer, 0, charsRead);
+
+                    // Look for chunk indicators
+                    if (headerText.Contains("# Chunk"))
+                    {
+                        // Quick count of chunk occurrences in the header
+                        int occurrences = 0;
+                        int index = 0;
+                        while ((index = headerText.IndexOf("# Chunk", index)) != -1)
+                        {
+                            occurrences++;
+                            index += 7; // Length of "# Chunk"
+                        }
+
+                        if (occurrences > 1)
+                        {
+                            isMultiChunk = true;
+                            chunkCount = occurrences;
+                        }
+                    }
+                }
+            }
+
+            return (isMultiChunk, chunkCount);
+        }
+        catch (Exception ex)
+        {
+            // Even if processing fails, ensure SNBT file exists
+            string snbtPath = filePath + ".snbt";
+            if (!File.Exists(snbtPath))
+            {
+                try
+                {
+                    var fileInfo = new FileInfo(filePath);
+                    string errorSnbtContent = $@"// Processing failed for: {Path.GetFileName(filePath)}
+// File size: {fileInfo.Length} bytes
+// Error: {ex.Message}
+
+{{
+    ""ProcessingError"": {{
+        ""OriginalFile"": ""{Path.GetFileName(filePath)}"",
+        ""FileSize"": {fileInfo.Length}L,
+        ""ErrorMessage"": ""{ex.Message.Replace("\"", "\\\"")}"",
+        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}""
+    }}
+}}";
+                    await File.WriteAllTextAsync(snbtPath, errorSnbtContent, System.Text.Encoding.UTF8);
+                }
+                catch
+                {
+                    // Absolute fallback
+                    try
+                    {
+                        await File.WriteAllTextAsync(snbtPath,
+                            $"// Error processing {Path.GetFileName(filePath)}\n{{}}", System.Text.Encoding.UTF8);
+                    }
+                    catch
+                    {
+                        // If we can't even create the file, give up on this one
+                    }
+                }
+            }
+
+            // Return false values but don't prevent the process from continuing
+            return (false, 0);
+        }
     }
 }
