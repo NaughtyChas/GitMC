@@ -465,8 +465,6 @@ public class SaveInitializationService : ISaveInitializationService
             // Verify file exists
             if (!File.Exists(filePath)) return (false, 0);
 
-            string snbtPath = filePath + ".snbt";
-
             // Convert to SNBT only (no back-conversion)
             var progressCallback = new Progress<string>(message =>
             {
@@ -477,88 +475,115 @@ public class SaveInitializationService : ISaveInitializationService
                 }
             });
 
-            try
+            // Check if this is an MCA/MCC file - use chunk-based conversion for initialization
+            if (extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase))
             {
-                await _nbtService.ConvertToSnbtAsync(filePath, snbtPath, progressCallback);
+                try
+                {
+                    // Use chunk-based processing for MCA files (same as SaveTranslatorPage chunk mode)
+                    string chunkFolderPath = Path.ChangeExtension(filePath, ".chunks");
+                    await _nbtService.ConvertMcaToChunkFilesAsync(filePath, chunkFolderPath, progressCallback);
+
+                    // Create a marker file to indicate this is chunk-based output (compatible with SaveTranslatorPage)
+                    string markerPath = filePath + ".snbt.chunk_mode";
+                    await File.WriteAllTextAsync(markerPath, chunkFolderPath, Encoding.UTF8);
+
+                    // Count chunks for statistics
+                    if (Directory.Exists(chunkFolderPath))
+                    {
+                        chunkCount = Directory.GetFiles(chunkFolderPath, "chunk_*.snbt").Length;
+                        isMultiChunk = chunkCount > 1;
+                    }
+
+                    return (isMultiChunk, chunkCount);
+                }
+                catch (Exception ex)
+                {
+                    // If chunk-based conversion fails, create error marker
+                    string errorSnbtPath = filePath + ".snbt";
+                    var fileInfo = new FileInfo(filePath);
+                    string errorSnbtContent = $@"// Failed to convert MCA file: {Path.GetFileName(filePath)}
+// File size: {fileInfo.Length} bytes
+// Error: {ex.Message}
+// Original path: {filePath}
+
+{{
+    ""ConversionError"": {{
+        ""OriginalFile"": ""{Path.GetFileName(filePath)}"",
+        ""FileSize"": {fileInfo.Length}L,
+        ""ErrorMessage"": ""{ex.Message.Replace("\"", "\\\"")}"",
+        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}"",
+        ""ConversionType"": ""ChunkBased""
+    }}
+}}";
+
+                    await File.WriteAllTextAsync(errorSnbtPath, errorSnbtContent, Encoding.UTF8);
+                    return (false, 0);
+                }
             }
-            catch (Exception ex)
+            else
             {
-                // If conversion fails, create a basic SNBT file indicating the issue
-                var fileInfo = new FileInfo(filePath);
-                string errorSnbtContent = $@"// Failed to convert: {Path.GetFileName(filePath)}
-                // File size: {fileInfo.Length} bytes
-                // Error: {ex.Message}
-                // Original path: {filePath}
+                // For non-MCA files, use standard single-file conversion
+                string snbtPath = filePath + ".snbt";
 
-                {{
-                    ""ConversionError"": {{
-                        ""OriginalFile"": ""{Path.GetFileName(filePath)}"",
-                        ""FileSize"": {fileInfo.Length}L,
-                        ""ErrorMessage"": ""{ex.Message.Replace("\"", "\\\"")}"",
-                        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}""
-                    }}
-                }}";
+                try
+                {
+                    await _nbtService.ConvertToSnbtAsync(filePath, snbtPath, progressCallback);
+                }
+                catch (Exception ex)
+                {
+                    // If conversion fails, create a basic SNBT file indicating the issue
+                    var fileInfo = new FileInfo(filePath);
+                    string errorSnbtContent = $@"// Failed to convert: {Path.GetFileName(filePath)}
+// File size: {fileInfo.Length} bytes
+// Error: {ex.Message}
+// Original path: {filePath}
 
-                await File.WriteAllTextAsync(snbtPath, errorSnbtContent, Encoding.UTF8);
-            }
+{{
+    ""ConversionError"": {{
+        ""OriginalFile"": ""{Path.GetFileName(filePath)}"",
+        ""FileSize"": {fileInfo.Length}L,
+        ""ErrorMessage"": ""{ex.Message.Replace("\"", "\\\"")}"",
+        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}"",
+        ""ConversionType"": ""Standard""
+    }}
+}}";
 
-            // Verify SNBT file was created (should always exist now)
-            if (!File.Exists(snbtPath))
-            {
-                // Last resort: create minimal SNBT file
-                string fileName = Path.GetFileName(filePath);
-                string fallbackContent = $@"// File: {fileName}
+                    await File.WriteAllTextAsync(snbtPath, errorSnbtContent, Encoding.UTF8);
+                }
+
+                // Verify SNBT file was created (should always exist now)
+                if (!File.Exists(snbtPath))
+                {
+                    // Last resort: create minimal SNBT file
+                    string fileName = Path.GetFileName(filePath);
+                    string fallbackContent = $@"// File: {fileName}
 // Note: Conversion failed and fallback creation also failed
 
 {{
     ""Error"": ""Failed to process file: {fileName}""
 }}";
-                await File.WriteAllTextAsync(snbtPath, fallbackContent, Encoding.UTF8);
-            }
-
-            // Check for multi-chunk content if it's an MCA/MCC file
-            if ((extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
-                 extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase)) &&
-                File.Exists(snbtPath))
-                // Read first part of file to check for multi-chunk indicators
-                using (var fileStream = new FileStream(snbtPath, FileMode.Open, FileAccess.Read))
-                using (var reader = new StreamReader(fileStream, Encoding.UTF8, bufferSize: 8192))
-                {
-                    char[] buffer = new char[2048]; // Read first 2KB
-                    int charsRead = await reader.ReadAsync(buffer, 0, buffer.Length);
-                    string headerText = new(buffer, 0, charsRead);
-
-                    // Look for chunk indicators
-                    if (headerText.Contains("# Chunk"))
-                    {
-                        // Quick count of chunk occurrences in the header
-                        int occurrences = 0;
-                        int index = 0;
-                        while ((index = headerText.IndexOf("# Chunk", index)) != -1)
-                        {
-                            occurrences++;
-                            index += 7; // Length of "# Chunk"
-                        }
-
-                        if (occurrences > 1)
-                        {
-                            isMultiChunk = true;
-                            chunkCount = occurrences;
-                        }
-                    }
+                    await File.WriteAllTextAsync(snbtPath, fallbackContent, Encoding.UTF8);
                 }
 
-            return (isMultiChunk, chunkCount);
+                return (isMultiChunk, chunkCount);
+            }
         }
         catch (Exception ex)
         {
-            // Even if processing fails, ensure SNBT file exists
-            string snbtPath = filePath + ".snbt";
-            if (!File.Exists(snbtPath))
-                try
+            // Even if processing fails, ensure some output exists
+            if (extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase))
+            {
+                // For MCA files, create error SNBT in standard location
+                string errorSnbtPath = filePath + ".snbt";
+                if (!File.Exists(errorSnbtPath))
                 {
-                    var fileInfo = new FileInfo(filePath);
-                    string errorSnbtContent = $@"// Processing failed for: {Path.GetFileName(filePath)}
+                    try
+                    {
+                        var fileInfo = new FileInfo(filePath);
+                        string errorSnbtContent = $@"// Processing failed for MCA file: {Path.GetFileName(filePath)}
 // File size: {fileInfo.Length} bytes
 // Error: {ex.Message}
 
@@ -567,24 +592,66 @@ public class SaveInitializationService : ISaveInitializationService
         ""OriginalFile"": ""{Path.GetFileName(filePath)}"",
         ""FileSize"": {fileInfo.Length}L,
         ""ErrorMessage"": ""{ex.Message.Replace("\"", "\\\"")}"",
-        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}""
+        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}"",
+        ""ConversionType"": ""ChunkBased""
     }}
 }}";
-                    await File.WriteAllTextAsync(snbtPath, errorSnbtContent, Encoding.UTF8);
-                }
-                catch
-                {
-                    // Absolute fallback
-                    try
-                    {
-                        await File.WriteAllTextAsync(snbtPath,
-                            $"// Error processing {Path.GetFileName(filePath)}\n{{}}", Encoding.UTF8);
+                        await File.WriteAllTextAsync(errorSnbtPath, errorSnbtContent, Encoding.UTF8);
                     }
                     catch
                     {
-                        // If we can't even create the file, give up on this one
+                        // Absolute fallback
+                        try
+                        {
+                            await File.WriteAllTextAsync(errorSnbtPath,
+                                $"// Error processing MCA file {Path.GetFileName(filePath)}\n{{}}", Encoding.UTF8);
+                        }
+                        catch
+                        {
+                            // If we can't even create the file, give up on this one
+                        }
                     }
                 }
+            }
+            else
+            {
+                // For non-MCA files, create standard error SNBT
+                string snbtPath = filePath + ".snbt";
+                if (!File.Exists(snbtPath))
+                {
+                    try
+                    {
+                        var fileInfo = new FileInfo(filePath);
+                        string errorSnbtContent = $@"// Processing failed for: {Path.GetFileName(filePath)}
+// File size: {fileInfo.Length} bytes
+// Error: {ex.Message}
+
+{{
+    ""ProcessingError"": {{
+        ""OriginalFile"": ""{Path.GetFileName(filePath)}"",
+        ""FileSize"": {fileInfo.Length}L,
+        ""ErrorMessage"": ""{ex.Message.Replace("\"", "\\\"")}"",
+        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}"",
+        ""ConversionType"": ""Standard""
+    }}
+}}";
+                        await File.WriteAllTextAsync(snbtPath, errorSnbtContent, Encoding.UTF8);
+                    }
+                    catch
+                    {
+                        // Absolute fallback
+                        try
+                        {
+                            await File.WriteAllTextAsync(snbtPath,
+                                $"// Error processing {Path.GetFileName(filePath)}\n{{}}", Encoding.UTF8);
+                        }
+                        catch
+                        {
+                            // If we can't even create the file, give up on this one
+                        }
+                    }
+                }
+            }
 
             // Return false values but don't prevent the process from continuing
             return (false, 0);
