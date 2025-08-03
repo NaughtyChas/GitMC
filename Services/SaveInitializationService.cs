@@ -128,19 +128,7 @@ public class SaveInitializationService : ISaveInitializationService
             {
                 steps[6].Message = "Creating initial commits...";
 
-                // Create initial commit in save directory
-                steps[6].Message = "Staging files in save directory...";
-                GitOperationResult saveStageResult = await _gitService.StageAllAsync(savePath);
-                if (!saveStageResult.Success)
-                    throw new InvalidOperationException($"Failed to stage files in save directory: {saveStageResult.ErrorMessage}");
-
-                steps[6].Message = "Creating commit in save directory...";
-                GitOperationResult saveCommitResult =
-                    await _gitService.CommitAsync("Initial import: Complete save with SNBT chunks", savePath);
-                if (!saveCommitResult.Success)
-                    throw new InvalidOperationException($"Failed to commit in save directory: {saveCommitResult.ErrorMessage}");
-
-                // Create initial commit in GitMC directory
+                // First, create initial commit in GitMC directory (which should have SNBT files)
                 string gitMcPath = Path.Combine(savePath, "GitMC");
 
                 // Verify GitMC directory has files before committing
@@ -158,11 +146,32 @@ public class SaveInitializationService : ISaveInitializationService
 
                 steps[6].Message = "Creating commit in GitMC directory...";
                 GitOperationResult gitMcCommitResult =
-                    await _gitService.CommitAsync("Initial import: SNBT snapshot of all world chunks", gitMcPath);
+                    await _gitService.CommitAsync("Initial import", gitMcPath);
                 if (!gitMcCommitResult.Success)
                     throw new InvalidOperationException($"Failed to commit in GitMC directory: {gitMcCommitResult.ErrorMessage}");
 
-                steps[6].Message = "Both repositories committed successfully";
+                // Then, create initial commit in save directory (excluding GitMC due to .gitignore)
+                steps[6].Message = "Staging files in save directory...";
+                GitOperationResult saveStageResult = await _gitService.StageAllAsync(savePath);
+                if (!saveStageResult.Success)
+                    throw new InvalidOperationException($"Failed to stage files in save directory: {saveStageResult.ErrorMessage}");
+
+                // Only commit if there are files staged
+                var saveStatus = await _gitService.GetStatusAsync(savePath);
+                if (saveStatus.StagedFiles.Length > 0)
+                {
+                    steps[6].Message = "Creating commit in save directory...";
+                    GitOperationResult saveCommitResult =
+                        await _gitService.CommitAsync("Initial import)", savePath);
+                    if (!saveCommitResult.Success)
+                        throw new InvalidOperationException($"Failed to commit in save directory: {saveCommitResult.ErrorMessage}");
+                }
+                else
+                {
+                    steps[6].Message = "No files to commit in save directory (all excluded by .gitignore)";
+                }
+
+                steps[6].Message = "Repositories committed successfully";
                 return true;
             }); return true;
         }
@@ -225,8 +234,8 @@ public class SaveInitializationService : ISaveInitializationService
                                   playerdata/
                                   stats/
 
-                                  # Keep GitMC directory
-                                  !GitMC/
+                                  # Ignore GitMC directory (it has its own repository)
+                                  GitMC/
                                   """;
 
         string gitIgnorePath = Path.Combine(savePath, ".gitignore");

@@ -356,8 +356,9 @@ public class GitService : IGitService
                     // For initial commits, this might be expected - check if repo is empty
                     if (!repo.Head.Commits.Any())
                     {
-                        // This is a new repository with no commits, but also no files to stage
-                        return GitOperationResult.CreateFailure("No files to stage in new repository");
+                        // This is a new repository with no commits, and no files to stage
+                        // This could be valid if .gitignore excludes all files or if the directory is truly empty
+                        return GitOperationResult.CreateSuccess("No files to stage in new repository");
                     }
                     return GitOperationResult.CreateSuccess("No files to stage");
                 }
