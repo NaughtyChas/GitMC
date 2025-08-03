@@ -413,11 +413,50 @@ public class SaveInitializationService : ISaveInitializationService
     {
         try
         {
-            string snbtPath = filePath + ".snbt";
             string fileName = Path.GetFileName(filePath);
 
-            // Create SNBT content for empty file
-            string emptyFileSnbtContent = $@"// Empty file: {fileName}
+            // Check if this is an MCA/MCC file - use chunk-based structure even for empty files
+            if (extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase))
+            {
+                // Create chunk folder structure for empty MCA files
+                string chunkFolderPath = Path.ChangeExtension(filePath, ".chunks");
+                Directory.CreateDirectory(chunkFolderPath);
+
+                // Create region_info.snbt file with metadata about the empty MCA file
+                string regionInfoPath = Path.Combine(chunkFolderPath, "region_info.snbt");
+                string regionInfoContent = $@"// Empty MCA file: {fileName}
+// File size: 0 bytes
+// Original path: {filePath}
+
+{{
+    ""RegionInfo"": {{
+        ""OriginalFile"": ""{fileName}"",
+        ""FileSize"": 0L,
+        ""Extension"": ""{extension}"",
+        ""Note"": ""This MCA file was empty in the original save"",
+        ""Timestamp"": ""{DateTime.Now:yyyy-MM-dd HH:mm:ss}"",
+        ""ChunkCount"": 0,
+        ""IsEmpty"": true
+    }}
+}}";
+
+                await File.WriteAllTextAsync(regionInfoPath, regionInfoContent, Encoding.UTF8);
+
+                // Create a marker file to indicate this is chunk-based output (compatible with SaveTranslatorPage)
+                string markerPath = filePath + ".snbt.chunk_mode";
+                await File.WriteAllTextAsync(markerPath, chunkFolderPath, Encoding.UTF8);
+
+                // Empty MCA files are treated as multi-chunk structure but with 0 chunks
+                return (true, 0);
+            }
+            else
+            {
+                // For non-MCA files, create standard single SNBT file
+                string snbtPath = filePath + ".snbt";
+
+                // Create SNBT content for empty file
+                string emptyFileSnbtContent = $@"// Empty file: {fileName}
 // File size: 0 bytes
 // Original path: {filePath}
 
@@ -431,24 +470,53 @@ public class SaveInitializationService : ISaveInitializationService
     }}
 }}";
 
-            await File.WriteAllTextAsync(snbtPath, emptyFileSnbtContent, Encoding.UTF8);
+                await File.WriteAllTextAsync(snbtPath, emptyFileSnbtContent, Encoding.UTF8);
 
-            // Empty files are never multi-chunk
-            return (false, 0);
+                // Non-MCA empty files are not multi-chunk
+                return (false, 0);
+            }
         }
         catch (Exception)
         {
-            // If we can't create the SNBT file, try a minimal fallback
-            string snbtPath = filePath + ".snbt";
-            try
+            // If we can't create the appropriate structure, try fallbacks
+            if (extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase))
             {
-                await File.WriteAllTextAsync(snbtPath,
-                    $"// Empty file: {Path.GetFileName(filePath)}\n{{}}",
-                    Encoding.UTF8);
+                // For MCA files, try to create minimal chunk structure
+                try
+                {
+                    string chunkFolderPath = Path.ChangeExtension(filePath, ".chunks");
+                    Directory.CreateDirectory(chunkFolderPath);
+
+                    string regionInfoPath = Path.Combine(chunkFolderPath, "region_info.snbt");
+                    await File.WriteAllTextAsync(regionInfoPath,
+                        $"// Error processing empty MCA file: {Path.GetFileName(filePath)}\n{{}}",
+                        Encoding.UTF8);
+
+                    string markerPath = filePath + ".snbt.chunk_mode";
+                    await File.WriteAllTextAsync(markerPath, chunkFolderPath, Encoding.UTF8);
+
+                    return (true, 0);
+                }
+                catch
+                {
+                    // If even the fallback fails, return false but don't crash
+                }
             }
-            catch
+            else
             {
-                // If even the fallback fails, return false but don't crash
+                // For non-MCA files, try simple fallback
+                string snbtPath = filePath + ".snbt";
+                try
+                {
+                    await File.WriteAllTextAsync(snbtPath,
+                        $"// Empty file: {Path.GetFileName(filePath)}\n{{}}",
+                        Encoding.UTF8);
+                }
+                catch
+                {
+                    // If even the fallback fails, return false but don't crash
+                }
             }
 
             return (false, 0);

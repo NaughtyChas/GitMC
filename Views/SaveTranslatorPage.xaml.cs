@@ -1,10 +1,14 @@
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using GitMC.Services;
 using GitMC.Utils;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Storage;
@@ -1085,60 +1089,239 @@ public sealed partial class SaveTranslatorPage : Page
         // Copy non-region files first
         await CopyNonRegionFiles(gitMcPath, outputPath, cancellationToken);
 
-        // Get all SNBT files in the region folder
+        // Get all SNBT files and chunk marker files in the region folder
         var snbtFiles = Directory.GetFiles(regionFolder, "*.snbt", SearchOption.AllDirectories);
-        var totalFiles = snbtFiles.Length;
-        var processedFiles = 0;
+        var chunkMarkerFiles = Directory.GetFiles(regionFolder, "*.chunk_mode", SearchOption.AllDirectories);
 
-        LogMessage($"Found {totalFiles} SNBT files to convert back to NBT format");
+        var totalOperations = snbtFiles.Length + chunkMarkerFiles.Length;
+        var processedOperations = 0;
 
-        var parallelOptions = new ParallelOptions
+        LogMessage($"Found {snbtFiles.Length} SNBT files and {chunkMarkerFiles.Length} chunk-based MCA files to convert");
+
+        // First, handle chunk-based MCA files with parallel processing for better performance
+        if (chunkMarkerFiles.Length > 0)
         {
-            CancellationToken = cancellationToken,
-            MaxDegreeOfParallelism = Environment.ProcessorCount
-        };
+            LogMessage($"Processing {chunkMarkerFiles.Length} chunk-based MCA files in parallel...");
 
-        await Task.Run(() =>
-        {
-            Parallel.ForEach(snbtFiles, parallelOptions, snbtFile =>
+            var chunkProcessingTasks = chunkMarkerFiles.Select(async markerFile =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 try
                 {
-                    // Calculate relative path and output path
-                    var relativePath = Path.GetRelativePath(regionFolder, snbtFile);
-                    var outputFile = Path.Combine(outputRegionFolder, relativePath);
+                    // Read chunk folder path from marker file
+                    string chunkFolderPath = await File.ReadAllTextAsync(markerFile, Encoding.UTF8, cancellationToken);
 
-                    // Change extension from .snbt to original extension
-                    outputFile = Path.ChangeExtension(outputFile, null); // Remove .snbt
-
-                    // Ensure output directory exists
-                    var outputDir = Path.GetDirectoryName(outputFile);
-                    if (!string.IsNullOrEmpty(outputDir))
+                    if (Directory.Exists(chunkFolderPath))
                     {
-                        Directory.CreateDirectory(outputDir);
+                        // Determine output MCA file path
+                        // marker file is like "r.0.0.mca.snbt.chunk_mode", we want "r.0.0.mca"
+                        string snbtPath = markerFile.Replace(".chunk_mode", "");
+                        string originalFileName = Path.GetFileName(snbtPath);
+                        if (originalFileName.EndsWith(".snbt"))
+                        {
+                            originalFileName = originalFileName.Substring(0, originalFileName.Length - 5); // Remove .snbt
+                        }
+
+                        string outputMcaPath = Path.Combine(outputRegionFolder, originalFileName);
+
+                        // Create minimal progress reporter to reduce overhead during parallel processing
+                        var progress = new Progress<string>(message =>
+                        {
+                            // Only log critical errors to avoid overwhelming the UI during parallel processing
+                            if (message.Contains("ERROR") || message.Contains("FAILED"))
+                                LogMessage($"    {message}");
+                        });
+
+                        // Convert chunk files back to MCA
+                        await _nbtService.ConvertChunkFilesToMcaAsync(chunkFolderPath, outputMcaPath, progress);
+
+                        // Delete source files after successful conversion to match standard Minecraft save structure
+                        // Only delete if the output file was successfully created
+                        if (File.Exists(outputMcaPath))
+                        {
+                            try
+                            {
+                                // Delete chunk folder (contains individual chunk SNBT files)
+                                if (Directory.Exists(chunkFolderPath))
+                                {
+                                    Directory.Delete(chunkFolderPath, true);
+                                }
+
+                                // Delete marker file
+                                if (File.Exists(markerFile))
+                                {
+                                    File.Delete(markerFile);
+                                }
+
+                                // Delete SNBT file if it exists
+                                if (File.Exists(snbtPath))
+                                {
+                                    File.Delete(snbtPath);
+                                }
+                            }
+                            catch (Exception cleanupEx)
+                            {
+                                LogMessage($"    ⚠ Warning: Failed to clean up source files for {originalFileName}: {cleanupEx.Message}");
+                            }
+                        }
+
+                        // Log completion for this file
+                        int chunkCount = 0;
+                        try
+                        {
+                            chunkCount = Directory.Exists(chunkFolderPath) ? 0 :
+                                        Directory.GetFiles(Path.GetDirectoryName(chunkFolderPath) ?? "", "chunk_*.snbt").Length;
+                        }
+                        catch { /* Ignore if we can't count */ }
+
+                        LogMessage($"    ✓ Reconstructed MCA: {originalFileName}");
                     }
-
-                    // Convert SNBT back to NBT
-                    _nbtService.ConvertSnbtToNbt(snbtFile, outputFile);
-
-                    var completed = Interlocked.Increment(ref processedFiles);
-
-                    DispatcherQueue.TryEnqueue(() =>
+                    else
                     {
-                        ReverseTranslationProgressText.Text = $"Converting files... ({completed}/{totalFiles})";
-                        ReverseTranslationProgressBar.Value = (double)completed / totalFiles * 100;
-                    });
+                        LogMessage($"    ⚠ Warning: Chunk folder not found for {markerFile}: {chunkFolderPath}");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    LogMessage($"Error converting {snbtFile}: {ex.Message}");
+                    LogMessage($"    ✗ Error processing chunk-based MCA {markerFile}: {ex.Message}");
+                }
+
+                // Update progress less frequently to reduce UI overhead
+                var completed = Interlocked.Increment(ref processedOperations);
+                if (completed % Math.Max(1, chunkMarkerFiles.Length / 5) == 0 || completed == chunkMarkerFiles.Length)
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        ReverseTranslationProgressText.Text = $"Converting chunk files... ({completed}/{totalOperations})";
+                        ReverseTranslationProgressBar.Value = (double)completed / totalOperations * 100;
+                    });
                 }
             });
-        }, cancellationToken);
 
-        LogMessage($"Reverse translation completed. Converted {processedFiles} files.");
+            // Process chunk-based MCA files with controlled concurrency to avoid overwhelming the system
+            var maxConcurrency = Math.Min(Environment.ProcessorCount, Math.Max(1, chunkMarkerFiles.Length));
+            var chunkSemaphore = new SemaphoreSlim(maxConcurrency);
+            var chunkConcurrentTasks = chunkProcessingTasks.Select(async task =>
+            {
+                await chunkSemaphore.WaitAsync(cancellationToken);
+                try
+                {
+                    await task;
+                }
+                finally
+                {
+                    chunkSemaphore.Release();
+                }
+            });
+
+            await Task.WhenAll(chunkConcurrentTasks);
+            LogMessage($"✓ Completed {chunkMarkerFiles.Length} chunk-based MCA files");
+        }
+
+        // Then handle regular SNBT files (excluding those already processed as chunk-based) with optimized parallel processing
+        var remainingSnbtFiles = snbtFiles.Where(snbtFile =>
+        {
+            string markerPath = snbtFile + ".chunk_mode";
+            return !File.Exists(markerPath); // Only process if no chunk marker exists
+        }).ToArray();
+
+        if (remainingSnbtFiles.Length > 0)
+        {
+            LogMessage($"Processing {remainingSnbtFiles.Length} regular SNBT files in parallel...");
+
+            // Optimize parallelism based on file count and system capabilities
+            var maxDegreeOfParallelism = Math.Min(
+                Environment.ProcessorCount * 2, // Allow some over-subscription for I/O bound operations
+                Math.Max(1, remainingSnbtFiles.Length / 2) // Don't over-parallelize for small file counts
+            );
+
+            var parallelOptions = new ParallelOptions
+            {
+                CancellationToken = cancellationToken,
+                MaxDegreeOfParallelism = maxDegreeOfParallelism
+            };
+
+            // Use concurrent collection for thread-safe progress tracking
+            var completedFiles = 0;
+            var lockObject = new object();
+
+            await Task.Run(() =>
+            {
+                Parallel.ForEach(remainingSnbtFiles, parallelOptions, snbtFile =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        // Calculate relative path and output path
+                        var relativePath = Path.GetRelativePath(regionFolder, snbtFile);
+                        var outputFile = Path.Combine(outputRegionFolder, relativePath);
+
+                        // Handle proper extension removal: .dat.snbt -> .dat, .nbt.snbt -> .nbt, .mca.snbt -> .mca
+                        if (outputFile.EndsWith(".snbt"))
+                        {
+                            outputFile = outputFile.Substring(0, outputFile.Length - 5); // Remove .snbt extension
+                        }
+
+                        // Ensure output directory exists (thread-safe)
+                        var outputDir = Path.GetDirectoryName(outputFile);
+                        if (!string.IsNullOrEmpty(outputDir))
+                        {
+                            lock (lockObject)
+                            {
+                                Directory.CreateDirectory(outputDir);
+                            }
+                        }
+
+                        // Convert SNBT back to original format
+                        _nbtService.ConvertFromSnbt(snbtFile, outputFile);
+
+                        // Delete source SNBT file after successful conversion to match standard Minecraft save structure
+                        // Only delete if the output file was successfully created
+                        if (File.Exists(outputFile))
+                        {
+                            try
+                            {
+                                File.Delete(snbtFile);
+                            }
+                            catch (Exception cleanupEx)
+                            {
+                                LogMessage($"    ⚠ Warning: Failed to delete SNBT file {Path.GetFileName(snbtFile)}: {cleanupEx.Message}");
+                            }
+                        }
+
+                        // Thread-safe progress tracking with reduced UI update frequency
+                        var currentCompleted = Interlocked.Increment(ref completedFiles);
+                        var totalCompleted = Interlocked.Increment(ref processedOperations);
+
+                        // Update UI less frequently to improve performance (every 10% or every 50 files, whichever is less)
+                        var updateInterval = Math.Min(Math.Max(1, remainingSnbtFiles.Length / 10), 50);
+                        if (currentCompleted % updateInterval == 0 || currentCompleted == remainingSnbtFiles.Length)
+                        {
+                            DispatcherQueue.TryEnqueue(() =>
+                            {
+                                ReverseTranslationProgressText.Text = $"Converting regular files... ({totalCompleted}/{totalOperations})";
+                                ReverseTranslationProgressBar.Value = (double)totalCompleted / totalOperations * 100;
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"    ✗ Error converting {Path.GetFileName(snbtFile)}: {ex.Message}");
+
+                        // Still increment progress even on error to keep UI consistent
+                        Interlocked.Increment(ref processedOperations);
+                    }
+                });
+            }, cancellationToken);
+
+            LogMessage($"✓ Completed {remainingSnbtFiles.Length} regular SNBT files");
+        }
+
+        LogMessage($"✅ Reverse translation completed. Processed {processedOperations} operations.");
+        LogMessage($"   - Converted {chunkMarkerFiles.Length} chunk-based MCA files");
+        LogMessage($"   - Converted {remainingSnbtFiles.Length} regular SNBT files");
     }
 
     private async Task CopyNonRegionFiles(string sourcePath, string outputPath, CancellationToken cancellationToken)

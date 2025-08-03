@@ -1802,7 +1802,33 @@ public class NbtService : INbtService
 
             if (existingChunks.Count == 0)
             {
-                progress?.Report("No chunks found in MCA file");
+                progress?.Report("No chunks found in MCA file - creating empty chunk folder");
+
+                // Create output directory even for empty MCA files
+                Directory.CreateDirectory(outputFolderPath);
+
+                // Create region info file for empty MCA
+                var emptyRegionInfo = new NbtCompound("RegionInfo");
+                emptyRegionInfo.Add(new NbtString("OriginalMcaPath", mcaFilePath));
+                emptyRegionInfo.Add(new NbtInt("RegionX", mcaFile.RegionCoordinates.X));
+                emptyRegionInfo.Add(new NbtInt("RegionZ", mcaFile.RegionCoordinates.Z));
+                emptyRegionInfo.Add(new NbtInt("TotalChunks", 0));
+                emptyRegionInfo.Add(new NbtString("ConversionTime", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")));
+                emptyRegionInfo.Add(new NbtString("ConversionType", "Empty MCA to chunk files"));
+
+                // Add empty chunk index
+                var emptyChunkIndex = new NbtList("ChunkIndex", NbtTagType.Compound);
+                emptyRegionInfo.Add(emptyChunkIndex);
+
+                string emptyRegionInfoPath = Path.Combine(outputFolderPath, "region_info.snbt");
+                string emptyRegionInfoSnbt = emptyRegionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
+                await File.WriteAllTextAsync(emptyRegionInfoPath, emptyRegionInfoSnbt, Encoding.UTF8);
+
+                // Create the .chunk_mode marker file
+                string chunkModeMarkerPath = Path.Combine(outputFolderPath, ".chunk_mode");
+                await File.WriteAllTextAsync(chunkModeMarkerPath, "chunk-based", Encoding.UTF8);
+
+                progress?.Report("Empty chunk folder created successfully");
                 return;
             }
 
@@ -1886,6 +1912,10 @@ public class NbtService : INbtService
             }
 
             progress?.Report($"Conversion complete! Created {processedCount} chunk files in {outputFolderPath}");
+
+            // Create the .chunk_mode marker file to indicate chunk-based structure
+            string markerFilePath = Path.Combine(outputFolderPath, ".chunk_mode");
+            await File.WriteAllTextAsync(markerFilePath, "chunk-based", Encoding.UTF8);
         }
         catch (Exception ex)
         {
@@ -1910,9 +1940,9 @@ public class NbtService : INbtService
             string[] chunkFiles = Directory.GetFiles(chunkFolderPath, "chunk_*.snbt");
 
             if (chunkFiles.Length == 0)
-                throw new InvalidOperationException($"No chunk files found in {chunkFolderPath}");
-
-            progress?.Report($"Found {chunkFiles.Length} chunk files, processing...");
+                progress?.Report("No chunk files found - creating empty MCA file");
+            else
+                progress?.Report($"Found {chunkFiles.Length} chunk files, processing...");
 
             var chunks = new Dictionary<Point2I, NbtCompound>();
             Point2I? regionCoords = null;
@@ -2009,18 +2039,34 @@ public class NbtService : INbtService
             }
 
             if (chunks.Count == 0)
-                throw new InvalidOperationException("No valid chunk data found");
+            {
+                // Handle empty MCA file case - need region info for empty MCA
+                if (regionCoords == null)
+                    throw new InvalidOperationException("No chunk data found and no region info available - cannot create empty MCA file");
 
-            progress?.Report($"Successfully parsed {chunks.Count} chunks, creating MCA file...");
+                progress?.Report("Creating empty MCA file...");
+            }
+            else
+            {
+                progress?.Report($"Successfully parsed {chunks.Count} chunks, creating MCA file...");
+            }
 
             // Determine region coordinates if not found in region info
             if (regionCoords == null)
             {
-                Point2I firstChunk = chunks.First().Key;
-                int regionX = (int)Math.Floor(firstChunk.X / 32.0);
-                int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
-                regionCoords = new Point2I(regionX, regionZ);
-                progress?.Report($"Calculated region coordinates from chunks: ({regionX}, {regionZ})");
+                if (chunks.Count > 0)
+                {
+                    Point2I firstChunk = chunks.First().Key;
+                    int regionX = (int)Math.Floor(firstChunk.X / 32.0);
+                    int regionZ = (int)Math.Floor(firstChunk.Z / 32.0);
+                    regionCoords = new Point2I(regionX, regionZ);
+                    progress?.Report($"Calculated region coordinates from chunks: ({regionX}, {regionZ})");
+                }
+                else
+                {
+                    // Should not reach here due to earlier check
+                    throw new InvalidOperationException("Cannot determine region coordinates - no chunk data and no region info");
+                }
             }
 
             // Verify all chunks belong to the same region
