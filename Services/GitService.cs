@@ -347,14 +347,24 @@ public class GitService : IGitService
 
                 // Check if there are any changes to stage
                 RepositoryStatus? status = repo.RetrieveStatus();
-                if (!status.Where(s => s.State.HasFlag(FileStatus.ModifiedInWorkdir) ||
+                var filesToStage = status.Where(s => s.State.HasFlag(FileStatus.ModifiedInWorkdir) ||
                                        s.State.HasFlag(FileStatus.NewInWorkdir) ||
-                                       s.State.HasFlag(FileStatus.DeletedFromWorkdir)).Any())
+                                       s.State.HasFlag(FileStatus.DeletedFromWorkdir)).ToList();
+
+                if (filesToStage.Count == 0)
+                {
+                    // For initial commits, this might be expected - check if repo is empty
+                    if (!repo.Head.Commits.Any())
+                    {
+                        // This is a new repository with no commits, but also no files to stage
+                        return GitOperationResult.CreateFailure("No files to stage in new repository");
+                    }
                     return GitOperationResult.CreateSuccess("No files to stage");
+                }
 
                 Commands.Stage(repo, "*");
                 repo.Index.Write();
-                return GitOperationResult.CreateSuccess();
+                return GitOperationResult.CreateSuccess($"Staged {filesToStage.Count} files");
             });
             return result;
         }

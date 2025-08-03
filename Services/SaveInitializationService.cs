@@ -77,18 +77,41 @@ public class SaveInitializationService : ISaveInitializationService
                 return true;
             });
 
-            // Step 4: Initialize Git repository (moved after translation)
+            // Step 4: Initialize Git repositories (both save directory and GitMC directory)
             await ExecuteStepAsync(steps[3], progress, async () =>
             {
-                steps[3].Message = "Initializing Git repository...";
-                return await _gitService.InitializeRepositoryAsync(savePath);
+                steps[3].Message = "Initializing Git repositories...";
+
+                // Initialize Git repository in the save directory
+                bool saveRepoSuccess = await _gitService.InitializeRepositoryAsync(savePath);
+                if (!saveRepoSuccess)
+                {
+                    throw new InvalidOperationException("Failed to initialize Git repository in save directory");
+                }
+
+                // Initialize Git repository in the GitMC directory
+                string gitMcPath = Path.Combine(savePath, "GitMC");
+                bool gitMcRepoSuccess = await _gitService.InitializeRepositoryAsync(gitMcPath);
+                if (!gitMcRepoSuccess)
+                {
+                    throw new InvalidOperationException("Failed to initialize Git repository in GitMC directory");
+                }
+
+                return true;
             });
 
-            // Step 5: Create .gitignore file
+            // Step 5: Create .gitignore files for both repositories
             await ExecuteStepAsync(steps[4], progress, async () =>
             {
-                steps[4].Message = "Creating .gitignore file...";
+                steps[4].Message = "Creating .gitignore files...";
+
+                // Create .gitignore for save directory
                 await CreateGitIgnoreFile(savePath);
+
+                // Create .gitignore for GitMC directory
+                string gitMcPath = Path.Combine(savePath, "GitMC");
+                await CreateGitMcGitIgnoreFile(gitMcPath);
+
                 return true;
             });
 
@@ -100,20 +123,48 @@ public class SaveInitializationService : ISaveInitializationService
                 return true;
             });
 
-            // Step 7: Initial commit
+            // Step 7: Initial commits for both repositories
             await ExecuteStepAsync(steps[6], progress, async () =>
             {
-                steps[6].Message = "Creating initial commit...";
-                GitOperationResult stageResult = await _gitService.StageAllAsync(savePath);
-                if (!stageResult.Success)
-                    throw new InvalidOperationException($"Failed to stage files: {stageResult.ErrorMessage}");
+                steps[6].Message = "Creating initial commits...";
 
-                GitOperationResult commitResult =
-                    await _gitService.CommitAsync("Initial import: SNBT snapshot of all world chunks", savePath);
-                return commitResult.Success;
-            });
+                // Create initial commit in save directory
+                steps[6].Message = "Staging files in save directory...";
+                GitOperationResult saveStageResult = await _gitService.StageAllAsync(savePath);
+                if (!saveStageResult.Success)
+                    throw new InvalidOperationException($"Failed to stage files in save directory: {saveStageResult.ErrorMessage}");
 
-            return true;
+                steps[6].Message = "Creating commit in save directory...";
+                GitOperationResult saveCommitResult =
+                    await _gitService.CommitAsync("Initial import: Complete save with SNBT chunks", savePath);
+                if (!saveCommitResult.Success)
+                    throw new InvalidOperationException($"Failed to commit in save directory: {saveCommitResult.ErrorMessage}");
+
+                // Create initial commit in GitMC directory
+                string gitMcPath = Path.Combine(savePath, "GitMC");
+
+                // Verify GitMC directory has files before committing
+                if (!Directory.Exists(gitMcPath))
+                    throw new InvalidOperationException("GitMC directory does not exist");
+
+                var gitMcFiles = Directory.GetFiles(gitMcPath, "*", SearchOption.AllDirectories);
+                if (gitMcFiles.Length == 0)
+                    throw new InvalidOperationException("GitMC directory is empty - no files to commit");
+
+                steps[6].Message = "Staging files in GitMC directory...";
+                GitOperationResult gitMcStageResult = await _gitService.StageAllAsync(gitMcPath);
+                if (!gitMcStageResult.Success)
+                    throw new InvalidOperationException($"Failed to stage files in GitMC directory: {gitMcStageResult.ErrorMessage}");
+
+                steps[6].Message = "Creating commit in GitMC directory...";
+                GitOperationResult gitMcCommitResult =
+                    await _gitService.CommitAsync("Initial import: SNBT snapshot of all world chunks", gitMcPath);
+                if (!gitMcCommitResult.Success)
+                    throw new InvalidOperationException($"Failed to commit in GitMC directory: {gitMcCommitResult.ErrorMessage}");
+
+                steps[6].Message = "Both repositories committed successfully";
+                return true;
+            }); return true;
         }
         catch (Exception ex)
         {
@@ -179,6 +230,33 @@ public class SaveInitializationService : ISaveInitializationService
                                   """;
 
         string gitIgnorePath = Path.Combine(savePath, ".gitignore");
+        await File.WriteAllTextAsync(gitIgnorePath, gitIgnoreContent);
+    }
+
+    private async Task CreateGitMcGitIgnoreFile(string gitMcPath)
+    {
+        string gitIgnoreContent = """
+                                  # Ignore backup files
+                                  *.backup
+                                  *.bak
+
+                                  # Ignore temporary files
+                                  *.tmp
+                                  *.temp
+
+                                  # Ignore chunk mode marker files (these are temporary during processing)
+                                  *.chunk_mode
+
+                                  # Ignore processing artifacts
+                                  *.processing
+                                  *.error
+
+                                  # Keep all SNBT files and chunk directories
+                                  !*.snbt
+                                  !*.chunks/
+                                  """;
+
+        string gitIgnorePath = Path.Combine(gitMcPath, ".gitignore");
         await File.WriteAllTextAsync(gitIgnorePath, gitIgnoreContent);
     }
 
