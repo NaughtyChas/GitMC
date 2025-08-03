@@ -1823,11 +1823,6 @@ public class NbtService : INbtService
                 string emptyRegionInfoPath = Path.Combine(outputFolderPath, "region_info.snbt");
                 string emptyRegionInfoSnbt = emptyRegionInfo.ToSnbt(SnbtOptions.DefaultExpanded);
                 await File.WriteAllTextAsync(emptyRegionInfoPath, emptyRegionInfoSnbt, Encoding.UTF8);
-
-                // Create the .chunk_mode marker file
-                string chunkModeMarkerPath = Path.Combine(outputFolderPath, ".chunk_mode");
-                await File.WriteAllTextAsync(chunkModeMarkerPath, "chunk-based", Encoding.UTF8);
-
                 progress?.Report("Empty chunk folder created successfully");
                 return;
             }
@@ -1913,9 +1908,6 @@ public class NbtService : INbtService
 
             progress?.Report($"Conversion complete! Created {processedCount} chunk files in {outputFolderPath}");
 
-            // Create the .chunk_mode marker file to indicate chunk-based structure
-            string markerFilePath = Path.Combine(outputFolderPath, ".chunk_mode");
-            await File.WriteAllTextAsync(markerFilePath, "chunk-based", Encoding.UTF8);
         }
         catch (Exception ex)
         {
@@ -2040,11 +2032,44 @@ public class NbtService : INbtService
 
             if (chunks.Count == 0)
             {
-                // Handle empty MCA file case - need region info for empty MCA
+                // Handle empty MCA file case - create empty 0KB file
                 if (regionCoords == null)
-                    throw new InvalidOperationException("No chunk data found and no region info available - cannot create empty MCA file");
+                {
+                    // Try to extract region coordinates from output file name
+                    string fileName = Path.GetFileNameWithoutExtension(outputMcaPath);
+                    if (fileName.StartsWith("r."))
+                    {
+                        try
+                        {
+                            string[] parts = fileName.Split('.');
+                            if (parts.Length >= 3)
+                            {
+                                int regionX = int.Parse(parts[1]);
+                                int regionZ = int.Parse(parts[2]);
+                                regionCoords = new Point2I(regionX, regionZ);
+                                progress?.Report($"Extracted region coordinates from filename: ({regionX}, {regionZ})");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            progress?.Report($"Failed to extract coordinates from filename: {ex.Message}");
+                        }
+                    }
 
-                progress?.Report("Creating empty MCA file...");
+                    // If still no coordinates, default to (0,0) for empty files
+                    if (regionCoords == null)
+                    {
+                        regionCoords = new Point2I(0, 0);
+                        progress?.Report("Using default coordinates (0,0) for empty MCA file");
+                    }
+                }
+
+                progress?.Report("Creating empty MCA file (0KB)...");
+
+                // Create empty 0KB file
+                await File.WriteAllBytesAsync(outputMcaPath, Array.Empty<byte>());
+                progress?.Report($"Successfully created empty MCA file: {Path.GetFileName(outputMcaPath)} (0KB)");
+                return;
             }
             else
             {

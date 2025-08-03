@@ -266,48 +266,78 @@ public sealed partial class SaveTranslatorPage : Page
         int totalChunksProcessed = 0;
         DateTime lastUiUpdate = DateTime.Now;
 
-        foreach (FileInfo fileInfo in filesToProcess)
+        // Process files in batches on background threads to avoid UI blocking
+        const int batchSize = 5; // Process 5 files per batch
+        for (int batchStart = 0; batchStart < filesToProcess.Count; batchStart += batchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            try
+            // Get current batch
+            var batch = filesToProcess.Skip(batchStart).Take(batchSize).ToList();
+
+            // Process batch on background thread
+            var batchResults = await Task.Run(async () =>
             {
-                string relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
-                string targetPath = Path.Combine(gitMcPath, relativePath);
+                var results = new List<(bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error)>();
 
-                // Significantly reduce logging frequency to improve performance
-                if (processedCount % 50 == 0 || processedCount == 0)
-                    LogMessage(
-                        $"Processing batch: {processedCount}-{Math.Min(processedCount + 49, totalFiles)} of {totalFiles}");
+                foreach (FileInfo fileInfo in batch)
+                {
+                    try
+                    {
+                        string relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
+                        string targetPath = Path.Combine(gitMcPath, relativePath);
 
-                // Track multi-chunk processing
-                (bool IsMultiChunk, int ChunkCount) isMultiChunk =
-                    await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
-                if (isMultiChunk.IsMultiChunk)
+                        // Track multi-chunk processing
+                        (bool IsMultiChunk, int ChunkCount) isMultiChunk =
+                            await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
+
+                        results.Add((isMultiChunk.IsMultiChunk, isMultiChunk.ChunkCount, fileInfo.Name, true, null));
+                    }
+                    catch (Exception ex)
+                    {
+                        results.Add((false, 0, fileInfo.Name, false, ex.Message));
+                    }
+                }
+
+                return results;
+            }, cancellationToken);
+
+            // Update counters and UI on main thread
+            foreach (var result in batchResults)
+            {
+                processedCount++;
+
+                if (result.IsMultiChunk)
                 {
                     multiChunkFiles++;
-                    totalChunksProcessed += isMultiChunk.ChunkCount;
+                    totalChunksProcessed += result.ChunkCount;
                 }
 
-                processedCount++;
-                int progress = 30 + processedCount * 60 / totalFiles;
-
-                // Update UI much less frequently and with time-based throttling
-                TimeSpan timeSinceLastUpdate = DateTime.Now - lastUiUpdate;
-                if (timeSinceLastUpdate.TotalMilliseconds > 3000 ||
-                    processedCount == totalFiles) // Every 3 seconds or at completion
+                if (!result.success && result.error != null)
                 {
-                    UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}...");
-                    lastUiUpdate = DateTime.Now;
-
-                    // Minimal yield to UI thread for responsiveness
-                    if (processedCount % 25 == 0) await Task.Yield();
+                    LogMessage($"Failed to process file {result.fileName}: {result.error}");
                 }
             }
-            catch (Exception ex)
+
+            // Log batch progress less frequently
+            if ((batchStart / batchSize) % 10 == 0 || processedCount >= totalFiles)
             {
-                LogMessage($"Failed to process file {fileInfo.Name}: {ex.Message}");
+                LogMessage($"Processing batch: {processedCount}/{totalFiles} files completed");
             }
+
+            int progress = 30 + processedCount * 60 / totalFiles;
+
+            // Update UI much less frequently and with time-based throttling
+            TimeSpan timeSinceLastUpdate = DateTime.Now - lastUiUpdate;
+            if (timeSinceLastUpdate.TotalMilliseconds > 2000 ||
+                processedCount >= totalFiles) // Every 2 seconds or at completion
+            {
+                UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}...");
+                lastUiUpdate = DateTime.Now;
+            }
+
+            // Always yield control to UI thread after each batch
+            await Task.Delay(50, cancellationToken); // Small delay to ensure UI responsiveness
         }
 
         UpdateProgress(95, "Verifying translation results...");
@@ -789,15 +819,15 @@ public sealed partial class SaveTranslatorPage : Page
                 _logQueue.Enqueue(logEntry);
 
                 // Limit queue size to prevent memory buildup
-                while (_logQueue.Count > 1000) _logQueue.Dequeue();
+                while (_logQueue.Count > 500) _logQueue.Dequeue(); // Reduced from 1000 to 500
             }
 
-            // Schedule batch flush every 500ms or for critical messages
+            // Schedule batch flush every 1000ms or for critical messages
             bool isCritical = message.Contains("Error") || message.Contains("Failed") || message.Contains("❌") ||
                               message.Contains("===");
             TimeSpan timeSinceLastFlush = DateTime.Now - _lastLogFlush;
 
-            if (isCritical || timeSinceLastFlush.TotalMilliseconds > 500)
+            if (isCritical || timeSinceLastFlush.TotalMilliseconds > 1000) // Increased from 500ms to 1000ms
                 FlushLogQueue();
             else if (!_isLogFlushScheduled) ScheduleLogFlush();
         }
@@ -814,7 +844,7 @@ public sealed partial class SaveTranslatorPage : Page
 
         _isLogFlushScheduled = true;
 
-        _ = Task.Delay(500).ContinueWith(_ =>
+        _ = Task.Delay(1000).ContinueWith(_ => // Increased from 500ms to 1000ms
         {
             _isLogFlushScheduled = false;
             FlushLogQueue();
@@ -846,39 +876,21 @@ public sealed partial class SaveTranslatorPage : Page
                         int currentLength = LogTextBox.Text.Length;
                         int newContentLength = logsToFlush.Sum(log => log.Length + 1); // +1 for newline
 
-                        if (currentLength + newContentLength > 80000) // ~80KB limit
+                        if (currentLength + newContentLength > 60000) // Reduced limit to 60KB
                         {
-                            // Keep only the last portion of current text
-                            // Optimized: Use span-based approach to avoid Split allocation
-                            string? textContent = LogTextBox.Text;
-                            var lines = new List<string>();
+                            // Keep only the last portion of current text - more aggressive trimming
+                            string[] existingLines = LogTextBox.Text.Split('\n');
 
-                            ReadOnlySpan<char> contentSpan = textContent.AsSpan();
-                            ReadOnlySpan<char> remaining = contentSpan;
-
-                            while (!remaining.IsEmpty)
+                            if (existingLines.Length > 150) // Reduced from 200 to 150 lines
                             {
-                                int lineEnd = remaining.IndexOf('\n');
-                                ReadOnlySpan<char> line;
-
-                                if (lineEnd >= 0)
-                                {
-                                    line = remaining[..lineEnd];
-                                    remaining = remaining[(lineEnd + 1)..];
-                                }
-                                else
-                                {
-                                    line = remaining;
-                                    remaining = ReadOnlySpan<char>.Empty;
-                                }
-
-                                lines.Add(line.ToString());
+                                IEnumerable<string> keepLines = existingLines.Skip(existingLines.Length - 150);
+                                sb.AppendLine(string.Join('\n', keepLines));
+                                sb.AppendLine("... [Earlier logs truncated for performance] ...");
                             }
-
-                            IEnumerable<string>
-                                keepLines = lines.Skip(Math.Max(0, lines.Count - 200)); // Keep last 200 lines
-                            sb.AppendLine(string.Join('\n', keepLines));
-                            sb.AppendLine("... [Earlier logs truncated for performance] ...");
+                            else
+                            {
+                                sb.Append(LogTextBox.Text);
+                            }
                         }
                         else
                         {
@@ -890,9 +902,12 @@ public sealed partial class SaveTranslatorPage : Page
 
                         LogTextBox.Text = sb.ToString();
 
-                        // Always auto-scroll to bottom for better UX
-                        if (LogTextBox.Parent is ScrollViewer scrollViewer)
-                            scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null, false);
+                        // Only auto-scroll occasionally to reduce UI work - scroll less frequently
+                        if (logsToFlush.Count > 10 || logsToFlush.Any(log => log.Contains("complete") || log.Contains("===")))
+                        {
+                            if (LogTextBox.Parent is ScrollViewer scrollViewer)
+                                scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null, false);
+                        }
                     }
 
                     _lastLogFlush = DateTime.Now;
@@ -1082,246 +1097,319 @@ public sealed partial class SaveTranslatorPage : Page
 
     private async Task PerformReverseTranslation(string gitMcPath, string outputPath, CancellationToken cancellationToken)
     {
-        var regionFolder = Path.Combine(gitMcPath, "region");
-        var outputRegionFolder = Path.Combine(outputPath, "region");
-        Directory.CreateDirectory(outputRegionFolder);
+        LogMessage("=== Starting reverse translation process ===");
+        LogMessage($"Source GitMC folder: {gitMcPath}");
+        LogMessage($"Output folder: {outputPath}");
 
-        // Copy non-region files first
-        await CopyNonRegionFiles(gitMcPath, outputPath, cancellationToken);
+        // Step 1: Copy all files from GitMC to GitMC_restored
+        LogMessage("Step 1: Copying all files from GitMC folder...");
+        await Task.Run(() => CopyDirectory(gitMcPath, outputPath), cancellationToken);
+        LogMessage("✓ All files copied to output folder");
 
-        // Get all SNBT files and chunk marker files in the region folder
-        var snbtFiles = Directory.GetFiles(regionFolder, "*.snbt", SearchOption.AllDirectories);
-        var chunkMarkerFiles = Directory.GetFiles(regionFolder, "*.chunk_mode", SearchOption.AllDirectories);
+        // Step 2: Process MCA files in region, poi, and entities folders
+        var mcaFolders = new[] { "region", "poi", "entities" };
+        var totalMcaProcessed = 0;
 
-        var totalOperations = snbtFiles.Length + chunkMarkerFiles.Length;
-        var processedOperations = 0;
-
-        LogMessage($"Found {snbtFiles.Length} SNBT files and {chunkMarkerFiles.Length} chunk-based MCA files to convert");
-
-        // First, handle chunk-based MCA files with parallel processing for better performance
-        if (chunkMarkerFiles.Length > 0)
+        foreach (var folderName in mcaFolders)
         {
-            LogMessage($"Processing {chunkMarkerFiles.Length} chunk-based MCA files in parallel...");
-
-            var chunkProcessingTasks = chunkMarkerFiles.Select(async markerFile =>
+            var sourceFolder = Path.Combine(outputPath, folderName);
+            if (!Directory.Exists(sourceFolder))
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                LogMessage($"  Folder {folderName} does not exist, skipping...");
+                continue;
+            }
 
-                try
+            LogMessage($"Step 2.{Array.IndexOf(mcaFolders, folderName) + 1}: Processing MCA files in /{folderName} folder...");
+            var processed = await ProcessMcaFilesInFolder(sourceFolder, cancellationToken);
+            totalMcaProcessed += processed;
+            LogMessage($"✓ Processed {processed} MCA files in /{folderName}");
+        }
+
+        // Step 3: Process other SNBT files (dat, nbt files)
+        LogMessage("Step 3: Processing other SNBT files (dat, nbt, etc.)...");
+        var otherSnbtProcessed = await ProcessOtherSnbtFiles(outputPath, cancellationToken);
+        LogMessage($"✓ Processed {otherSnbtProcessed} other SNBT files");
+
+        // Step 4: Clean up - remove all SNBT files and empty chunk folders
+        LogMessage("Step 4: Cleaning up SNBT files and empty chunk folders...");
+        var cleanedUp = await CleanupSnbtFilesAndChunkFolders(outputPath, cancellationToken);
+        LogMessage($"✓ Cleaned up {cleanedUp.snbtFiles} SNBT files and {cleanedUp.chunkFolders} chunk folders");
+
+        LogMessage($"✅ Reverse translation completed successfully!");
+        LogMessage($"   - Total MCA files reconstructed: {totalMcaProcessed}");
+        LogMessage($"   - Other files converted: {otherSnbtProcessed}");
+        LogMessage($"   - Files cleaned up: {cleanedUp.snbtFiles} SNBT files, {cleanedUp.chunkFolders} chunk folders");
+        LogMessage("=== Reverse translation process complete ===");
+    }
+
+    private async Task<int> ProcessMcaFilesInFolder(string folderPath, CancellationToken cancellationToken)
+    {
+        var processedCount = 0;
+
+        // Get all chunk marker files in this folder
+        var chunkMarkerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
+
+        if (chunkMarkerFiles.Length == 0)
+        {
+            LogMessage($"  No chunk-based MCA files found in {Path.GetFileName(folderPath)}");
+            return 0;
+        }
+
+        LogMessage($"  Found {chunkMarkerFiles.Length} chunk-based MCA files");
+
+        foreach (var markerFile in chunkMarkerFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                // Read chunk folder path from marker file
+                string chunkFolderPath = await File.ReadAllTextAsync(markerFile, Encoding.UTF8, cancellationToken);
+
+                if (Directory.Exists(chunkFolderPath))
                 {
-                    // Read chunk folder path from marker file
-                    string chunkFolderPath = await File.ReadAllTextAsync(markerFile, Encoding.UTF8, cancellationToken);
-
-                    if (Directory.Exists(chunkFolderPath))
+                    // Determine output MCA file path
+                    // marker file is like "r.0.0.mca.snbt.chunk_mode", we want "r.0.0.mca"
+                    string snbtPath = markerFile.Replace(".chunk_mode", "");
+                    string originalFileName = Path.GetFileName(snbtPath);
+                    if (originalFileName.EndsWith(".snbt"))
                     {
-                        // Determine output MCA file path
-                        // marker file is like "r.0.0.mca.snbt.chunk_mode", we want "r.0.0.mca"
-                        string snbtPath = markerFile.Replace(".chunk_mode", "");
-                        string originalFileName = Path.GetFileName(snbtPath);
-                        if (originalFileName.EndsWith(".snbt"))
-                        {
-                            originalFileName = originalFileName.Substring(0, originalFileName.Length - 5); // Remove .snbt
-                        }
+                        originalFileName = originalFileName.Substring(0, originalFileName.Length - 5); // Remove .snbt
+                    }
 
-                        string outputMcaPath = Path.Combine(outputRegionFolder, originalFileName);
+                    string outputMcaPath = Path.Combine(folderPath, originalFileName);
 
-                        // Create minimal progress reporter to reduce overhead during parallel processing
-                        var progress = new Progress<string>(message =>
-                        {
-                            // Only log critical errors to avoid overwhelming the UI during parallel processing
-                            if (message.Contains("ERROR") || message.Contains("FAILED"))
-                                LogMessage($"    {message}");
-                        });
+                    // Create progress reporter
+                    var progress = new Progress<string>(message =>
+                    {
+                        if (message.Contains("ERROR") || message.Contains("FAILED"))
+                            LogMessage($"    {message}");
+                    });
 
-                        // Convert chunk files back to MCA
-                        await _nbtService.ConvertChunkFilesToMcaAsync(chunkFolderPath, outputMcaPath, progress);
+                    // Convert chunk files back to MCA
+                    LogMessage($"    Converting chunks to {originalFileName}...");
+                    await _nbtService.ConvertChunkFilesToMcaAsync(chunkFolderPath, outputMcaPath, progress);
 
-                        // Delete source files after successful conversion to match standard Minecraft save structure
-                        // Only delete if the output file was successfully created
-                        if (File.Exists(outputMcaPath))
-                        {
-                            try
-                            {
-                                // Delete chunk folder (contains individual chunk SNBT files)
-                                if (Directory.Exists(chunkFolderPath))
-                                {
-                                    Directory.Delete(chunkFolderPath, true);
-                                }
+                    // Verify conversion succeeded
+                    if (File.Exists(outputMcaPath))
+                    {
+                        var fileInfo = new FileInfo(outputMcaPath);
+                        LogMessage($"    ✓ Created {originalFileName} ({fileInfo.Length / 1024}KB)");
+                        processedCount++;
 
-                                // Delete marker file
-                                if (File.Exists(markerFile))
-                                {
-                                    File.Delete(markerFile);
-                                }
-
-                                // Delete SNBT file if it exists
-                                if (File.Exists(snbtPath))
-                                {
-                                    File.Delete(snbtPath);
-                                }
-                            }
-                            catch (Exception cleanupEx)
-                            {
-                                LogMessage($"    ⚠ Warning: Failed to clean up source files for {originalFileName}: {cleanupEx.Message}");
-                            }
-                        }
-
-                        // Log completion for this file
-                        int chunkCount = 0;
-                        try
-                        {
-                            chunkCount = Directory.Exists(chunkFolderPath) ? 0 :
-                                        Directory.GetFiles(Path.GetDirectoryName(chunkFolderPath) ?? "", "chunk_*.snbt").Length;
-                        }
-                        catch { /* Ignore if we can't count */ }
-
-                        LogMessage($"    ✓ Reconstructed MCA: {originalFileName}");
+                        // Note: We don't delete source files here - cleanup happens in step 4
                     }
                     else
                     {
-                        LogMessage($"    ⚠ Warning: Chunk folder not found for {markerFile}: {chunkFolderPath}");
+                        LogMessage($"    ✗ Failed to create {originalFileName}");
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    LogMessage($"    ✗ Error processing chunk-based MCA {markerFile}: {ex.Message}");
+                    LogMessage($"    ⚠ Warning: Chunk folder not found: {chunkFolderPath}");
                 }
-
-                // Update progress less frequently to reduce UI overhead
-                var completed = Interlocked.Increment(ref processedOperations);
-                if (completed % Math.Max(1, chunkMarkerFiles.Length / 5) == 0 || completed == chunkMarkerFiles.Length)
-                {
-                    DispatcherQueue.TryEnqueue(() =>
-                    {
-                        ReverseTranslationProgressText.Text = $"Converting chunk files... ({completed}/{totalOperations})";
-                        ReverseTranslationProgressBar.Value = (double)completed / totalOperations * 100;
-                    });
-                }
-            });
-
-            // Process chunk-based MCA files with controlled concurrency to avoid overwhelming the system
-            var maxConcurrency = Math.Min(Environment.ProcessorCount, Math.Max(1, chunkMarkerFiles.Length));
-            var chunkSemaphore = new SemaphoreSlim(maxConcurrency);
-            var chunkConcurrentTasks = chunkProcessingTasks.Select(async task =>
+            }
+            catch (Exception ex)
             {
-                await chunkSemaphore.WaitAsync(cancellationToken);
-                try
-                {
-                    await task;
-                }
-                finally
-                {
-                    chunkSemaphore.Release();
-                }
-            });
-
-            await Task.WhenAll(chunkConcurrentTasks);
-            LogMessage($"✓ Completed {chunkMarkerFiles.Length} chunk-based MCA files");
+                LogMessage($"    ✗ Error processing {Path.GetFileName(markerFile)}: {ex.Message}");
+            }
         }
 
-        // Then handle regular SNBT files (excluding those already processed as chunk-based) with optimized parallel processing
-        var remainingSnbtFiles = snbtFiles.Where(snbtFile =>
+        return processedCount;
+    }
+
+    private async Task<int> ProcessOtherSnbtFiles(string outputPath, CancellationToken cancellationToken)
+    {
+        var processedCount = 0;
+
+        // Find all SNBT files that are NOT part of chunk-based MCA conversion
+        var allSnbtFiles = Directory.GetFiles(outputPath, "*.snbt", SearchOption.AllDirectories);
+
+        var otherSnbtFiles = allSnbtFiles.Where(snbtFile =>
         {
+            // Skip if this is part of a chunk-based conversion (has marker file)
             string markerPath = snbtFile + ".chunk_mode";
-            return !File.Exists(markerPath); // Only process if no chunk marker exists
+            if (File.Exists(markerPath))
+                return false;
+
+            // Skip if this file is inside a chunks folder
+            string parentDir = Path.GetDirectoryName(snbtFile) ?? "";
+            if (parentDir.EndsWith(".chunks", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Skip individual chunk files (chunk_X_Z.snbt pattern)
+            string fileName = Path.GetFileName(snbtFile);
+            if (fileName.StartsWith("chunk_") && fileName.EndsWith(".snbt"))
+                return false;
+
+            // Skip files that are originally .snbt format (not converted from other formats)
+            // If the file name is "something.snbt" without any intermediate extension,
+            // it means this file was originally a .snbt file and should be left untouched
+            if (fileName.EndsWith(".snbt") && !fileName.Contains(".dat.snbt") &&
+                !fileName.Contains(".nbt.snbt") && !fileName.Contains(".dat_old.snbt") &&
+                !fileName.Contains(".mca.snbt") && !fileName.Contains(".mcc.snbt"))
+            {
+                // Check if it's a simple .snbt file (not .extension.snbt)
+                string nameWithoutSnbt = fileName.Substring(0, fileName.Length - 5); // Remove .snbt
+                if (!nameWithoutSnbt.Contains('.'))
+                {
+                    // This is a pure .snbt file, not converted from another format
+                    return false;
+                }
+            }
+
+            return true;
         }).ToArray();
 
-        if (remainingSnbtFiles.Length > 0)
+        if (otherSnbtFiles.Length == 0)
         {
-            LogMessage($"Processing {remainingSnbtFiles.Length} regular SNBT files in parallel...");
+            LogMessage("  No other SNBT files found");
+            return 0;
+        }
 
-            // Optimize parallelism based on file count and system capabilities
-            var maxDegreeOfParallelism = Math.Min(
-                Environment.ProcessorCount * 2, // Allow some over-subscription for I/O bound operations
-                Math.Max(1, remainingSnbtFiles.Length / 2) // Don't over-parallelize for small file counts
-            );
+        LogMessage($"  Found {otherSnbtFiles.Length} other SNBT files to convert");
 
-            var parallelOptions = new ParallelOptions
+        foreach (var snbtFile in otherSnbtFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
             {
-                CancellationToken = cancellationToken,
-                MaxDegreeOfParallelism = maxDegreeOfParallelism
-            };
-
-            // Use concurrent collection for thread-safe progress tracking
-            var completedFiles = 0;
-            var lockObject = new object();
-
-            await Task.Run(() =>
-            {
-                Parallel.ForEach(remainingSnbtFiles, parallelOptions, snbtFile =>
+                // Determine output file path by removing .snbt extension
+                string outputFile = snbtFile;
+                if (outputFile.EndsWith(".snbt"))
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    outputFile = outputFile.Substring(0, outputFile.Length - 5); // Remove .snbt
+                }
 
+                // Convert SNBT back to original format
+                LogMessage($"    Converting {Path.GetFileName(snbtFile)}...");
+                await _nbtService.ConvertFromSnbtAsync(snbtFile, outputFile);
+
+                // Verify conversion succeeded
+                if (File.Exists(outputFile))
+                {
+                    var fileInfo = new FileInfo(outputFile);
+                    LogMessage($"    ✓ Created {Path.GetFileName(outputFile)} ({fileInfo.Length / 1024}KB)");
+                    processedCount++;
+                }
+                else
+                {
+                    LogMessage($"    ✗ Failed to create {Path.GetFileName(outputFile)}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"    ✗ Error converting {Path.GetFileName(snbtFile)}: {ex.Message}");
+            }
+        }
+
+        return processedCount;
+    }
+
+    private async Task<(int snbtFiles, int chunkFolders)> CleanupSnbtFilesAndChunkFolders(string outputPath, CancellationToken cancellationToken)
+    {
+        int snbtFilesDeleted = 0;
+        int chunkFoldersDeleted = 0;
+
+        await Task.Run(() =>
+        {
+            // Define folders where cleanup should happen
+            var targetFolders = new[] { "region", "poi", "entities" };
+
+            foreach (var folderName in targetFolders)
+            {
+                var folderPath = Path.Combine(outputPath, folderName);
+                if (!Directory.Exists(folderPath))
+                {
+                    LogMessage($"  Folder {folderName} does not exist, skipping cleanup...");
+                    continue;
+                }
+
+                LogMessage($"  Cleaning up {folderName} folder...");
+
+                // Step 4.1: Delete SNBT files only in this specific folder
+                var snbtFiles = Directory.GetFiles(folderPath, "*.snbt", SearchOption.AllDirectories);
+                LogMessage($"    Found {snbtFiles.Length} SNBT files to remove in {folderName}");
+
+                foreach (var snbtFile in snbtFiles)
+                {
                     try
                     {
-                        // Calculate relative path and output path
-                        var relativePath = Path.GetRelativePath(regionFolder, snbtFile);
-                        var outputFile = Path.Combine(outputRegionFolder, relativePath);
+                        File.Delete(snbtFile);
+                        snbtFilesDeleted++;
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"      ⚠ Warning: Failed to delete {Path.GetFileName(snbtFile)}: {ex.Message}");
+                    }
+                }
 
-                        // Handle proper extension removal: .dat.snbt -> .dat, .nbt.snbt -> .nbt, .mca.snbt -> .mca
-                        if (outputFile.EndsWith(".snbt"))
+                // Step 4.2: Delete chunk marker files only in this specific folder
+                var markerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
+                LogMessage($"    Found {markerFiles.Length} chunk marker files to remove in {folderName}");
+
+                foreach (var markerFile in markerFiles)
+                {
+                    try
+                    {
+                        File.Delete(markerFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"      ⚠ Warning: Failed to delete {Path.GetFileName(markerFile)}: {ex.Message}");
+                    }
+                }
+
+                // Step 4.3: Delete chunk folders only in this specific folder
+                var allDirectories = Directory.GetDirectories(folderPath, "*", SearchOption.AllDirectories);
+                var chunkDirectories = allDirectories.Where(dir => Path.GetFileName(dir).EndsWith(".chunks"));
+
+                LogMessage($"    Found {chunkDirectories.Count()} chunk folders to remove in {folderName}");
+
+                foreach (var chunkDir in chunkDirectories)
+                {
+                    try
+                    {
+                        if (Directory.Exists(chunkDir))
                         {
-                            outputFile = outputFile.Substring(0, outputFile.Length - 5); // Remove .snbt extension
-                        }
-
-                        // Ensure output directory exists (thread-safe)
-                        var outputDir = Path.GetDirectoryName(outputFile);
-                        if (!string.IsNullOrEmpty(outputDir))
-                        {
-                            lock (lockObject)
-                            {
-                                Directory.CreateDirectory(outputDir);
-                            }
-                        }
-
-                        // Convert SNBT back to original format
-                        _nbtService.ConvertFromSnbt(snbtFile, outputFile);
-
-                        // Delete source SNBT file after successful conversion to match standard Minecraft save structure
-                        // Only delete if the output file was successfully created
-                        if (File.Exists(outputFile))
-                        {
-                            try
-                            {
-                                File.Delete(snbtFile);
-                            }
-                            catch (Exception cleanupEx)
-                            {
-                                LogMessage($"    ⚠ Warning: Failed to delete SNBT file {Path.GetFileName(snbtFile)}: {cleanupEx.Message}");
-                            }
-                        }
-
-                        // Thread-safe progress tracking with reduced UI update frequency
-                        var currentCompleted = Interlocked.Increment(ref completedFiles);
-                        var totalCompleted = Interlocked.Increment(ref processedOperations);
-
-                        // Update UI less frequently to improve performance (every 10% or every 50 files, whichever is less)
-                        var updateInterval = Math.Min(Math.Max(1, remainingSnbtFiles.Length / 10), 50);
-                        if (currentCompleted % updateInterval == 0 || currentCompleted == remainingSnbtFiles.Length)
-                        {
-                            DispatcherQueue.TryEnqueue(() =>
-                            {
-                                ReverseTranslationProgressText.Text = $"Converting regular files... ({totalCompleted}/{totalOperations})";
-                                ReverseTranslationProgressBar.Value = (double)totalCompleted / totalOperations * 100;
-                            });
+                            Directory.Delete(chunkDir, true);
+                            chunkFoldersDeleted++;
+                            LogMessage($"      ✓ Deleted chunk folder: {Path.GetFileName(chunkDir)}");
                         }
                     }
                     catch (Exception ex)
                     {
-                        LogMessage($"    ✗ Error converting {Path.GetFileName(snbtFile)}: {ex.Message}");
-
-                        // Still increment progress even on error to keep UI consistent
-                        Interlocked.Increment(ref processedOperations);
+                        LogMessage($"      ⚠ Warning: Failed to delete chunk folder {Path.GetFileName(chunkDir)}: {ex.Message}");
                     }
-                });
-            }, cancellationToken);
+                }
 
-            LogMessage($"✓ Completed {remainingSnbtFiles.Length} regular SNBT files");
-        }
+                // Step 4.4: Remove any remaining empty directories only in this specific folder
+                var emptyDirs = allDirectories.Where(dir =>
+                    Directory.Exists(dir) &&
+                    Directory.GetFileSystemEntries(dir).Length == 0).ToArray();
 
-        LogMessage($"✅ Reverse translation completed. Processed {processedOperations} operations.");
-        LogMessage($"   - Converted {chunkMarkerFiles.Length} chunk-based MCA files");
-        LogMessage($"   - Converted {remainingSnbtFiles.Length} regular SNBT files");
+                if (emptyDirs.Length > 0)
+                {
+                    LogMessage($"    Found {emptyDirs.Length} empty directories to remove in {folderName}");
+                    foreach (var emptyDir in emptyDirs)
+                    {
+                        try
+                        {
+                            Directory.Delete(emptyDir, false);
+                            LogMessage($"      ✓ Deleted empty directory: {Path.GetRelativePath(folderPath, emptyDir)}");
+                        }
+                        catch (Exception ex)
+                        {
+                            LogMessage($"      ⚠ Warning: Failed to delete empty directory {Path.GetFileName(emptyDir)}: {ex.Message}");
+                        }
+                    }
+                }
+            }
+
+        }, cancellationToken);
+
+        return (snbtFilesDeleted, chunkFoldersDeleted);
     }
 
     private async Task CopyNonRegionFiles(string sourcePath, string outputPath, CancellationToken cancellationToken)
@@ -1358,15 +1446,17 @@ public sealed partial class SaveTranslatorPage : Page
     {
         Directory.CreateDirectory(destinationDir);
 
+        // Copy all files in the source directory
         foreach (var file in Directory.GetFiles(sourceDir))
         {
             var destFile = Path.Combine(destinationDir, Path.GetFileName(file));
             File.Copy(file, destFile, true);
         }
 
+        // Recursively copy all subdirectories
         foreach (var subDir in Directory.GetDirectories(sourceDir))
         {
-            var destSubDir = Path.Combine(destinationDir, Path.GetDirectoryName(subDir)!);
+            var destSubDir = Path.Combine(destinationDir, Path.GetFileName(subDir));
             CopyDirectory(subDir, destSubDir);
         }
     }
