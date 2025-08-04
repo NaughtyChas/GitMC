@@ -1,7 +1,10 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using GitMC.Constants;
+using GitMC.Extensions;
 using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
@@ -20,33 +23,65 @@ namespace GitMC.Views;
 
 public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 {
-    private readonly IConfigurationService _configurationService;
-    private readonly IDataStorageService _dataStorageService;
-    private readonly IGitService _gitService;
+    private readonly SaveInitializationStatusService _initStatusService;
     private readonly ManagedSaveService _managedSaveService;
     private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
-    private readonly NbtService _nbtService;
-    private readonly IOnboardingService _onboardingService;
+    private readonly IServiceAggregator _services;
+
+    // Cancellation support
+    private CancellationTokenSource? _initCancellationTokenSource;
+
+    // Initialize steps collection for UI binding
+    private ObservableCollection<SaveInitStep> _initSteps = new();
+
+    /// <summary>
+    /// A type-safe container for UI controls associated with initialization steps.
+    /// This replaces the fragile anonymous type approach that relied on reflection.
+    /// </summary>
+    private sealed class StepUIControls
+    {
+        public FontIcon Icon { get; init; } = null!;
+        public ProgressRing ProgressRing { get; init; } = null!;
+        public TextBlock StepNameText { get; init; } = null!;
+        public TextBlock DescriptionText { get; init; } = null!;
+        public Grid IconContainer { get; init; } = null!;
+    }
 
     public SaveManagementPage()
     {
         InitializeComponent();
-        _nbtService = new NbtService();
-        _gitService = new GitService();
-        _configurationService = new ConfigurationService();
-        _dataStorageService = new DataStorageService();
-        _onboardingService = new OnboardingService(_gitService, _configurationService);
-        _minecraftAnalyzerService = new MinecraftAnalyzerService(_nbtService);
-        _managedSaveService = new ManagedSaveService(_dataStorageService);
+
+        // Use ServiceFactory to get services
+        _services = ServiceFactory.Services;
+        _minecraftAnalyzerService = ServiceFactory.MinecraftAnalyzer;
+        _managedSaveService = new ManagedSaveService(_services.DataStorage);
+        _initStatusService = SaveInitializationStatusService.Instance;
 
         ViewModel = new SaveManagementViewModel();
         DataContext = this;
         Loaded += SaveManagementPage_Loaded;
+        Unloaded += SaveManagementPage_Unloaded;
     }
 
     public SaveManagementViewModel ViewModel { get; }
 
+    // Property for XAML binding to initialization steps
+    public ObservableCollection<SaveInitStep> InitSteps
+    {
+        get => _initSteps;
+        set
+        {
+            _initSteps = value;
+            OnPropertyChanged();
+        }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 
     private async void SaveManagementPage_Loaded(object sender, RoutedEventArgs e)
     {
@@ -54,12 +89,168 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         {
             await LoadManagedSaves();
             UpdateStatistics();
+
+            // Restore initialization state if any
+            await RestoreInitializationState();
         }
         catch (Exception ex)
         {
             // Log error and show user-friendly message
             Debug.WriteLine($"Error loading saves: {ex.Message}");
-            // Could show a message dialog here
+        }
+    }
+
+    private void SaveManagementPage_Unloaded(object sender, RoutedEventArgs e)
+    {
+        // Unsubscribe from progress updates to avoid memory leaks
+        if (_initStatusService.IsInitializing) _initStatusService.UnsubscribeFromProgress(OnProgressUpdated);
+    }
+
+    /// <summary>
+    ///     Restore initialization state if navigation occurred during initialization
+    /// </summary>
+    private async Task RestoreInitializationState()
+    {
+        if (!_initStatusService.IsInitializing) return;
+
+        ManagedSaveInfo? initializingSave = _initStatusService.CurrentInitializingSave;
+        ObservableCollection<SaveInitStep>? savedSteps = _initStatusService.InitSteps;
+
+        if (initializingSave == null || savedSteps == null) return;
+
+        // Check if all steps are completed
+        bool allStepsCompleted = savedSteps.All(s => s.Status == SaveInitStepStatus.Completed);
+        if (allStepsCompleted)
+        {
+            // All steps completed, clear initialization state and refresh the saves list
+            _initStatusService.ClearInitialization();
+
+            // Update the save info to reflect Git initialization
+            initializingSave.IsGitInitialized = true;
+            initializingSave.Branch = "main"; // Set default branch
+            initializingSave.CommitCount = 1; // Initial commit
+            await _managedSaveService.UpdateManagedSave(initializingSave);
+
+            // Refresh Git status to get accurate counts and status
+            await _managedSaveService.RefreshGitStatus(initializingSave);
+
+            // Refresh the saves list to update UI to normal save card display
+            await LoadManagedSaves();
+            return;
+        }
+
+        InitSteps = savedSteps;
+
+        DependencyObject? saveContainer = await FindSaveContainer(initializingSave);
+        if (saveContainer == null) return;
+
+        RestoreInitializationUI(saveContainer, savedSteps);
+
+        // Resubscribe to progress updates when returning to the page
+        _initStatusService.UnsubscribeFromProgress(OnProgressUpdated);
+        _initStatusService.SubscribeToProgress(OnProgressUpdated);
+    }
+
+    /// <summary>
+    ///     Handle progress updates during initialization
+    /// </summary>
+    private void OnProgressUpdated(SaveInitStep step)
+    {
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (InitSteps == null) return;
+
+            SaveInitStep? existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
+            if (existingStep != null)
+            {
+                existingStep.Status = step.Status;
+                existingStep.Message = step.Message;
+                existingStep.CurrentProgress = step.CurrentProgress;
+                existingStep.TotalProgress = step.TotalProgress;
+
+                ManagedSaveInfo? currentSave = _initStatusService.CurrentInitializingSave;
+                if (currentSave != null)
+                {
+                    DependencyObject? saveContainer = await FindSaveContainer(currentSave);
+                    if (saveContainer != null) UpdateInitializationUIForProgress(saveContainer, step, existingStep);
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    ///     Update initialization UI elements when progress is reported
+    /// </summary>
+    private void UpdateInitializationUIForProgress(DependencyObject container, SaveInitStep step,
+        SaveInitStep existingStep)
+    {
+        var progressBar = FindChildByName(container, "InitializationProgressBar") as ProgressBar;
+        var progressStepText = FindChildByName(container, "ProgressStepText") as TextBlock;
+        var stepsContainer = FindChildByName(container, "StepsContainer") as StackPanel;
+
+        if (stepsContainer != null && InitSteps != null)
+        {
+            int stepIndex = InitSteps.IndexOf(existingStep);
+            if (stepIndex >= 0 && stepIndex < stepsContainer.Children.Count)
+                UpdateStepUI(stepsContainer.Children[stepIndex] as Grid, existingStep);
+        }
+
+        UpdateInitializationProgress(InitSteps ?? new ObservableCollection<SaveInitStep>(), progressBar,
+            progressStepText);
+    }
+
+    /// <summary>
+    ///     Find the container for a specific save in the UI
+    /// </summary>
+    private async Task<DependencyObject?> FindSaveContainer(ManagedSaveInfo saveInfo)
+    {
+        await Task.Delay(50);
+
+        var savesGridView = FindName("SavesGridView") as GridView;
+        if (savesGridView?.Items != null)
+            foreach (object? item in savesGridView.Items)
+                if (item is ManagedSaveInfo managedSave && managedSave.OriginalPath == saveInfo.OriginalPath)
+                {
+                    var container = savesGridView.ContainerFromItem(item) as FrameworkElement;
+                    return container;
+                }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Restore the initialization UI for a save container
+    /// </summary>
+    private void RestoreInitializationUI(DependencyObject container, ObservableCollection<SaveInitStep> steps)
+    {
+        var initializeButton = FindChildByName(container, "InitializeButton") as Button;
+        var initializationPanel = FindChildByName(container, "InitializationPanel") as Border;
+        var setupDescriptionSection = FindChildByName(container, "SetupDescriptionSection") as StackPanel;
+        var progressBar = FindChildByName(container, "InitializationProgressBar") as ProgressBar;
+        var progressStepText = FindChildByName(container, "ProgressStepText") as TextBlock;
+        var stepsContainer = FindChildByName(container, "StepsContainer") as StackPanel;
+
+        if (initializeButton != null && initializationPanel != null)
+        {
+            initializeButton.Visibility = Visibility.Collapsed;
+            initializationPanel.Visibility = Visibility.Visible;
+
+            if (setupDescriptionSection != null)
+                setupDescriptionSection.Visibility = Visibility.Collapsed;
+
+            if (stepsContainer != null)
+            {
+                stepsContainer.Children.Clear();
+                foreach (SaveInitStep step in steps)
+                {
+                    Grid stepGrid = CreateStepUI(step);
+                    stepsContainer.Children.Add(stepGrid);
+                }
+            }
+
+            if (progressBar != null) progressBar.Maximum = steps.Count;
+
+            UpdateInitializationProgress(steps, progressBar, progressStepText);
         }
     }
 
@@ -768,35 +959,116 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private async void InitializeGitButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
-        {
             try
             {
-                // Find the container elements for loading state
-                var container = GetParentContainer(button);
-                var initializeButton = container != null ? FindChildByName(container, "InitializeButton") as Button : null;
-                var loadingOverlay = container != null ? FindChildByName(container, "LoadingOverlay") as Border : null;
+                // Set up cancellation support
+                _initCancellationTokenSource = new CancellationTokenSource();
 
-                // Show loading state
-                if (initializeButton != null && loadingOverlay != null)
+                // Find the container elements for initialization UI
+                DependencyObject? container = GetParentContainer(button);
+                Button? initializeButton =
+                    container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                Border? initializationPanel =
+                    container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
+                StackPanel? setupDescriptionSection = container != null
+                    ? FindChildByName(container, "SetupDescriptionSection") as StackPanel
+                    : null;
+                ProgressBar? progressBar = container != null
+                    ? FindChildByName(container, "InitializationProgressBar") as ProgressBar
+                    : null;
+                TextBlock? progressStepText =
+                    container != null ? FindChildByName(container, "ProgressStepText") as TextBlock : null;
+                ProgressRing? overallProgressRing = container != null
+                    ? FindChildByName(container, "OverallProgressRing") as ProgressRing
+                    : null;
+                StackPanel? stepsContainer =
+                    container != null ? FindChildByName(container, "StepsContainer") as StackPanel : null;
+
+                // Initialize the steps collection
+                InitSteps = _services.SaveInitialization.GetInitializationSteps();
+
+                // Save initialization state for navigation persistence
+                _initStatusService.StartInitialization(saveInfo, InitSteps);
+
+                // Update progress bar maximum
+                if (progressBar != null)
                 {
-                    initializeButton.Visibility = Visibility.Collapsed;
-                    loadingOverlay.Visibility = Visibility.Visible;
+                    progressBar.Maximum = InitSteps.Count;
+                    progressBar.Value = 0;
                 }
 
-                // Simulate Git initialization process (since we haven't implemented real Git operations yet)
-                await Task.Delay(2000); // 2 second delay to show loading state
+                // Show initialization panel and hide button and description
+                if (initializeButton != null && initializationPanel != null)
+                {
+                    initializeButton.Visibility = Visibility.Collapsed;
+                    initializationPanel.Visibility = Visibility.Visible;
+                }
 
-                // For now, we'll just mark it as initialized
-                // In the future, this will call: bool success = await _gitService.InitializeRepositoryAsync(saveInfo.OriginalPath);
-                bool success = true; // Simulated success
+                // Hide the description section during initialization
+                if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Collapsed;
+
+                // Create step UI elements programmatically
+                if (stepsContainer != null)
+                {
+                    stepsContainer.Children.Clear();
+                    foreach (SaveInitStep step in InitSteps)
+                    {
+                        Grid stepGrid = CreateStepUI(step);
+                        stepsContainer.Children.Add(stepGrid);
+                    }
+                }
+
+                // Setup progress tracking
+                var progress = new Progress<SaveInitStep>(step =>
+                {
+                    // Update the step in the collection
+                    SaveInitStep? existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
+                    if (existingStep != null)
+                    {
+                        existingStep.Status = step.Status;
+                        existingStep.Message = step.Message;
+                        existingStep.CurrentProgress = step.CurrentProgress;
+                        existingStep.TotalProgress = step.TotalProgress;
+
+                        // Update the corresponding UI element
+                        if (stepsContainer != null)
+                        {
+                            int stepIndex = InitSteps.IndexOf(existingStep);
+                            if (stepIndex >= 0 && stepIndex < stepsContainer.Children.Count)
+                                UpdateStepUI(stepsContainer.Children[stepIndex] as Grid, existingStep);
+                        }
+                    }
+
+                    // Update progress bar and step text with fixed logic and percentage
+                    UpdateInitializationProgress(InitSteps ?? new ObservableCollection<SaveInitStep>(), progressBar,
+                        progressStepText);
+                });
+
+                // Subscribe to progress updates from the status service for cross-page updates
+                _initStatusService.SubscribeToProgress(OnProgressUpdated);
+
+                // Start initialization
+                bool success = await _services.SaveInitialization.InitializeSaveAsync(saveInfo.OriginalPath, progress);
+
+                // Stop the overall progress ring
+                if (overallProgressRing != null) overallProgressRing.IsActive = false;
 
                 if (success)
                 {
+                    // Unsubscribe from progress updates
+                    _initStatusService.UnsubscribeFromProgress(OnProgressUpdated);
+
+                    // Clear initialization state
+                    _initStatusService.ClearInitialization();
+
                     // Update the save info to reflect Git initialization
                     saveInfo.IsGitInitialized = true;
                     saveInfo.Branch = "main"; // Set default branch
                     saveInfo.CommitCount = 1; // Initial commit
                     await _managedSaveService.UpdateManagedSave(saveInfo);
+
+                    // Refresh Git status to get accurate counts and status
+                    await _managedSaveService.RefreshGitStatus(saveInfo);
 
                     // Refresh the saves list to update UI
                     await LoadManagedSaves();
@@ -806,34 +1078,213 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 }
                 else
                 {
-                    // Hide loading state and show button again
-                    if (initializeButton != null && loadingOverlay != null)
+                    // Unsubscribe from progress updates
+                    _initStatusService.UnsubscribeFromProgress(OnProgressUpdated);
+
+                    // Clear initialization state on failure
+                    _initStatusService.ClearInitialization();
+
+                    // Reset UI state on failure
+                    if (initializeButton != null && initializationPanel != null)
                     {
                         initializeButton.Visibility = Visibility.Visible;
-                        loadingOverlay.Visibility = Visibility.Collapsed;
+                        initializationPanel.Visibility = Visibility.Collapsed;
                     }
 
+                    // Show the description section again
+                    if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Visible;
+
                     FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Failed",
-                        "Failed to initialize Git repository. Please try again.");
+                        "Failed to initialize Git repository. Please check the logs for details.");
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to initialize Git: {ex.Message}");
 
-                // Reset UI state on error
-                var container = GetParentContainer(button);
-                var initializeButton = container != null ? FindChildByName(container, "InitializeButton") as Button : null;
-                var loadingOverlay = container != null ? FindChildByName(container, "LoadingOverlay") as Border : null;
+                // Unsubscribe from progress updates
+                _initStatusService.UnsubscribeFromProgress(OnProgressUpdated);
 
-                if (initializeButton != null && loadingOverlay != null)
+                // Clear initialization state on error
+                _initStatusService.ClearInitialization();
+
+                // Reset UI state on error
+                DependencyObject? container = GetParentContainer(button);
+                Button? initializeButton =
+                    container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                Border? initializationPanel =
+                    container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
+                StackPanel? setupDescriptionSection = container != null
+                    ? FindChildByName(container, "SetupDescriptionSection") as StackPanel
+                    : null;
+
+                if (initializeButton != null && initializationPanel != null)
                 {
                     initializeButton.Visibility = Visibility.Visible;
-                    loadingOverlay.Visibility = Visibility.Collapsed;
+                    initializationPanel.Visibility = Visibility.Collapsed;
                 }
+
+                // Show the description section again
+                if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Visible;
 
                 FlyoutHelper.ShowErrorFlyout(button, "Git Initialization Error",
                     $"An error occurred: {ex.Message}");
+            }
+    }
+
+    private Grid CreateStepUI(SaveInitStep step)
+    {
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        // Create a container for the icon that can hold either FontIcon or ProgressRing
+        var iconContainer = new Grid
+        {
+            Width = 16,
+            Height = 16,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 2, 8, 0)
+        };
+        Grid.SetColumn(iconContainer, 0);
+        Grid.SetRowSpan(iconContainer, 2);
+
+        // Status Icon
+        var icon = new FontIcon
+        {
+            FontSize = 12,
+            Glyph = step.StatusIcon,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        // ProgressRing for in-progress status
+        var progressRing = new ProgressRing
+        {
+            Width = 14,
+            Height = 14,
+            IsActive = step.IsInProgress,
+            Visibility = step.IsInProgress ? Visibility.Visible : Visibility.Collapsed
+        };
+
+        // Apply status color to both icon and progress ring
+        var brush = new SolidColorBrush(step.StatusColor);
+        icon.Foreground = brush;
+        progressRing.Foreground = brush;
+
+        // Show ProgressRing only for in-progress status, FontIcon otherwise
+        icon.Visibility = step.IsInProgress ? Visibility.Collapsed : Visibility.Visible;
+
+        iconContainer.Children.Add(icon);
+        iconContainer.Children.Add(progressRing);
+        grid.Children.Add(iconContainer);
+
+        // Step name text (always displayed) - use DisplayName for progress info
+        var stepNameText = new TextBlock
+        {
+            Text = step.DisplayName,
+            FontSize = 12,
+            FontWeight = FontWeights.Medium,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 33, 150, 243)), // Blue color #2196F3
+            TextWrapping = TextWrapping.Wrap,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetColumn(stepNameText, 1);
+        Grid.SetRow(stepNameText, 0);
+        grid.Children.Add(stepNameText);
+
+        // Progress and description text (displayed only when in progress and has info)
+        var descriptionText = new TextBlock
+        {
+            FontSize = 11,
+            Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 100, 100, 100)), // Gray color
+            Margin = new Thickness(0, 2, 0, 0),
+            Visibility = Visibility.Collapsed,
+            TextWrapping = TextWrapping.Wrap,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetColumn(descriptionText, 1);
+        Grid.SetRow(descriptionText, 1);
+        grid.Children.Add(descriptionText);
+
+        // Store references for easy updating using type-safe class
+        grid.Tag = new StepUIControls
+        {
+            Icon = icon,
+            ProgressRing = progressRing,
+            StepNameText = stepNameText,
+            DescriptionText = descriptionText,
+            IconContainer = iconContainer
+        };
+
+        return grid;
+    }
+
+    private void UpdateStepUI(Grid? stepGrid, SaveInitStep step)
+    {
+        if (stepGrid?.Tag is StepUIControls controls)
+        {
+            // Update icon appearance and visibility
+            controls.Icon.Glyph = step.StatusIcon;
+            controls.Icon.Visibility = step.IsInProgress ? Visibility.Collapsed : Visibility.Visible;
+
+            // Update progress ring state
+            controls.ProgressRing.IsActive = step.IsInProgress;
+            controls.ProgressRing.Visibility = step.IsInProgress ? Visibility.Visible : Visibility.Collapsed;
+
+            // Apply status color to both icon and progress ring
+            var brush = new SolidColorBrush(step.StatusColor);
+            controls.Icon.Foreground = brush;
+            controls.ProgressRing.Foreground = brush;
+
+            // Update step name text
+            controls.StepNameText.Text = step.DisplayName;
+
+            // Update description text visibility and content
+            if (step.IsInProgress && !string.IsNullOrEmpty(step.Message))
+            {
+                controls.DescriptionText.Text = step.Message;
+                controls.DescriptionText.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                controls.DescriptionText.Visibility = Visibility.Collapsed;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Update initialization progress display
+    /// </summary>
+    private void UpdateInitializationProgress(ObservableCollection<SaveInitStep> steps, ProgressBar? progressBar,
+        TextBlock? progressStepText)
+    {
+        if (progressBar != null && progressStepText != null)
+        {
+            int completedSteps = steps.Count(s => s.Status == SaveInitStepStatus.Completed);
+            int inProgressSteps = steps.Count(s => s.Status == SaveInitStepStatus.InProgress);
+
+            progressBar.Value = completedSteps;
+
+            double overallPercentage = steps.Count > 0 ? (double)completedSteps / steps.Count * 100 : 0;
+
+            if (inProgressSteps > 0)
+            {
+                int currentStepIndex = steps.IndexOf(steps.First(s => s.Status == SaveInitStepStatus.InProgress)) + 1;
+                progressStepText.Text = $"Step {currentStepIndex} of {steps.Count} ({overallPercentage:F0}%)";
+            }
+            else if (completedSteps == steps.Count)
+            {
+                progressStepText.Text = $"Completed {steps.Count} of {steps.Count} (100%)";
+            }
+            else
+            {
+                progressStepText.Text = $"Step {completedSteps + 1} of {steps.Count} ({overallPercentage:F0}%)";
             }
         }
     }
@@ -873,18 +1324,19 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         if (parent == null) return null;
 
-        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        int childCount = VisualTreeHelper.GetChildrenCount(parent);
         for (int i = 0; i < childCount; i++)
         {
-            var child = VisualTreeHelper.GetChild(parent, i);
+            DependencyObject? child = VisualTreeHelper.GetChild(parent, i);
 
             if (child is FrameworkElement element && element.Name == name)
                 return element;
 
-            var result = FindChildByName(child, name);
+            FrameworkElement? result = FindChildByName(child, name);
             if (result != null)
                 return result;
         }
+
         return null;
     }
 
@@ -893,13 +1345,92 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         if (child == null) return null;
 
         // Walk up the visual tree to find the GridViewItem container
-        var parent = VisualTreeHelper.GetParent(child);
+        DependencyObject? parent = VisualTreeHelper.GetParent(child);
         while (parent != null)
         {
             if (parent is GridViewItem)
                 return parent;
             parent = VisualTreeHelper.GetParent(parent);
         }
+
         return null;
+    }
+
+    private async void CancelInitButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button)
+            try
+            {
+                // Cancel the ongoing initialization
+                _initCancellationTokenSource?.Cancel();
+
+                // Find the container elements
+                DependencyObject? container = GetParentContainer(button);
+                Button? initializeButton =
+                    container != null ? FindChildByName(container, "InitializeButton") as Button : null;
+                Border? initializationPanel =
+                    container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
+                StackPanel? setupDescriptionSection = container != null
+                    ? FindChildByName(container, "SetupDescriptionSection") as StackPanel
+                    : null;
+                ProgressRing? overallProgressRing = container != null
+                    ? FindChildByName(container, "OverallProgressRing") as ProgressRing
+                    : null;
+
+                // Stop the overall progress ring
+                if (overallProgressRing != null) overallProgressRing.IsActive = false;
+
+                // Reset UI state
+                if (initializeButton != null && initializationPanel != null)
+                {
+                    initializeButton.Visibility = Visibility.Visible;
+                    initializationPanel.Visibility = Visibility.Collapsed;
+                }
+
+                // Show the description section again
+                if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Visible;
+
+                // Revert any changes made during initialization if needed
+                ManagedSaveInfo? currentSave = _initStatusService.CurrentInitializingSave;
+                if (currentSave != null) await RevertInitializationChanges(currentSave);
+
+                // Clean up cancellation token
+                _initCancellationTokenSource?.Dispose();
+                _initCancellationTokenSource = null;
+
+                FlyoutHelper.ShowSuccessFlyout(button, "Initialization Cancelled",
+                    "Git initialization has been cancelled and any changes have been reverted.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error cancelling initialization: {ex.Message}");
+                FlyoutHelper.ShowErrorFlyout(button, "Error",
+                    "An error occurred while cancelling initialization.");
+            }
+    }
+
+    private Task RevertInitializationChanges(ManagedSaveInfo saveInfo)
+    {
+        try
+        {
+            // This would revert any changes made during initialization
+            // For now, we'll just ensure the .git folder is removed if it exists
+            string gitPath = Path.Combine(saveInfo.OriginalPath, ".git");
+            if (Directory.Exists(gitPath)) Directory.Delete(gitPath, true);
+
+            // Remove any other GitMC-created files/folders
+            string gitignorePath = Path.Combine(saveInfo.OriginalPath, ".gitignore");
+            if (File.Exists(gitignorePath)) File.Delete(gitignorePath);
+
+            // Also remove the GitMC directory and all its contents
+            string gitMcPath = Path.Combine(saveInfo.OriginalPath, "GitMC");
+            if (Directory.Exists(gitMcPath)) Directory.Delete(gitMcPath, true);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error reverting changes: {ex.Message}");
+        }
+
+        return Task.CompletedTask;
     }
 }

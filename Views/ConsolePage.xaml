@@ -159,28 +159,28 @@
 
                         <!--  Command Prompt  -->
                         <FontIcon
-                            Glyph="&#xEC61;"
-                            Width="24"
-                            Height="24"
-                            VerticalAlignment="Center"
-                            Grid.Column="0"
                             Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                            x:Name="CommandStatusIcon" />
-                        
-                        <ProgressRing
-                            Visibility="Collapsed"
-                            IsActive="True"
-                            Width="24"
+                            Glyph="&#xEC61;"
+                            Grid.Column="0"
                             Height="24"
                             VerticalAlignment="Center"
-                            Grid.Column="0" 
-                            x:Name="CommandProgressRing" />
-                        
-                        <TextBlock 
-                            Visibility="Collapsed"
+                            Width="24"
+                            x:Name="CommandStatusIcon" />
+
+                        <ProgressRing
+                            Grid.Column="0"
+                            Height="24"
+                            IsActive="True"
                             VerticalAlignment="Center"
+                            Visibility="Collapsed"
+                            Width="24"
+                            x:Name="CommandProgressRing" />
+
+                        <TextBlock
                             FontWeight="Bold"
                             Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Visibility="Collapsed"
                             x:Name="StatusCodeText" />
 
                         <!--  Command Input  -->
@@ -190,11 +190,11 @@
                             FontFamily="Consolas"
                             FontSize="13"
                             Foreground="White"
-                            VerticalContentAlignment="Center"
                             Grid.Column="2"
                             KeyDown="CommandInput_KeyDown"
                             PlaceholderForeground="#6B6B6B"
                             PlaceholderText="{local:Localize Key=Console_Placeholder}"
+                            VerticalContentAlignment="Center"
                             x:Name="CommandInput" />
 
                         <!--  Execute Button  -->

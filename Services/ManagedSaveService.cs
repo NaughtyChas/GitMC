@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using GitMC.Extensions;
 using GitMC.Models;
+using GitMC.Utils;
 
 namespace GitMC.Services;
 
@@ -52,7 +54,7 @@ public class ManagedSaveService
     }
 
     /// <summary>
-    ///     Updates save info with current data from the filesystem
+    ///     Updates save info with current data from the filesystem and Git status
     /// </summary>
     /// <param name="saveInfo">Save info to update</param>
     private async Task UpdateSaveInfoWithCurrentData(ManagedSaveInfo saveInfo)
@@ -67,7 +69,10 @@ public class ManagedSaveService
                 saveInfo.LastModified = directoryInfo.LastWriteTime;
 
                 // Update size - calculate folder size asynchronously
-                saveInfo.Size = await Task.Run(() => GitMC.Utils.CommonHelpers.CalculateFolderSize(directoryInfo));
+                saveInfo.Size = await Task.Run(() => CommonHelpers.CalculateFolderSize(directoryInfo));
+
+                // Update Git status if initialized
+                if (saveInfo.IsGitInitialized) await UpdateGitStatus(saveInfo);
             }
             else
             {
@@ -79,6 +84,73 @@ public class ManagedSaveService
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to update save info for {saveInfo.Name}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    ///     Updates Git status information for a managed save
+    /// </summary>
+    /// <param name="saveInfo">Save info to update with Git status</param>
+    private async Task UpdateGitStatus(ManagedSaveInfo saveInfo)
+    {
+        try
+        {
+            // Get Git service from service factory
+            IGitService gitService = ServiceFactory.Services.Git;
+
+            // Check if it's a Git repository
+            bool isRepo = await gitService.IsRepositoryAsync(saveInfo.OriginalPath);
+            if (!isRepo)
+            {
+                // Not a Git repository anymore, mark as not initialized
+                saveInfo.IsGitInitialized = false;
+                saveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Clear;
+                saveInfo.Branch = "main";
+                saveInfo.CommitCount = 0;
+                saveInfo.PendingPushCount = 0;
+                saveInfo.PendingPullCount = 0;
+                saveInfo.ConflictCount = 0;
+                return;
+            }
+
+            // Get Git status for save directory
+            GitStatus status = await gitService.GetStatusAsync(saveInfo.OriginalPath);
+
+            // Update branch name
+            if (!string.IsNullOrEmpty(status.CurrentBranch)) saveInfo.Branch = status.CurrentBranch;
+
+            // Update push/pull counts
+            saveInfo.PendingPushCount = status.AheadCount;
+            saveInfo.PendingPullCount = status.BehindCount;
+            saveInfo.ConflictCount = 0; // For now, we don't handle merge conflicts
+
+            // Update commit count
+            try
+            {
+                GitCommit[] commits = await gitService.GetCommitHistoryAsync(1000, saveInfo.OriginalPath);
+                saveInfo.CommitCount = commits.Length;
+            }
+            catch
+            {
+                // If we can't get commit history, keep existing count or set to 0
+                if (saveInfo.CommitCount == 0) saveInfo.CommitCount = 1; // Assume at least the initial commit exists
+            }
+
+            // Determine save status based on Git status
+            if (status.HasChanges)
+                saveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Modified;
+            else if (saveInfo.ConflictCount > 0)
+                saveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Conflict;
+            else
+                saveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Clear;
+
+            Debug.WriteLine(
+                $"[UpdateGitStatus] Updated Git status for {saveInfo.Name}: Status={saveInfo.CurrentStatus}, Branch={saveInfo.Branch}, Commits={saveInfo.CommitCount}, Push={saveInfo.PendingPushCount}, Pull={saveInfo.PendingPullCount}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to update Git status for {saveInfo.Name}: {ex.Message}");
+            // Don't throw - just leave Git status as is
         }
     }
 
@@ -159,8 +231,7 @@ public class ManagedSaveService
             // Create JsonSerializerOptions that ignore UI properties
             var jsonOptions = new JsonSerializerOptions
             {
-                WriteIndented = true,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
             string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
@@ -195,8 +266,7 @@ public class ManagedSaveService
                 // Create JsonSerializerOptions that ignore UI properties
                 var jsonOptions = new JsonSerializerOptions
                 {
-                    WriteIndented = true,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                    WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
                 };
 
                 string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
@@ -213,6 +283,31 @@ public class ManagedSaveService
             Debug.WriteLine($"[UpdateManagedSave] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
             throw;
         }
+    }
+
+    /// <summary>
+    ///     Refreshes Git status for a specific managed save
+    /// </summary>
+    /// <param name="saveInfo">Save info to refresh Git status for</param>
+    /// <returns>Task</returns>
+    public async Task RefreshGitStatus(ManagedSaveInfo saveInfo)
+    {
+        if (saveInfo.IsGitInitialized)
+        {
+            await UpdateGitStatus(saveInfo);
+            await UpdateManagedSave(saveInfo);
+        }
+    }
+
+    /// <summary>
+    ///     Refreshes Git status for all managed saves
+    /// </summary>
+    /// <returns>Task</returns>
+    public async Task RefreshAllGitStatus()
+    {
+        List<ManagedSaveInfo> saves = await GetManagedSaves();
+        IEnumerable<Task> gitUpdates = saves.Where(s => s.IsGitInitialized).Select(RefreshGitStatus);
+        await Task.WhenAll(gitUpdates);
     }
 
     /// <summary>

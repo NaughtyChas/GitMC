@@ -29,8 +29,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     {
         InitializeComponent();
         _nbtService = new NbtService();
-        _gitService = new GitService();
         _configurationService = new ConfigurationService();
+        _gitService = new GitService(_configurationService);
         _dataStorageService = new DataStorageService();
         _minecraftAnalyzerService = new MinecraftAnalyzerService(_nbtService);
         _managedSaveService = new ManagedSaveService(_dataStorageService);
@@ -81,56 +81,62 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     {
         try
         {
-            var statusText = FindName("GitConfigStatusText") as TextBlock;
-            var statusIcon = FindName("GitConfigStatusIcon") as FontIcon;
-            var currentIdentityPanel = FindName("CurrentIdentityPanel") as StackPanel;
-            var currentUserNameText = FindName("CurrentUserNameText") as TextBlock;
-            var currentUserEmailText = FindName("CurrentUserEmailText") as TextBlock;
-
-            if (statusText == null) return;
-
-            // Get current Git identity
-            var (userName, userEmail) = await _gitService.GetIdentityAsync();
-
-            if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
-            {
-                statusText.Text = "Git identity is configured";
-                statusText.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen);
-
-                if (statusIcon != null)
-                {
-                    statusIcon.Glyph = "\uE73E"; // Checkmark icon
-                    statusIcon.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen);
-                }
-
-                // Update current identity display
-                if (currentIdentityPanel != null && currentUserNameText != null && currentUserEmailText != null)
-                {
-                    currentUserNameText.Text = $"Name: {userName}";
-                    currentUserEmailText.Text = $"Email: {userEmail}";
-                    currentIdentityPanel.Visibility = Visibility.Visible;
-                }
-            }
-            else
-            {
-                statusText.Text = "Git identity not configured";
-                statusText.Foreground = new SolidColorBrush(ColorConstants.WarningOrange);
-
-                if (statusIcon != null)
-                {
-                    statusIcon.Glyph = "\uE946"; // Warning icon
-                    statusIcon.Foreground = new SolidColorBrush(ColorConstants.WarningOrange);
-                }
-
-                if (currentIdentityPanel != null)
-                {
-                    currentIdentityPanel.Visibility = Visibility.Collapsed;
-                }
-            }
+            // Just update the system Git identity display now that we removed the warning InfoBar
+            await UpdateSystemGitIdentityDisplay();
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error initializing Git configuration status: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateSystemGitIdentityDisplay()
+    {
+        try
+        {
+            var systemIdentityPanel = FindName("SystemIdentityPanel") as InfoBar;
+
+            // Check if system Git is installed and has identity configured
+            bool isSystemGitInstalled = await _gitService.IsInstalledAsync();
+            if (isSystemGitInstalled)
+            {
+                try
+                {
+                    // Use GitService's new method to get system Git identity
+                    (string? systemUserName, string? systemUserEmail) = await _gitService.GetSystemGitIdentityAsync();
+
+                    if (!string.IsNullOrEmpty(systemUserName) && !string.IsNullOrEmpty(systemUserEmail))
+                    {
+                        // System Git identity found - show it
+                        if (systemIdentityPanel != null)
+                        {
+                            systemIdentityPanel.Visibility = Visibility.Visible;
+                            systemIdentityPanel.Title = "System Git identity detected";
+                            systemIdentityPanel.Message = $"System Git configuration: {systemUserName} ({systemUserEmail}) - can migrate to built-in";
+                            systemIdentityPanel.Severity = InfoBarSeverity.Informational;
+                        }
+                    }
+                    else
+                    {
+                        // System Git installed but no identity
+                        if (systemIdentityPanel != null) systemIdentityPanel.Visibility = Visibility.Collapsed;
+                    }
+                }
+                catch
+                {
+                    // Error reading system Git identity - hide panel
+                    if (systemIdentityPanel != null) systemIdentityPanel.Visibility = Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                // No system Git - hide panel
+                if (systemIdentityPanel != null) systemIdentityPanel.Visibility = Visibility.Collapsed;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating system Git identity display: {ex.Message}");
         }
     }
 
@@ -258,7 +264,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         {
             OnboardingStepStatus[] statuses = OnboardingService.StepStatuses;
 
-            // Step 2: Git Installation
+            // Step 2: Git System Setup (now manual choice, not auto-detection)
             if (statuses.Length > 1)
             {
                 bool gitInstalled = await _gitService.IsInstalledAsync();
@@ -267,23 +273,31 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
                 if (gitFoundText != null && gitNotFoundPanel != null)
                 {
-                    if (gitInstalled)
+                    // Since Step 2 is now manual choice, we only show status after user completes it
+                    if (statuses[1] == OnboardingStepStatus.Completed)
                     {
-                        // Show green text if Git is installed, regardless of step status
-                        string gitVersion = await _gitService.GetVersionAsync();
-                        gitFoundText.Text = $"√ Git version {gitVersion} detected";
+                        // Show completion status based on what user chose
+                        if (gitInstalled)
+                        {
+                            string gitVersion = await _gitService.GetVersionAsync();
+                            gitFoundText.Text = $"✓ Using system Git version {gitVersion}";
+                        }
+                        else
+                        {
+                            gitFoundText.Text = "✓ Using built-in Git";
+                        }
                         gitFoundText.Visibility = Visibility.Visible;
                         gitNotFoundPanel.Visibility = Visibility.Collapsed;
                     }
                     else if (statuses[1] == OnboardingStepStatus.Current)
                     {
-                        // Only show "not found" panel when it's the current step and Git is not installed
+                        // Show the choice panel when it's the current step
                         gitFoundText.Visibility = Visibility.Collapsed;
                         gitNotFoundPanel.Visibility = Visibility.Visible;
                     }
                     else
                     {
-                        // For pending steps when Git is not installed
+                        // For pending steps, hide both panels
                         gitFoundText.Visibility = Visibility.Collapsed;
                         gitNotFoundPanel.Visibility = Visibility.Collapsed;
                     }
@@ -383,13 +397,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             var userNameBox = FindName("GitUserNameBox") as TextBox;
             var userEmailBox = FindName("GitUserEmailBox") as TextBox;
             var validationText = FindName("GitConfigValidationText") as TextBlock;
-            var statusText = FindName("GitConfigStatusText") as TextBlock;
-            var statusPanel = FindName("GitConfigStatusPanel") as Border;
-            var currentIdentityPanel = FindName("CurrentIdentityPanel") as StackPanel;
-            var currentUserNameText = FindName("CurrentUserNameText") as TextBlock;
-            var currentUserEmailText = FindName("CurrentUserEmailText") as TextBlock;
 
-            if (userNameBox == null || userEmailBox == null || validationText == null || statusText == null)
+            if (userNameBox == null || userEmailBox == null || validationText == null)
                 return;
 
             string userName = userNameBox.Text.Trim();
@@ -426,31 +435,23 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
             if (success)
             {
-                // Update status display
-                var statusIcon = FindName("GitConfigStatusIcon") as FontIcon;
-                statusText.Text = "Git identity configured successfully";
-                statusText.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen);
-
-                if (statusIcon != null)
-                {
-                    statusIcon.Glyph = "\uE73E"; // Checkmark icon
-                    statusIcon.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen);
-                }
-
-                // Update current identity display
-                if (currentIdentityPanel != null && currentUserNameText != null && currentUserEmailText != null)
-                {
-                    currentUserNameText.Text = $"Name: {userName}";
-                    currentUserEmailText.Text = $"Email: {userEmail}";
-                    currentIdentityPanel.Visibility = Visibility.Visible;
-                }
-
                 // Clear form
                 userNameBox.Text = "";
                 userEmailBox.Text = "";
 
+                // Update configuration service immediately
+                _configurationService.IsGitIdentityConfigured = true;
+
+                // Force save configuration to ensure persistence
+                await _configurationService.SaveAsync();
+
                 // Update onboarding service
+                await OnboardingService.SetConfigurationValueAsync("GitIdentityConfigured", true);
+                await OnboardingService.CompleteStep(2); // Step 3 (0-indexed)
                 await OnboardingService.RefreshAllSteps();
+
+                // Refresh the Git configuration display
+                await InitializeGitConfigurationStatus();
 
                 // Show success feedback
                 FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Git Configuration",
@@ -458,18 +459,9 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             }
             else
             {
-                var statusIcon = FindName("GitConfigStatusIcon") as FontIcon;
-                statusText.Text = "Failed to configure Git identity";
-                statusText.Foreground = new SolidColorBrush(ColorConstants.ErrorRed);
-
-                if (statusIcon != null)
-                {
-                    statusIcon.Glyph = "\uE783"; // Error icon
-                    statusIcon.Foreground = new SolidColorBrush(ColorConstants.ErrorRed);
-                }
-
+                // Show error feedback
                 FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Configuration Error",
-                    "Failed to configure Git identity. Please ensure Git is properly installed.");
+                    "Failed to configure Git identity. Please try again.");
             }
         }
         catch (Exception ex)
@@ -477,6 +469,94 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             Debug.WriteLine($"Error configuring Git identity: {ex.Message}");
             FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Configuration Error",
                 $"An error occurred while configuring Git: {ex.Message}");
+        }
+    }
+
+    private async void UseSystemGitIdentityButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // First check if system Git is installed
+            bool isSystemGitInstalled = await _gitService.IsInstalledAsync();
+            if (!isSystemGitInstalled)
+            {
+                FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "System Git Not Found",
+                    "System Git is not installed. Please install Git first or configure identity manually.");
+                return;
+            }
+
+            // Get system Git identity using GitService's new method
+            (string? systemUserName, string? systemUserEmail) = await _gitService.GetSystemGitIdentityAsync();
+
+            if (!string.IsNullOrEmpty(systemUserName) && !string.IsNullOrEmpty(systemUserEmail))
+            {
+                // Apply system Git identity to LibGit2Sharp
+                bool success = await _gitService.ConfigureIdentityAsync(systemUserName, systemUserEmail);
+
+                if (success)
+                {
+                    var statusText = FindName("GitConfigStatusText") as TextBlock;
+                    var statusIcon = FindName("GitConfigStatusIcon") as FontIcon;
+                    var currentIdentityPanel = FindName("CurrentIdentityPanel") as StackPanel;
+                    var currentUserNameText = FindName("CurrentUserNameText") as TextBlock;
+                    var currentUserEmailText = FindName("CurrentUserEmailText") as TextBlock;
+
+                    if (statusText != null)
+                    {
+                        statusText.Text = "LibGit2Sharp Git identity configured from system";
+                        statusText.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen);
+                    }
+
+                    if (statusIcon != null)
+                    {
+                        statusIcon.Glyph = "\uE73E"; // Checkmark icon
+                        statusIcon.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen);
+                    }
+
+                    // Update current identity display
+                    if (currentIdentityPanel != null && currentUserNameText != null && currentUserEmailText != null)
+                    {
+                        currentUserNameText.Text = $"Name: {systemUserName}";
+                        currentUserEmailText.Text = $"Email: {systemUserEmail}";
+                        currentIdentityPanel.Visibility = Visibility.Visible;
+                    }
+
+                    // Update configuration service immediately
+                    _configurationService.IsGitIdentityConfigured = true;
+
+                    // Force save configuration to ensure persistence
+                    await _configurationService.SaveAsync();
+
+                    // Update onboarding service
+                    await OnboardingService.SetConfigurationValueAsync("GitIdentityConfigured", true);
+                    await OnboardingService.CompleteStep(2); // Step 3 (0-indexed)
+                    await OnboardingService.RefreshAllSteps();
+
+                    // Refresh the Git configuration display
+                    await InitializeGitConfigurationStatus();
+
+                    // Show success feedback
+                    FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "System Git Identity Applied",
+                        $"System Git identity applied to LibGit2Sharp:\nName: {systemUserName}\nEmail: {systemUserEmail}");
+                }
+                else
+                {
+                    FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Configuration Failed",
+                        "Failed to apply system Git identity to LibGit2Sharp. Please try manual configuration.");
+                }
+            }
+            else
+            {
+                // No system Git identity found
+                FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "No System Git Identity",
+                    "No Git identity found in system configuration. Please configure system Git first or use manual configuration.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error using system Git identity: {ex.Message}");
+            FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Configuration Error",
+                $"An error occurred while reading system Git identity: {ex.Message}");
         }
     }
 
@@ -492,12 +572,12 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
             if (statusText == null) return;
 
-            // Get current Git identity
-            var (userName, userEmail) = await _gitService.GetIdentityAsync();
+            // Test LibGit2Sharp Git identity configuration
+            (string? userName, string? userEmail) = await _gitService.GetIdentityAsync();
 
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
             {
-                statusText.Text = "Git identity is configured";
+                statusText.Text = "LibGit2Sharp Git identity configured";
                 statusText.Foreground = new SolidColorBrush(ColorConstants.SuccessGreen);
 
                 if (statusIcon != null)
@@ -514,12 +594,12 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                     currentIdentityPanel.Visibility = Visibility.Visible;
                 }
 
-                FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Git Configuration Test",
-                    $"Git is configured as:\nName: {userName}\nEmail: {userEmail}");
+                FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "LibGit2Sharp Configuration Test",
+                    $"LibGit2Sharp Git identity is configured:\nName: {userName}\nEmail: {userEmail}");
             }
             else
             {
-                statusText.Text = "Git identity not configured";
+                statusText.Text = "LibGit2Sharp Git identity not configured";
                 statusText.Foreground = new SolidColorBrush(ColorConstants.WarningOrange);
 
                 if (statusIcon != null)
@@ -528,40 +608,16 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                     statusIcon.Foreground = new SolidColorBrush(ColorConstants.WarningOrange);
                 }
 
-                if (currentIdentityPanel != null)
-                {
-                    currentIdentityPanel.Visibility = Visibility.Collapsed;
-                }
-
-                FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Git Configuration Test",
-                    "Git identity is not configured. Please set your name and email address.");
+                // No system Git identity found
+                FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "No System Git Identity",
+                    "No Git identity found in system configuration. Please configure system Git first or use manual configuration.");
             }
-
-            // Refresh onboarding status
-            await OnboardingService.RefreshAllSteps();
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error testing Git configuration: {ex.Message}");
-            FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Test Error",
-                $"Failed to test Git configuration: {ex.Message}");
-        }
-    }
-
-    private async void SkipGitConfigButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            // Mark step as completed even without configuration
-            await OnboardingService.CompleteStep(2); // Step 3 is index 2
-            await OnboardingService.MoveToNextStep(); // Move to next step
-
-            FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Step Skipped",
-                "Git identity configuration has been skipped. You can configure it later in Settings.");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error skipping Git configuration: {ex.Message}");
+            Debug.WriteLine($"Error applying system Git identity to LibGit2Sharp: {ex.Message}");
+            FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "Error Applying System Git Identity",
+                $"Failed to apply system Git identity to LibGit2Sharp: {ex.Message}");
         }
     }
 
@@ -708,7 +764,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     {
         try
         {
-            // Check Git installation
+            // Check Git installation status
             bool gitInstalled = await _gitService.IsInstalledAsync();
             OnboardingStepStatus[] statuses = OnboardingService.StepStatuses;
 
@@ -717,25 +773,39 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
             if (gitStatusIcon != null && gitStatusText != null)
             {
-                if (gitInstalled)
+                // For Step 2 (Git System Setup), show status based on user's choice, not auto-detection
+                if (statuses.Length > 1 && statuses[1] == OnboardingStepStatus.Completed)
                 {
-                    string gitVersion = await _gitService.GetVersionAsync();
+                    // Step 2 completed - show what user chose
                     gitStatusIcon.Background = new SolidColorBrush(ColorConstants.SuccessGreen);
-                    gitStatusText.Text = $"Git v{gitVersion} installed and ready";
-
-                    // Change icon to checkmark when completed
-                    if (statuses.Length > 1 && statuses[1] == OnboardingStepStatus.Completed)
+                    if (gitInstalled)
                     {
-                        var gitIconControl = gitStatusIcon.Child as FontIcon;
-                        if (gitIconControl != null) gitIconControl.Glyph = "\uE73E"; // Checkmark
+                        string gitVersion = await _gitService.GetVersionAsync();
+                        gitStatusText.Text = $"Using system Git v{gitVersion}";
                     }
+                    else
+                    {
+                        gitStatusText.Text = "Using built-in Git";
+                    }
+
+                    var gitIconControl = gitStatusIcon.Child as FontIcon;
+                    if (gitIconControl != null) gitIconControl.Glyph = "\uE73E"; // Checkmark
+                }
+                else if (statuses.Length > 1 && statuses[1] == OnboardingStepStatus.Current)
+                {
+                    // Step 2 is current - show that user needs to choose
+                    gitStatusIcon.Background = new SolidColorBrush(ColorConstants.WarningOrangeBright);
+                    gitStatusText.Text = "Please choose your Git implementation";
+
+                    var gitIconControl = gitStatusIcon.Child as FontIcon;
+                    if (gitIconControl != null) gitIconControl.Glyph = "\uE946"; // Warning icon
                 }
                 else
                 {
+                    // Step 2 not reached yet - show neutral status
                     gitStatusIcon.Background = new SolidColorBrush(ColorConstants.WarningOrangeBright);
-                    gitStatusText.Text = "Git is not installed. Please install Git to continue.";
+                    gitStatusText.Text = "Git system setup pending";
 
-                    // Keep original icon when not completed
                     var gitIconControl = gitStatusIcon.Child as FontIcon;
                     if (gitIconControl != null) gitIconControl.Glyph = "\uE896"; // Download/Install icon
                 }
@@ -817,6 +887,30 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         // Open Git download page
         var uri = new Uri("https://git-scm.com/downloads");
         await Launcher.LaunchUriAsync(uri);
+
+        // Show an informational flyout about what to do after installation
+        FlyoutHelper.ShowSuccessFlyout(sender as FrameworkElement, "Git Download",
+            "After installing Git, restart GitMC or refresh the onboarding to detect the installation. " +
+            "You can also click 'Use Built-in Git' to skip system Git installation.");
+
+        // Do NOT mark the step as completed here - user hasn't actually installed Git yet
+        // The step will be marked complete when system Git is detected or user chooses built-in Git
+    }
+    private async void SkipToBuiltInGitButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Show confirmation flyout first
+        bool confirmed = await ShowConfirmationFlyoutWithOk(sender as FrameworkElement, "Use Built-in Git",
+            "GitMC will use the built-in Git system (LibGit2Sharp) instead of system Git. You can always install system Git later for enhanced functionality.");
+
+        if (confirmed)
+        {
+            // Mark Git system as configured (using built-in)
+            await OnboardingService.SetConfigurationValueAsync("GitSystemConfigured", true);
+            await OnboardingService.CompleteStep(1); // Step 2 (0-indexed)
+
+            // Update system status
+            UpdateSystemStatus();
+        }
     }
 
     private async void ConnectPlatformButton_Click(object sender, RoutedEventArgs e)
@@ -912,8 +1006,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             _configurationService.GitHubPrivateRepo = GitHubPrivateRepoBox?.IsChecked ?? true;
 
             // Update UI to show connected state
-            GitHubStatusText.Text = $"Connected as {_configurationService.GitHubUsername}";
-            GitHubStatusPanel.Background = new SolidColorBrush(ColorConstants.SuccessBackgroundLight);
+            GitHubStatusPanel.Message = $"Connected as {_configurationService.GitHubUsername}";
+            GitHubStatusPanel.Severity = InfoBarSeverity.Success;
             GitHubRepoSettings.Visibility = Visibility.Visible;
 
             // Mark platform as configured

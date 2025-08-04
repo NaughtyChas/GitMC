@@ -62,6 +62,13 @@ public interface INbtService
     Task ConvertSnbtToNbtAsync(string snbtContent, string outputPath);
 
     /// <summary>
+    ///     Convert SNBT file to NBT file (synchronous)
+    /// </summary>
+    /// <param name="inputPath">Input SNBT file path</param>
+    /// <param name="outputPath">Output NBT file path</param>
+    void ConvertSnbtToNbt(string inputPath, string outputPath);
+
+    /// <summary>
     ///     Validate if the file is a valid NBT file
     /// </summary>
     /// <param name="filePath">File path</param>
@@ -112,6 +119,23 @@ public interface INbtService
     /// <param name="filePath">File path</param>
     /// <returns>Whether it is a valid Anvil file</returns>
     Task<bool> IsValidAnvilFileAsync(string filePath);
+
+    // Chunk-based MCA processing methods
+    /// <summary>
+    ///     Convert MCA file to individual chunk SNBT files in a folder
+    /// </summary>
+    /// <param name="mcaFilePath">Input MCA file path</param>
+    /// <param name="outputFolderPath">Output folder path where chunk files will be saved</param>
+    /// <param name="progress">Progress reporter</param>
+    Task ConvertMcaToChunkFilesAsync(string mcaFilePath, string outputFolderPath, IProgress<string>? progress = null);
+
+    /// <summary>
+    ///     Convert folder of chunk SNBT files back to a single MCA file
+    /// </summary>
+    /// <param name="chunkFolderPath">Input folder containing chunk SNBT files</param>
+    /// <param name="outputMcaPath">Output MCA file path</param>
+    /// <param name="progress">Progress reporter</param>
+    Task ConvertChunkFilesToMcaAsync(string chunkFolderPath, string outputMcaPath, IProgress<string>? progress = null);
 }
 
 public class AnvilRegionInfo
@@ -143,6 +167,7 @@ public class AnvilChunkInfo
 
 public enum AnvilCompressionType
 {
+    None = 0,
     GZip = 1,
     Zlib = 2,
     Uncompressed = 3,

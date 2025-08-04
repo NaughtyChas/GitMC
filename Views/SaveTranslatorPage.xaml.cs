@@ -5,6 +5,7 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 using GitMC.Services;
 using GitMC.Utils;
+using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
@@ -24,6 +25,7 @@ public sealed partial class SaveTranslatorPage : Page
     private DateTime _lastLogFlush = DateTime.Now;
     private PerformanceCounter? _memoryCounter;
     private DispatcherTimer? _performanceTimer;
+    private string? _selectedGitMcPath;
     private string? _selectedSavePath;
 
     public SaveTranslatorPage()
@@ -259,48 +261,76 @@ public sealed partial class SaveTranslatorPage : Page
         int totalChunksProcessed = 0;
         DateTime lastUiUpdate = DateTime.Now;
 
-        foreach (FileInfo fileInfo in filesToProcess)
+        // Process files in batches on background threads to avoid UI blocking
+        const int batchSize = 5; // Process 5 files per batch
+        for (int batchStart = 0; batchStart < filesToProcess.Count; batchStart += batchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            try
+            // Get current batch
+            var batch = filesToProcess.Skip(batchStart).Take(batchSize).ToList();
+
+            // Process batch on background thread
+            List<(bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error)> batchResults =
+                await Task.Run(async () =>
+                {
+                    var results =
+                        new List<(bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error)>();
+
+                    foreach (FileInfo fileInfo in batch)
+                        try
+                        {
+                            string relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
+                            string targetPath = Path.Combine(gitMcPath, relativePath);
+
+                            // Track multi-chunk processing
+                            (bool IsMultiChunk, int ChunkCount) isMultiChunk =
+                                await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
+
+                            results.Add((isMultiChunk.IsMultiChunk, isMultiChunk.ChunkCount, fileInfo.Name, true,
+                                null));
+                        }
+                        catch (Exception ex)
+                        {
+                            results.Add((false, 0, fileInfo.Name, false, ex.Message));
+                        }
+
+                    return results;
+                }, cancellationToken);
+
+            // Update counters and UI on main thread
+            foreach ((bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error) result in
+                     batchResults)
             {
-                string relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
-                string targetPath = Path.Combine(gitMcPath, relativePath);
+                processedCount++;
 
-                // Significantly reduce logging frequency to improve performance
-                if (processedCount % 50 == 0 || processedCount == 0)
-                    LogMessage(
-                        $"Processing batch: {processedCount}-{Math.Min(processedCount + 49, totalFiles)} of {totalFiles}");
-
-                // Track multi-chunk processing
-                (bool IsMultiChunk, int ChunkCount) isMultiChunk =
-                    await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
-                if (isMultiChunk.IsMultiChunk)
+                if (result.IsMultiChunk)
                 {
                     multiChunkFiles++;
-                    totalChunksProcessed += isMultiChunk.ChunkCount;
+                    totalChunksProcessed += result.ChunkCount;
                 }
 
-                processedCount++;
-                int progress = 30 + processedCount * 60 / totalFiles;
-
-                // Update UI much less frequently and with time-based throttling
-                TimeSpan timeSinceLastUpdate = DateTime.Now - lastUiUpdate;
-                if (timeSinceLastUpdate.TotalMilliseconds > 3000 ||
-                    processedCount == totalFiles) // Every 3 seconds or at completion
-                {
-                    UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}...");
-                    lastUiUpdate = DateTime.Now;
-
-                    // Minimal yield to UI thread for responsiveness
-                    if (processedCount % 25 == 0) await Task.Yield();
-                }
+                if (!result.success && result.error != null)
+                    LogMessage($"Failed to process file {result.fileName}: {result.error}");
             }
-            catch (Exception ex)
+
+            // Log batch progress less frequently
+            if (batchStart / batchSize % 10 == 0 || processedCount >= totalFiles)
+                LogMessage($"Processing batch: {processedCount}/{totalFiles} files completed");
+
+            int progress = 30 + processedCount * 60 / totalFiles;
+
+            // Update UI much less frequently and with time-based throttling
+            TimeSpan timeSinceLastUpdate = DateTime.Now - lastUiUpdate;
+            if (timeSinceLastUpdate.TotalMilliseconds > 2000 ||
+                processedCount >= totalFiles) // Every 2 seconds or at completion
             {
-                LogMessage($"Failed to process file {fileInfo.Name}: {ex.Message}");
+                UpdateProgress(progress, $"Processing files {processedCount}/{totalFiles}...");
+                lastUiUpdate = DateTime.Now;
             }
+
+            // Always yield control to UI thread after each batch
+            await Task.Delay(50, cancellationToken); // Small delay to ensure UI responsiveness
         }
 
         UpdateProgress(95, "Verifying translation results...");
@@ -459,7 +489,7 @@ public sealed partial class SaveTranslatorPage : Page
                     // For MCA files, check if multi-chunk was detected
                     if (extension == ".mca" || extension == ".mcc")
                     {
-                        string snbtContent = File.ReadAllText(tempSnbtPath);
+                        string snbtContent = await File.ReadAllTextAsync(tempSnbtPath, cancellationToken);
                         if (snbtContent.Contains("# Chunk"))
                         {
                             // Optimized: Count occurrences without Split to avoid massive memory allocations
@@ -613,12 +643,30 @@ public sealed partial class SaveTranslatorPage : Page
                     LogMessage($"    {message}");
             });
 
-            // Use the enhanced async NbtService with minimal progress reporting
-            await _nbtService.ConvertToSnbtAsync(inputPath, outputPath, progress);
+            // Check if this is an MCA file and chunk-based mode is enabled
+            bool isChunkBasedMode = ChunkBasedMcaRadioButton?.IsChecked == true;
 
-            // Verify output was created
-            if (!File.Exists(outputPath))
-                throw new InvalidOperationException($"SNBT output file was not created: {outputPath}");
+            if ((extension == ".mca" || extension == ".mcc") && isChunkBasedMode)
+            {
+                // Use chunk-based processing
+                string chunkFolderPath = Path.ChangeExtension(outputPath, ".chunks");
+                await _nbtService.ConvertMcaToChunkFilesAsync(inputPath, chunkFolderPath, progress);
+
+                // Create a marker file to indicate this is chunk-based output
+                string markerPath = outputPath + ".chunk_mode";
+                await File.WriteAllTextAsync(markerPath, chunkFolderPath, Encoding.UTF8, cancellationToken);
+
+                LogMessage($"    ✓ Created {Directory.GetFiles(chunkFolderPath, "chunk_*.snbt").Length} chunk files");
+            }
+            else
+            {
+                // Use standard single-file conversion
+                await _nbtService.ConvertToSnbtAsync(inputPath, outputPath, progress);
+
+                // Verify output was created
+                if (!File.Exists(outputPath))
+                    throw new InvalidOperationException($"SNBT output file was not created: {outputPath}");
+            }
         }
         catch (Exception ex)
         {
@@ -634,12 +682,6 @@ public sealed partial class SaveTranslatorPage : Page
     {
         try
         {
-            // Add file validation before conversion
-            if (!File.Exists(inputPath)) throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
-
-            var fileInfo = new FileInfo(inputPath);
-            if (fileInfo.Length == 0) throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
-
             // Create minimal progress reporter to reduce UI overhead
             var progress = new Progress<string>(message =>
             {
@@ -648,12 +690,45 @@ public sealed partial class SaveTranslatorPage : Page
                     LogMessage($"    {message}");
             });
 
-            // Use the enhanced async NbtService with minimal progress reporting
-            await _nbtService.ConvertFromSnbtAsync(inputPath, outputPath, progress);
+            // Check if this was processed in chunk-based mode
+            string markerPath = inputPath + ".chunk_mode";
+            if (File.Exists(markerPath) && (extension == ".mca" || extension == ".mcc"))
+            {
+                // Read chunk folder path from marker file
+                string chunkFolderPath = await File.ReadAllTextAsync(markerPath, Encoding.UTF8, cancellationToken);
+
+                if (Directory.Exists(chunkFolderPath))
+                {
+                    // Convert chunk files back to MCA
+                    await _nbtService.ConvertChunkFilesToMcaAsync(chunkFolderPath, outputPath, progress);
+
+                    // Clean up marker file
+                    File.Delete(markerPath);
+
+                    LogMessage(
+                        $"    ✓ Reconstructed MCA from {Directory.GetFiles(chunkFolderPath, "chunk_*.snbt").Length} chunk files");
+                }
+                else
+                {
+                    throw new DirectoryNotFoundException($"Chunk folder not found: {chunkFolderPath}");
+                }
+            }
+            else
+            {
+                // Standard single-file conversion
+                // Add file validation before conversion
+                if (!File.Exists(inputPath)) throw new FileNotFoundException($"SNBT input file not found: {inputPath}");
+
+                var fileInfo = new FileInfo(inputPath);
+                if (fileInfo.Length == 0) throw new InvalidDataException($"SNBT input file is empty: {inputPath}");
+
+                // Use the enhanced async NbtService with minimal progress reporting
+                await _nbtService.ConvertFromSnbtAsync(inputPath, outputPath, progress);
+            }
 
             // Verify output was created
             if (!File.Exists(outputPath))
-                throw new InvalidOperationException($"NBT output file was not created: {outputPath}");
+                throw new InvalidOperationException($"Output file was not created: {outputPath}");
         }
         catch (Exception ex)
         {
@@ -738,15 +813,15 @@ public sealed partial class SaveTranslatorPage : Page
                 _logQueue.Enqueue(logEntry);
 
                 // Limit queue size to prevent memory buildup
-                while (_logQueue.Count > 1000) _logQueue.Dequeue();
+                while (_logQueue.Count > 500) _logQueue.Dequeue(); // Reduced from 1000 to 500
             }
 
-            // Schedule batch flush every 500ms or for critical messages
+            // Schedule batch flush every 1000ms or for critical messages
             bool isCritical = message.Contains("Error") || message.Contains("Failed") || message.Contains("❌") ||
                               message.Contains("===");
             TimeSpan timeSinceLastFlush = DateTime.Now - _lastLogFlush;
 
-            if (isCritical || timeSinceLastFlush.TotalMilliseconds > 500)
+            if (isCritical || timeSinceLastFlush.TotalMilliseconds > 1000) // Increased from 500ms to 1000ms
                 FlushLogQueue();
             else if (!_isLogFlushScheduled) ScheduleLogFlush();
         }
@@ -763,7 +838,7 @@ public sealed partial class SaveTranslatorPage : Page
 
         _isLogFlushScheduled = true;
 
-        _ = Task.Delay(500).ContinueWith(_ =>
+        _ = Task.Delay(1000).ContinueWith(_ => // Increased from 500ms to 1000ms
         {
             _isLogFlushScheduled = false;
             FlushLogQueue();
@@ -795,39 +870,21 @@ public sealed partial class SaveTranslatorPage : Page
                         int currentLength = LogTextBox.Text.Length;
                         int newContentLength = logsToFlush.Sum(log => log.Length + 1); // +1 for newline
 
-                        if (currentLength + newContentLength > 80000) // ~80KB limit
+                        if (currentLength + newContentLength > 60000) // Reduced limit to 60KB
                         {
-                            // Keep only the last portion of current text
-                            // Optimized: Use span-based approach to avoid Split allocation
-                            string? textContent = LogTextBox.Text;
-                            var lines = new List<string>();
+                            // Keep only the last portion of current text - more aggressive trimming
+                            string[] existingLines = LogTextBox.Text.Split('\n');
 
-                            ReadOnlySpan<char> contentSpan = textContent.AsSpan();
-                            ReadOnlySpan<char> remaining = contentSpan;
-
-                            while (!remaining.IsEmpty)
+                            if (existingLines.Length > 150) // Reduced from 200 to 150 lines
                             {
-                                int lineEnd = remaining.IndexOf('\n');
-                                ReadOnlySpan<char> line;
-
-                                if (lineEnd >= 0)
-                                {
-                                    line = remaining[..lineEnd];
-                                    remaining = remaining[(lineEnd + 1)..];
-                                }
-                                else
-                                {
-                                    line = remaining;
-                                    remaining = ReadOnlySpan<char>.Empty;
-                                }
-
-                                lines.Add(line.ToString());
+                                IEnumerable<string> keepLines = existingLines.Skip(existingLines.Length - 150);
+                                sb.AppendLine(string.Join('\n', keepLines));
+                                sb.AppendLine("... [Earlier logs truncated for performance] ...");
                             }
-
-                            IEnumerable<string>
-                                keepLines = lines.Skip(Math.Max(0, lines.Count - 200)); // Keep last 200 lines
-                            sb.AppendLine(string.Join('\n', keepLines));
-                            sb.AppendLine("... [Earlier logs truncated for performance] ...");
+                            else
+                            {
+                                sb.Append(LogTextBox.Text);
+                            }
                         }
                         else
                         {
@@ -839,9 +896,11 @@ public sealed partial class SaveTranslatorPage : Page
 
                         LogTextBox.Text = sb.ToString();
 
-                        // Always auto-scroll to bottom for better UX
-                        if (LogTextBox.Parent is ScrollViewer scrollViewer)
-                            scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null, false);
+                        // Only auto-scroll occasionally to reduce UI work - scroll less frequently
+                        if (logsToFlush.Count > 10 ||
+                            logsToFlush.Any(log => log.Contains("complete") || log.Contains("===")))
+                            if (LogTextBox.Parent is ScrollViewer scrollViewer)
+                                scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null, false);
                     }
 
                     _lastLogFlush = DateTime.Now;
@@ -868,4 +927,513 @@ public sealed partial class SaveTranslatorPage : Page
 
         base.OnNavigatedFrom(e);
     }
+
+    #region Reverse Translation Event Handlers
+
+    private async void BrowseGitMcButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folderPicker = new FolderPicker();
+            folderPicker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            folderPicker.FileTypeFilter.Add("*");
+
+            // Get the current window's handle
+            Window? window = App.MainWindow;
+            IntPtr hwnd = WindowNative.GetWindowHandle(window);
+            InitializeWithWindow.Initialize(folderPicker, hwnd);
+
+            StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
+            if (folder != null)
+            {
+                _selectedGitMcPath = folder.Path;
+                GitMcPathTextBox.Text = _selectedGitMcPath;
+
+                await ValidateGitMcFolder(_selectedGitMcPath).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in BrowseGitMcButton_Click: {ex.Message}");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                GitMcValidationText.Text = $"Error selecting folder: {ex.Message}";
+                GitMcValidationText.Foreground = new SolidColorBrush(Colors.Red);
+            });
+        }
+    }
+
+    private async Task ValidateGitMcFolder(string folderPath)
+    {
+        try
+        {
+            // Check if it's a valid GitMC folder structure
+            string regionFolder = Path.Combine(folderPath, "region");
+
+            bool hasRegionFolder = Directory.Exists(regionFolder);
+            bool hasSnbtFiles = false;
+
+            if (hasRegionFolder)
+                hasSnbtFiles = Directory.GetFiles(regionFolder, "*.snbt", SearchOption.AllDirectories).Length > 0;
+
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (hasRegionFolder && hasSnbtFiles)
+                {
+                    GitMcValidationText.Text = "✓ Valid GitMC folder detected";
+                    GitMcValidationText.Foreground = new SolidColorBrush(Colors.Green);
+                    GitMcValidationText.Visibility = Visibility.Visible;
+                    StartReverseTranslationButton.IsEnabled = true;
+                }
+                else
+                {
+                    var issues = new List<string>();
+                    if (!hasRegionFolder) issues.Add("No region folder found");
+                    if (!hasSnbtFiles) issues.Add("No SNBT files found");
+
+                    GitMcValidationText.Text = $"✗ Invalid GitMC folder: {string.Join(", ", issues)}";
+                    GitMcValidationText.Foreground = new SolidColorBrush(Colors.Red);
+                    GitMcValidationText.Visibility = Visibility.Visible;
+                    StartReverseTranslationButton.IsEnabled = false;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error validating GitMC folder: {ex.Message}");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                GitMcValidationText.Text = $"Validation error: {ex.Message}";
+                GitMcValidationText.Foreground = new SolidColorBrush(Colors.Red);
+                GitMcValidationText.Visibility = Visibility.Visible;
+                StartReverseTranslationButton.IsEnabled = false;
+            });
+        }
+    }
+
+    private async void StartReverseTranslationButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_selectedGitMcPath)) return;
+
+        try
+        {
+            _cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = _cancellationTokenSource.Token;
+
+            // Disable UI elements
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                StartReverseTranslationButton.IsEnabled = false;
+                BrowseGitMcButton.IsEnabled = false;
+                ReverseTranslationProgressBar.Visibility = Visibility.Visible;
+                ReverseTranslationProgressText.Visibility = Visibility.Visible;
+                ReverseTranslationProgressText.Text = "Preparing reverse translation...";
+            });
+
+            // Create output folder
+            string outputFolder = Path.Combine(Path.GetDirectoryName(_selectedGitMcPath)!,
+                Path.GetFileName(_selectedGitMcPath) + "_restored");
+
+            if (Directory.Exists(outputFolder)) Directory.Delete(outputFolder, true);
+            Directory.CreateDirectory(outputFolder);
+
+            LogMessage($"Starting reverse translation from: {_selectedGitMcPath}");
+            LogMessage($"Output folder: {outputFolder}");
+
+            await PerformReverseTranslation(_selectedGitMcPath, outputFolder, cancellationToken);
+
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ReverseTranslationProgressText.Text = "✓ Reverse translation completed successfully!";
+                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Colors.Green);
+            });
+
+            LogMessage($"Reverse translation completed. Restored save available at: {outputFolder}");
+        }
+        catch (OperationCanceledException)
+        {
+            LogMessage("Reverse translation was cancelled.");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ReverseTranslationProgressText.Text = "Reverse translation cancelled.";
+                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Colors.Orange);
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in reverse translation: {ex.Message}");
+            LogMessage($"Error during reverse translation: {ex.Message}");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ReverseTranslationProgressText.Text = $"✗ Error: {ex.Message}";
+                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Colors.Red);
+            });
+        }
+        finally
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                StartReverseTranslationButton.IsEnabled = true;
+                BrowseGitMcButton.IsEnabled = true;
+                ReverseTranslationProgressBar.Visibility = Visibility.Collapsed;
+            });
+        }
+    }
+
+    private async Task PerformReverseTranslation(string gitMcPath, string outputPath,
+        CancellationToken cancellationToken)
+    {
+        LogMessage("=== Starting reverse translation process ===");
+        LogMessage($"Source GitMC folder: {gitMcPath}");
+        LogMessage($"Output folder: {outputPath}");
+
+        // Step 1: Copy all files from GitMC to GitMC_restored
+        LogMessage("Step 1: Copying all files from GitMC folder...");
+        await Task.Run(() => CopyDirectory(gitMcPath, outputPath), cancellationToken);
+        LogMessage("✓ All files copied to output folder");
+
+        // Step 2: Process MCA files in region, poi, and entities folders
+        string[] mcaFolders = { "region", "poi", "entities" };
+        int totalMcaProcessed = 0;
+
+        foreach (string folderName in mcaFolders)
+        {
+            string sourceFolder = Path.Combine(outputPath, folderName);
+            if (!Directory.Exists(sourceFolder))
+            {
+                LogMessage($"  Folder {folderName} does not exist, skipping...");
+                continue;
+            }
+
+            LogMessage(
+                $"Step 2.{Array.IndexOf(mcaFolders, folderName) + 1}: Processing MCA files in /{folderName} folder...");
+            int processed = await ProcessMcaFilesInFolder(sourceFolder, cancellationToken);
+            totalMcaProcessed += processed;
+            LogMessage($"✓ Processed {processed} MCA files in /{folderName}");
+        }
+
+        // Step 3: Process other SNBT files (dat, nbt files)
+        LogMessage("Step 3: Processing other SNBT files (dat, nbt, etc.)...");
+        int otherSnbtProcessed = await ProcessOtherSnbtFiles(outputPath, cancellationToken);
+        LogMessage($"✓ Processed {otherSnbtProcessed} other SNBT files");
+
+        // Step 4: Clean up - remove all SNBT files and empty chunk folders
+        LogMessage("Step 4: Cleaning up SNBT files and empty chunk folders...");
+        (int snbtFiles, int chunkFolders) cleanedUp =
+            await CleanupSnbtFilesAndChunkFolders(outputPath, cancellationToken);
+        LogMessage($"✓ Cleaned up {cleanedUp.snbtFiles} SNBT files and {cleanedUp.chunkFolders} chunk folders");
+
+        LogMessage("\u2705 Reverse translation completed successfully!");
+        LogMessage($"   - Total MCA files reconstructed: {totalMcaProcessed}");
+        LogMessage($"   - Other files converted: {otherSnbtProcessed}");
+        LogMessage($"   - Files cleaned up: {cleanedUp.snbtFiles} SNBT files, {cleanedUp.chunkFolders} chunk folders");
+        LogMessage("=== Reverse translation process complete ===");
+    }
+
+    private async Task<int> ProcessMcaFilesInFolder(string folderPath, CancellationToken cancellationToken)
+    {
+        int processedCount = 0;
+
+        // Get all chunk marker files in this folder
+        string[] chunkMarkerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
+
+        if (chunkMarkerFiles.Length == 0)
+        {
+            LogMessage($"  No chunk-based MCA files found in {Path.GetFileName(folderPath)}");
+            return 0;
+        }
+
+        LogMessage($"  Found {chunkMarkerFiles.Length} chunk-based MCA files");
+
+        foreach (string markerFile in chunkMarkerFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                // Read chunk folder path from marker file
+                string chunkFolderPath = await File.ReadAllTextAsync(markerFile, Encoding.UTF8, cancellationToken);
+
+                if (Directory.Exists(chunkFolderPath))
+                {
+                    // Determine output MCA file path
+                    // marker file is like "r.0.0.mca.snbt.chunk_mode", we want "r.0.0.mca"
+                    string snbtPath = markerFile.Replace(".chunk_mode", "");
+                    string originalFileName = Path.GetFileName(snbtPath);
+                    if (originalFileName.EndsWith(".snbt"))
+                        originalFileName = originalFileName.Substring(0, originalFileName.Length - 5); // Remove .snbt
+
+                    string outputMcaPath = Path.Combine(folderPath, originalFileName);
+
+                    // Create progress reporter
+                    var progress = new Progress<string>(message =>
+                    {
+                        if (message.Contains("ERROR") || message.Contains("FAILED"))
+                            LogMessage($"    {message}");
+                    });
+
+                    // Convert chunk files back to MCA
+                    LogMessage($"    Converting chunks to {originalFileName}...");
+                    await _nbtService.ConvertChunkFilesToMcaAsync(chunkFolderPath, outputMcaPath, progress);
+
+                    // Verify conversion succeeded
+                    if (File.Exists(outputMcaPath))
+                    {
+                        var fileInfo = new FileInfo(outputMcaPath);
+                        LogMessage($"    ✓ Created {originalFileName} ({fileInfo.Length / 1024}KB)");
+                        processedCount++;
+
+                        // Note: We don't delete source files here - cleanup happens in step 4
+                    }
+                    else
+                    {
+                        LogMessage($"    ✗ Failed to create {originalFileName}");
+                    }
+                }
+                else
+                {
+                    LogMessage($"    ⚠ Warning: Chunk folder not found: {chunkFolderPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"    ✗ Error processing {Path.GetFileName(markerFile)}: {ex.Message}");
+            }
+        }
+
+        return processedCount;
+    }
+
+    private async Task<int> ProcessOtherSnbtFiles(string outputPath, CancellationToken cancellationToken)
+    {
+        int processedCount = 0;
+
+        // Find all SNBT files that are NOT part of chunk-based MCA conversion
+        string[] allSnbtFiles = Directory.GetFiles(outputPath, "*.snbt", SearchOption.AllDirectories);
+
+        string[] otherSnbtFiles = allSnbtFiles.Where(snbtFile =>
+        {
+            // Skip if this is part of a chunk-based conversion (has marker file)
+            string markerPath = snbtFile + ".chunk_mode";
+            if (File.Exists(markerPath))
+                return false;
+
+            // Skip if this file is inside a chunks folder
+            string parentDir = Path.GetDirectoryName(snbtFile) ?? "";
+            if (parentDir.EndsWith(".chunks", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Skip individual chunk files (chunk_X_Z.snbt pattern)
+            string fileName = Path.GetFileName(snbtFile);
+            if (fileName.StartsWith("chunk_") && fileName.EndsWith(".snbt"))
+                return false;
+
+            // Skip files that are originally .snbt format (not converted from other formats)
+            // If the file name is "something.snbt" without any intermediate extension,
+            // it means this file was originally a .snbt file and should be left untouched
+            if (fileName.EndsWith(".snbt") && !fileName.Contains(".dat.snbt") &&
+                !fileName.Contains(".nbt.snbt") && !fileName.Contains(".dat_old.snbt") &&
+                !fileName.Contains(".mca.snbt") && !fileName.Contains(".mcc.snbt"))
+            {
+                // Check if it's a simple .snbt file (not .extension.snbt)
+                string nameWithoutSnbt = fileName.Substring(0, fileName.Length - 5); // Remove .snbt
+                if (!nameWithoutSnbt.Contains('.'))
+                    // This is a pure .snbt file, not converted from another format
+                    return false;
+            }
+
+            return true;
+        }).ToArray();
+
+        if (otherSnbtFiles.Length == 0)
+        {
+            LogMessage("  No other SNBT files found");
+            return 0;
+        }
+
+        LogMessage($"  Found {otherSnbtFiles.Length} other SNBT files to convert");
+
+        foreach (string snbtFile in otherSnbtFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                // Determine output file path by removing .snbt extension
+                string outputFile = snbtFile;
+                if (outputFile.EndsWith(".snbt"))
+                    outputFile = outputFile.Substring(0, outputFile.Length - 5); // Remove .snbt
+
+                // Convert SNBT back to original format
+                LogMessage($"    Converting {Path.GetFileName(snbtFile)}...");
+                await _nbtService.ConvertFromSnbtAsync(snbtFile, outputFile);
+
+                // Verify conversion succeeded
+                if (File.Exists(outputFile))
+                {
+                    var fileInfo = new FileInfo(outputFile);
+                    LogMessage($"    ✓ Created {Path.GetFileName(outputFile)} ({fileInfo.Length / 1024}KB)");
+                    processedCount++;
+                }
+                else
+                {
+                    LogMessage($"    ✗ Failed to create {Path.GetFileName(outputFile)}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"    ✗ Error converting {Path.GetFileName(snbtFile)}: {ex.Message}");
+            }
+        }
+
+        return processedCount;
+    }
+
+    private async Task<(int snbtFiles, int chunkFolders)> CleanupSnbtFilesAndChunkFolders(string outputPath,
+        CancellationToken cancellationToken)
+    {
+        int snbtFilesDeleted = 0;
+        int chunkFoldersDeleted = 0;
+
+        await Task.Run(() =>
+        {
+            // Define folders where cleanup should happen
+            string[] targetFolders = { "region", "poi", "entities" };
+
+            foreach (string folderName in targetFolders)
+            {
+                string folderPath = Path.Combine(outputPath, folderName);
+                if (!Directory.Exists(folderPath))
+                {
+                    LogMessage($"  Folder {folderName} does not exist, skipping cleanup...");
+                    continue;
+                }
+
+                LogMessage($"  Cleaning up {folderName} folder...");
+
+                // Step 4.1: Delete SNBT files only in this specific folder
+                string[] snbtFiles = Directory.GetFiles(folderPath, "*.snbt", SearchOption.AllDirectories);
+                LogMessage($"    Found {snbtFiles.Length} SNBT files to remove in {folderName}");
+
+                foreach (string snbtFile in snbtFiles)
+                    try
+                    {
+                        File.Delete(snbtFile);
+                        snbtFilesDeleted++;
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"      ⚠ Warning: Failed to delete {Path.GetFileName(snbtFile)}: {ex.Message}");
+                    }
+
+                // Step 4.2: Delete chunk marker files only in this specific folder
+                string[] markerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
+                LogMessage($"    Found {markerFiles.Length} chunk marker files to remove in {folderName}");
+
+                foreach (string markerFile in markerFiles)
+                    try
+                    {
+                        File.Delete(markerFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"      ⚠ Warning: Failed to delete {Path.GetFileName(markerFile)}: {ex.Message}");
+                    }
+
+                // Step 4.3: Delete chunk folders only in this specific folder
+                string[] allDirectories = Directory.GetDirectories(folderPath, "*", SearchOption.AllDirectories);
+                IEnumerable<string> chunkDirectories =
+                    allDirectories.Where(dir => Path.GetFileName(dir).EndsWith(".chunks"));
+
+                LogMessage($"    Found {chunkDirectories.Count()} chunk folders to remove in {folderName}");
+
+                foreach (string chunkDir in chunkDirectories)
+                    try
+                    {
+                        if (Directory.Exists(chunkDir))
+                        {
+                            Directory.Delete(chunkDir, true);
+                            chunkFoldersDeleted++;
+                            LogMessage($"      ✓ Deleted chunk folder: {Path.GetFileName(chunkDir)}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage(
+                            $"      ⚠ Warning: Failed to delete chunk folder {Path.GetFileName(chunkDir)}: {ex.Message}");
+                    }
+
+                // Step 4.4: Remove any remaining empty directories only in this specific folder
+                string[] emptyDirs = allDirectories.Where(dir =>
+                    Directory.Exists(dir) &&
+                    Directory.GetFileSystemEntries(dir).Length == 0).ToArray();
+
+                if (emptyDirs.Length > 0)
+                {
+                    LogMessage($"    Found {emptyDirs.Length} empty directories to remove in {folderName}");
+                    foreach (string emptyDir in emptyDirs)
+                        try
+                        {
+                            Directory.Delete(emptyDir, false);
+                            LogMessage(
+                                $"      ✓ Deleted empty directory: {Path.GetRelativePath(folderPath, emptyDir)}");
+                        }
+                        catch (Exception ex)
+                        {
+                            LogMessage(
+                                $"      ⚠ Warning: Failed to delete empty directory {Path.GetFileName(emptyDir)}: {ex.Message}");
+                        }
+                }
+            }
+        }, cancellationToken);
+
+        return (snbtFilesDeleted, chunkFoldersDeleted);
+    }
+
+    private async Task CopyNonRegionFiles(string sourcePath, string outputPath, CancellationToken cancellationToken)
+    {
+        string[] allEntries = Directory.GetFileSystemEntries(sourcePath, "*", SearchOption.TopDirectoryOnly);
+
+        foreach (string entry in allEntries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string entryName = Path.GetFileName(entry);
+
+            // Skip region folder (we handle it separately) and git folder
+            if (entryName.Equals("region", StringComparison.OrdinalIgnoreCase) ||
+                entryName.Equals(".git", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            string outputEntry = Path.Combine(outputPath, entryName);
+
+            if (Directory.Exists(entry))
+                // Copy directory recursively
+                await Task.Run(() => CopyDirectory(entry, outputEntry), cancellationToken);
+            else
+                // Copy file
+                File.Copy(entry, outputEntry, true);
+        }
+    }
+
+    private static void CopyDirectory(string sourceDir, string destinationDir)
+    {
+        Directory.CreateDirectory(destinationDir);
+
+        // Copy all files in the source directory
+        foreach (string file in Directory.GetFiles(sourceDir))
+        {
+            string destFile = Path.Combine(destinationDir, Path.GetFileName(file));
+            File.Copy(file, destFile, true);
+        }
+
+        // Recursively copy all subdirectories
+        foreach (string subDir in Directory.GetDirectories(sourceDir))
+        {
+            string destSubDir = Path.Combine(destinationDir, Path.GetFileName(subDir));
+            CopyDirectory(subDir, destSubDir);
+        }
+    }
+
+    #endregion
 }

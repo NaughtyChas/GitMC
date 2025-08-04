@@ -13,6 +13,7 @@ public interface IServiceAggregator
     IDataStorageService DataStorage { get; }
     ILocalizationService Localization { get; }
     INbtService Nbt { get; }
+    ISaveInitializationService SaveInitialization { get; }
 }
 
 /// <summary>
@@ -26,7 +27,8 @@ internal class ServiceAggregator : IServiceAggregator
         IOnboardingService onboardingService,
         IDataStorageService dataStorageService,
         ILocalizationService localizationService,
-        INbtService nbtService)
+        INbtService nbtService,
+        ISaveInitializationService saveInitializationService)
     {
         Configuration = configurationService;
         Git = gitService;
@@ -34,6 +36,7 @@ internal class ServiceAggregator : IServiceAggregator
         DataStorage = dataStorageService;
         Localization = localizationService;
         Nbt = nbtService;
+        SaveInitialization = saveInitializationService;
     }
 
     public IConfigurationService Configuration { get; }
@@ -42,4 +45,5 @@ internal class ServiceAggregator : IServiceAggregator
     public IDataStorageService DataStorage { get; }
     public ILocalizationService Localization { get; }
     public INbtService Nbt { get; }
+    public ISaveInitializationService SaveInitialization { get; }
 }
