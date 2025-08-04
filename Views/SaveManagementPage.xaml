@@ -37,7 +37,7 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!-- Always visible header section -->
+                    <!--  Always visible header section  -->
                     <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -97,11 +97,15 @@
                             VerticalAlignment="Center" />
                     </Grid>
 
-                    <!-- Conditional content based on Git initialization status -->
+                    <!--  Conditional content based on Git initialization status  -->
                     <Grid Grid.Row="1" Margin="0,16,0,0">
-                        <!-- Setup state when Git is not initialized -->
-                        <StackPanel x:Name="SetupSection" Spacing="16" Visibility="{x:Bind IsGitInitialized, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                            <StackPanel Spacing="8">
+                        <!--  Setup state when Git is not initialized  -->
+                        <StackPanel
+                            Spacing="12"
+                            Visibility="{x:Bind IsGitInitialized, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                            x:Name="SetupSection">
+                            <!--  Title and description (hidden during initialization)  -->
+                            <StackPanel Spacing="8" x:Name="SetupDescriptionSection">
                                 <TextBlock
                                     FontSize="16"
                                     FontWeight="SemiBold"
@@ -110,26 +114,30 @@
                                 <TextBlock
                                     FontSize="13"
                                     Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
-                                    Text="Initialize Git version control to track changes, create backups, and sync across devices. This will enable powerful features like change history, conflict resolution, and collaborative editing."
+                                    Text="Initialize Git version control to track changes, create backups, and sync across devices."
                                     TextWrapping="Wrap"
                                     UseLayoutRounding="True" />
                             </StackPanel>
 
-                            <!-- Initialize Git button with loading state -->
+                            <!--  Initialize Git button and progress display  -->
                             <Grid>
+                                <!--  Initialize Button (shown when not initializing)  -->
                                 <Button
-                                    x:Name="InitializeButton"
                                     Background="#E3F2FD"
                                     BorderBrush="#2196F3"
                                     BorderThickness="1"
+                                    Click="InitializeGitButton_Click"
                                     CornerRadius="8"
                                     Height="40"
                                     HorizontalAlignment="Stretch"
                                     Padding="16,8"
-                                    Click="InitializeGitButton_Click"
                                     Tag="{x:Bind}"
-                                    UseLayoutRounding="True">
-                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                    UseLayoutRounding="True"
+                                    x:Name="InitializeButton">
+                                    <StackPanel
+                                        HorizontalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="8">
                                         <FontIcon
                                             FontSize="16"
                                             Foreground="#2196F3"
@@ -144,35 +152,94 @@
                                     </StackPanel>
                                 </Button>
 
-                                <!-- Loading state overlay -->
+                                <!--  Initialization Progress Panel  -->
                                 <Border
-                                    x:Name="LoadingOverlay"
                                     Background="#E3F2FD"
                                     BorderBrush="#2196F3"
                                     BorderThickness="1"
                                     CornerRadius="8"
-                                    Height="40"
                                     HorizontalAlignment="Stretch"
-                                    Visibility="Collapsed">
-                                    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
-                                        <ProgressRing
-                                            Height="20"
-                                            Width="20"
+                                    Padding="16,12"
+                                    Visibility="Collapsed"
+                                    x:Name="InitializationPanel">
+                                    <StackPanel Spacing="12">
+                                        <!--  Header with progress and cancel button  -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Foreground="#2196F3"
+                                                Grid.Column="0"
+                                                Text="Setting up your save"
+                                                VerticalAlignment="Center" />
+
+                                            <StackPanel
+                                                Grid.Column="1"
+                                                Margin="0,0,8,0"
+                                                Orientation="Horizontal"
+                                                Spacing="8">
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    Foreground="#2196F3"
+                                                    Text="Step 1 of 6"
+                                                    VerticalAlignment="Center"
+                                                    x:Name="ProgressStepText" />
+                                                <ProgressRing
+                                                    Foreground="#2196F3"
+                                                    Height="16"
+                                                    IsActive="True"
+                                                    Width="16"
+                                                    x:Name="OverallProgressRing" />
+                                            </StackPanel>
+
+                                            <!--  Cancel Button  -->
+                                            <Button
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Click="CancelInitButton_Click"
+                                                Grid.Column="2"
+                                                Padding="8,4"
+                                                x:Name="CancelInitButton">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <FontIcon
+                                                        FontSize="12"
+                                                        Foreground="#D13438"
+                                                        Glyph="&#xE711;" />
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        Foreground="#D13438"
+                                                        Text="Cancel" />
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+
+                                        <!--  Progress Bar  -->
+                                        <ProgressBar
                                             Foreground="#2196F3"
-                                            IsActive="True" />
-                                        <TextBlock
-                                            FontSize="14"
-                                            FontWeight="SemiBold"
-                                            Foreground="#2196F3"
-                                            Text="Initializing Git..."
-                                            VerticalAlignment="Center" />
+                                            Height="4"
+                                            Margin="0,0,0,8"
+                                            Maximum="6"
+                                            UseLayoutRounding="True"
+                                            Value="0"
+                                            x:Name="InitializationProgressBar" />
+
+                                        <!--  Compact Steps List  -->
+                                        <StackPanel Spacing="6" x:Name="StepsContainer">
+                                            <!--  Steps will be added programmatically  -->
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </Grid>
                         </StackPanel>
 
-                        <!-- Full save info when Git is initialized -->
-                        <Grid x:Name="SaveInfoSection" Visibility="{x:Bind IsGitInitialized, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <!--  Full save info when Git is initialized  -->
+                        <Grid Visibility="{x:Bind IsGitInitialized, Converter={StaticResource BoolToVisibilityConverter}}" x:Name="SaveInfoSection">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
@@ -182,8 +249,8 @@
 
                             <!--  Status badge  -->
                             <Border
-                                Background="#FFF4CE"
-                                BorderBrush="#F7E018"
+                                Background="{x:Bind StatusBadgeBackground}"
+                                BorderBrush="{x:Bind StatusBadgeBorder}"
                                 BorderThickness="1"
                                 CornerRadius="12"
                                 Grid.Row="0"
@@ -194,8 +261,8 @@
                                 <TextBlock
                                     FontSize="10"
                                     FontWeight="SemiBold"
-                                    Foreground="#8A6914"
-                                    Text="modified"
+                                    Foreground="{x:Bind StatusBadgeText}"
+                                    Text="{x:Bind StatusText}"
                                     UseLayoutRounding="True" />
                             </Border>
 
@@ -339,6 +406,13 @@
                                     Text="Git Status:"
                                     UseLayoutRounding="True" />
 
+                                <!--  Up to date status text (when no badges needed)  -->
+                                <TextBlock
+                                    FontSize="12"
+                                    Text="{x:Bind GitStatusDescription}"
+                                    UseLayoutRounding="True"
+                                    Visibility="{x:Bind ShowStatusTextOnly, Converter={StaticResource BoolToVisibilityConverter}}" />
+
                                 <!--  Push badge  -->
                                 <Border
                                     Background="#E6F3FF"
@@ -346,7 +420,8 @@
                                     BorderThickness="1"
                                     CornerRadius="8"
                                     Padding="8,4,8,4"
-                                    UseLayoutRounding="True">
+                                    UseLayoutRounding="True"
+                                    Visibility="{x:Bind ShowPushBadge, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <FontIcon
                                             FontSize="10"
@@ -359,14 +434,7 @@
                                             FontSize="10"
                                             FontWeight="SemiBold"
                                             Foreground="#0078D4"
-                                            Text="{x:Bind PendingPushCount}"
-                                            UseLayoutRounding="True"
-                                            VerticalAlignment="Center" />
-                                        <TextBlock
-                                            FontSize="10"
-                                            FontWeight="SemiBold"
-                                            Foreground="#0078D4"
-                                            Text=" to push"
+                                            Text="{x:Bind PushStatusText}"
                                             UseLayoutRounding="True"
                                             VerticalAlignment="Center" />
                                     </StackPanel>
@@ -379,7 +447,8 @@
                                     BorderThickness="1"
                                     CornerRadius="8"
                                     Padding="8,4,8,4"
-                                    UseLayoutRounding="True">
+                                    UseLayoutRounding="True"
+                                    Visibility="{x:Bind ShowPullBadge, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <FontIcon
                                             FontSize="10"
@@ -392,14 +461,34 @@
                                             FontSize="10"
                                             FontWeight="SemiBold"
                                             Foreground="#0078D4"
-                                            Text="{x:Bind PendingPullCount}"
+                                            Text="{x:Bind PullStatusText}"
+                                            UseLayoutRounding="True"
+                                            VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!--  Conflict badge  -->
+                                <Border
+                                    Background="{x:Bind ConflictBadgeBackground}"
+                                    BorderBrush="#F7E018"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="8,4,8,4"
+                                    UseLayoutRounding="True"
+                                    Visibility="{x:Bind ShowConflictBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <FontIcon
+                                            FontSize="10"
+                                            Foreground="{x:Bind ConflictBadgeText}"
+                                            Glyph="&#xE7BA;"
+                                            Margin="0,0,4,0"
                                             UseLayoutRounding="True"
                                             VerticalAlignment="Center" />
                                         <TextBlock
                                             FontSize="10"
                                             FontWeight="SemiBold"
-                                            Foreground="#0078D4"
-                                            Text=" to pull"
+                                            Foreground="{x:Bind ConflictBadgeText}"
+                                            Text="{x:Bind ConflictStatusText}"
                                             UseLayoutRounding="True"
                                             VerticalAlignment="Center" />
                                     </StackPanel>

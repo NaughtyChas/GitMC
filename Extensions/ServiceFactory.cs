@@ -27,11 +27,12 @@ public static class ServiceFactory
     {
         // Create core services
         var configurationService = new ConfigurationService();
-        var gitService = new GitService();
+        var gitService = new GitService(configurationService);
         var dataStorageService = new DataStorageService();
         var localizationService = new LocalizationService();
         var nbtService = new NbtService();
         var onboardingService = new OnboardingService(gitService, configurationService);
+        var saveInitializationService = new SaveInitializationService(gitService, nbtService, dataStorageService);
 
         // Create service aggregator
         return new ServiceAggregator(
@@ -40,7 +41,8 @@ public static class ServiceFactory
             onboardingService,
             dataStorageService,
             localizationService,
-            nbtService
+            nbtService,
+            saveInitializationService
         );
     }
 }

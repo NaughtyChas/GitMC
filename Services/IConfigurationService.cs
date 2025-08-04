@@ -11,6 +11,10 @@ public interface IConfigurationService : INotifyPropertyChanged
     bool IsFirstLaunchComplete { get; set; }
     int CurrentOnboardingStep { get; set; }
 
+    // New onboarding properties for Git system setup
+    bool IsGitSystemConfigured { get; set; }
+    bool IsGitIdentityConfigured { get; set; }
+
     // Application preferences
     string CurrentLanguage { get; set; }
     string Theme { get; set; }

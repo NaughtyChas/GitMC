@@ -200,6 +200,19 @@ public class ConfigurationService : IConfigurationService
         set => SetInt("CurrentOnboardingStep", value);
     }
 
+    // New onboarding properties for Git system setup
+    public bool IsGitSystemConfigured
+    {
+        get => GetBool("GitSystemConfigured");
+        set => SetBool("GitSystemConfigured", value);
+    }
+
+    public bool IsGitIdentityConfigured
+    {
+        get => GetBool("GitIdentityConfigured");
+        set => SetBool("GitIdentityConfigured", value);
+    }
+
     // Application preferences
     public string CurrentLanguage
     {
@@ -530,6 +543,8 @@ public class ConfigurationService : IConfigurationService
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSaveAdded)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsFirstLaunchComplete)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentOnboardingStep)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsGitSystemConfigured)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsGitIdentityConfigured)));
 
         // Application preferences
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentLanguage)));
@@ -591,6 +606,8 @@ public class ConfigurationService : IConfigurationService
             "SaveAdded" => nameof(IsSaveAdded),
             "FirstLaunchComplete" => nameof(IsFirstLaunchComplete),
             "CurrentOnboardingStep" => nameof(CurrentOnboardingStep),
+            "GitSystemConfigured" => nameof(IsGitSystemConfigured),
+            "GitIdentityConfigured" => nameof(IsGitIdentityConfigured),
 
             // Application preferences
             "CurrentLanguage" => nameof(CurrentLanguage),

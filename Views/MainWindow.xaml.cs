@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Graphics;
+using Windows.Graphics;
 
 namespace GitMC.Views;
 
@@ -22,8 +23,8 @@ public sealed partial class MainWindow : Window
 
         // Initialize services
         _dataStorageService = new DataStorageService();
-        IGitService gitService = new GitService();
         _configurationService = new ConfigurationService();
+        IGitService gitService = new GitService(_configurationService);
         _onboardingService = new OnboardingService(gitService, _configurationService);
         _managedSaveService = new ManagedSaveService(_dataStorageService);
 

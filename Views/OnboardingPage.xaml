@@ -286,20 +286,45 @@
                                         Margin="0,0,0,12"
                                         Text="{local:Localize Key=Setup_Step2_NotFound}"
                                         TextWrapping="Wrap" />
-                                    <Button
-                                        Click="DownloadGitButton_Click"
-                                        HorizontalAlignment="Left"
-                                        Padding="12,8"
-                                        Style="{StaticResource AccentButtonStyle}"
-                                        x:Name="DownloadGitButton">
-                                        <StackPanel Orientation="Horizontal">
-                                            <FontIcon
-                                                FontSize="12"
-                                                Glyph="&#xE896;"
-                                                Margin="0,0,6,0" />
-                                            <TextBlock Text="{local:Localize Key=Setup_Step2_Button}" />
-                                        </StackPanel>
-                                    </Button>
+
+                                    <!--  Enhanced description  -->
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Margin="0,0,0,12"
+                                        Text="GitMC includes built-in Git support which works without installing Git. You can download and install system Git for enhanced functionality and ecosystem compatibility, or skip to use the built-in system."
+                                        TextWrapping="Wrap" />
+
+                                    <!--  Button panel  -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button
+                                            Click="DownloadGitButton_Click"
+                                            HorizontalAlignment="Left"
+                                            Padding="12,8"
+                                            Style="{StaticResource AccentButtonStyle}"
+                                            x:Name="DownloadGitButton">
+                                            <StackPanel Orientation="Horizontal">
+                                                <FontIcon
+                                                    FontSize="12"
+                                                    Glyph="&#xE896;"
+                                                    Margin="0,0,6,0" />
+                                                <TextBlock Text="Download Git" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <Button
+                                            Click="SkipToBuiltInGitButton_Click"
+                                            HorizontalAlignment="Left"
+                                            Padding="12,8"
+                                            x:Name="SkipToBuiltInGitButton">
+                                            <StackPanel Orientation="Horizontal">
+                                                <FontIcon
+                                                    FontSize="12"
+                                                    Glyph="&#xE72A;"
+                                                    Margin="0,0,6,0" />
+                                                <TextBlock Text="Use Built-in Git" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
                                 </StackPanel>
                             </StackPanel>
 
@@ -398,46 +423,16 @@
                                                 Text="Set your name and email address for Git commits. This information will be used to identify you as the author of changes."
                                                 TextWrapping="Wrap" />
 
-                                            <!--  Current Git Status  -->
-                                            <Border
-                                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                CornerRadius="8"
+                                            <!--  System Git Identity Detection (if available)  -->
+                                            <InfoBar
+                                                IsClosable="False"
+                                                IsOpen="True"
                                                 Margin="0,0,0,12"
-                                                Padding="12"
-                                                x:Name="GitConfigStatusPanel">
-                                                <StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                        <FontIcon
-                                                            FontSize="16"
-                                                            Foreground="#FF8C00"
-                                                            Glyph="&#xE946;"
-                                                            Margin="0,0,8,0"
-                                                            x:Name="GitConfigStatusIcon" />
-                                                        <TextBlock
-                                                            Text="Git identity not configured"
-                                                            VerticalAlignment="Center"
-                                                            x:Name="GitConfigStatusText" />
-                                                    </StackPanel>
-                                                    <!--  Current Identity Display (when configured)  -->
-                                                    <StackPanel Visibility="Collapsed" x:Name="CurrentIdentityPanel">
-                                                        <TextBlock
-                                                            FontSize="12"
-                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            Text="Current configuration:"
-                                                            Margin="24,4,0,2" />
-                                                        <TextBlock
-                                                            FontSize="12"
-                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            Margin="24,0,0,2"
-                                                            x:Name="CurrentUserNameText" />
-                                                        <TextBlock
-                                                            FontSize="12"
-                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            Margin="24,0,0,0"
-                                                            x:Name="CurrentUserEmailText" />
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Border>
+                                                Message="Can migrate to integrated Git"
+                                                Severity="Informational"
+                                                Title="System Git identity detected"
+                                                Visibility="Collapsed"
+                                                x:Name="SystemIdentityPanel" />
 
                                             <!--  Configuration Form  -->
                                             <StackPanel x:Name="GitConfigFormPanel">
@@ -489,73 +484,47 @@
                                                     x:Name="GitConfigValidationText" />
 
                                                 <!--  Info Box  -->
-                                                <Border
-                                                    Background="#FFF4CE"
-                                                    BorderBrush="#FFD700"
-                                                    BorderThickness="1"
-                                                    CornerRadius="4"
+                                                <InfoBar
+                                                    IsClosable="False"
+                                                    IsOpen="True"
                                                     Margin="0,0,0,12"
-                                                    Padding="8">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <FontIcon
-                                                            FontSize="14"
-                                                            Foreground="#B8860B"
-                                                            Glyph="&#xE946;"
-                                                            Margin="0,0,8,0" />
-                                                        <TextBlock
-                                                            FontSize="12"
-                                                            Foreground="#8B4513"
-                                                            Text="This information will be used to identify you in Git commit history. Use your real name and email address."
-                                                            TextWrapping="Wrap" />
-                                                    </StackPanel>
-                                                </Border>
+                                                    Message="This information will be used to identify you in Git commit history. Use your real name and email address."
+                                                    Severity="Informational" />
                                             </StackPanel>
                                         </StackPanel>
 
                                         <!--  Action Buttons  -->
-                                        <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-                                            <Button
-                                                Click="SaveGitConfigButton_Click"
-                                                HorizontalAlignment="Left"
-                                                Margin="0,0,8,0"
-                                                Padding="12,8"
-                                                Style="{StaticResource AccentButtonStyle}"
-                                                x:Name="SaveGitConfigButton">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <FontIcon
-                                                        FontSize="12"
-                                                        Glyph="&#xE74E;"
-                                                        Margin="0,0,6,0" />
-                                                    <TextBlock Text="Save Configuration" />
-                                                </StackPanel>
-                                            </Button>
-                                            <Button
-                                                Click="TestGitConfigButton_Click"
-                                                HorizontalAlignment="Left"
-                                                Margin="0,0,8,0"
-                                                Padding="12,8"
-                                                x:Name="TestGitConfigButton">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <FontIcon
-                                                        FontSize="12"
-                                                        Glyph="&#xE8A7;"
-                                                        Margin="0,0,6,0" />
-                                                    <TextBlock Text="Test Configuration" />
-                                                </StackPanel>
-                                            </Button>
-                                            <Button
-                                                Click="SkipGitConfigButton_Click"
-                                                HorizontalAlignment="Left"
-                                                Padding="12,8"
-                                                x:Name="SkipGitConfigButton">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <FontIcon
-                                                        FontSize="12"
-                                                        Glyph="&#xE72A;"
-                                                        Margin="0,0,6,0" />
-                                                    <TextBlock Text="Skip for Now" />
-                                                </StackPanel>
-                                            </Button>
+                                        <StackPanel Margin="0,4,0,0" Spacing="8">
+                                            <!--  First row of buttons  -->
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Button
+                                                    Click="SaveGitConfigButton_Click"
+                                                    HorizontalAlignment="Left"
+                                                    Padding="12,8"
+                                                    Style="{StaticResource AccentButtonStyle}"
+                                                    x:Name="SaveGitConfigButton">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <FontIcon
+                                                            FontSize="12"
+                                                            Glyph="&#xE74E;"
+                                                            Margin="0,0,6,0" />
+                                                        <TextBlock Text="Save Configuration" />
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button
+                                                    Click="UseSystemGitIdentityButton_Click"
+                                                    HorizontalAlignment="Left"
+                                                    Padding="12,8"
+                                                    x:Name="UseSystemGitIdentityButton">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <FontIcon
+                                                            FontSize="12"
+                                                            Glyph="&#xE8CB;"
+                                                            Margin="0,0,6,0" />
+                                                        <TextBlock Text="Use System Git Identity" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
@@ -690,24 +659,14 @@
                                                     TextWrapping="Wrap" />
 
                                                 <!--  GitHub Status  -->
-                                                <Border
-                                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                                                    CornerRadius="8"
+                                                <InfoBar
+                                                    IsClosable="False"
+                                                    IsOpen="True"
                                                     Margin="0,0,0,12"
-                                                    Padding="12"
-                                                    x:Name="GitHubStatusPanel">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <FontIcon
-                                                            FontSize="16"
-                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            Glyph="&#xE946;"
-                                                            Margin="0,0,8,0" />
-                                                        <TextBlock
-                                                            Text="Not connected"
-                                                            VerticalAlignment="Center"
-                                                            x:Name="GitHubStatusText" />
-                                                    </StackPanel>
-                                                </Border>
+                                                    Message="Not connected"
+                                                    Severity="Warning"
+                                                    Title="GitHub Connection Status"
+                                                    x:Name="GitHubStatusPanel" />
 
                                                 <!--  Repository Settings  -->
                                                 <StackPanel Visibility="Collapsed" x:Name="GitHubRepoSettings">
