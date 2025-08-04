@@ -26,7 +26,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     {
         this.InitializeComponent();
         _nbtService = new NbtService();
-        _gitService = new GitService();
+        var configService = new ConfigurationService();
+        _gitService = new GitService(configService);
         _configurationService = new ConfigurationService();
         _dataStorageService = new DataStorageService();
         _minecraftAnalyzerService = new MinecraftAnalyzerService(_nbtService);
