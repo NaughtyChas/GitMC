@@ -225,7 +225,7 @@
                     Spacing="12"
                     VerticalAlignment="Center">
 
-                    <!--  Branch ComboBox  -->
+                    <!--  Branch ComboBox with integrated Create Branch option  -->
                     <ComboBox
                         MinWidth="150"
                         SelectionChanged="BranchComboBox_SelectionChanged"
@@ -233,30 +233,70 @@
                         x:Name="BranchComboBox">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Image
-                                        Height="14"
-                                        Source="ms-appx:///Assets/Icons/branch_grey.svg"
-                                        Width="14" />
-                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <Grid>
+                                    <!--  Normal branch items  -->
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="8"
+                                        Visibility="{Binding IsSeparator, Converter={StaticResource InverseBoolToVisibilityConverter}, FallbackValue=Visible}">
+                                        <Image
+                                            Height="14"
+                                            Source="ms-appx:///Assets/Icons/branch_grey.svg"
+                                            Visibility="{Binding IsCreateAction, Converter={StaticResource InverseBoolToVisibilityConverter}, FallbackValue=Visible}"
+                                            Width="14" />
+                                        <FontIcon
+                                            FontSize="14"
+                                            Glyph="&#xE710;"
+                                            Visibility="{Binding IsCreateAction, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}" />
+                                        <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" />
+                                    </StackPanel>
+
+                                    <!--  Separator  -->
+                                    <Rectangle
+                                        Fill="#E1E1E1"
+                                        Height="1"
+                                        Margin="0,4"
+                                        Visibility="{Binding IsSeparator, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}" />
+                                </Grid>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
 
                     <!--  Fetch/Pull Button  -->
                     <Grid>
-                        <SplitButton Click="FetchPullButton_Click" x:Name="FetchPullButton">
+                        <!--  Normal Button (when no commits to pull)  -->
+                        <Button
+                            Click="FetchButton_Click"
+                            Style="{StaticResource DefaultButtonStyle}"
+                            Visibility="Visible"
+                            x:Name="FetchButton">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon
+                                    FontSize="16"
+                                    Glyph="&#xE895;"
+                                    x:Name="FetchIcon" />
+                                <TextBlock Text="Fetch remote" x:Name="FetchText" />
+                            </StackPanel>
+                        </Button>
+
+                        <!--  SplitButton (when there are commits to pull)  -->
+                        <SplitButton
+                            Click="PullButton_Click"
+                            Visibility="Collapsed"
+                            x:Name="PullButton">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon
                                     FontSize="16"
                                     Glyph="&#xE896;"
-                                    x:Name="FetchPullIcon" />
-                                <TextBlock Text="{local:Localize Key=SaveDetail_Fetch}" x:Name="FetchPullText" />
+                                    x:Name="PullIcon" />
+                                <TextBlock Text="Pull commits" x:Name="PullText" />
                             </StackPanel>
                             <SplitButton.Flyout>
                                 <MenuFlyout>
-                                    <MenuFlyoutItem Click="FetchButton_Click" Text="{local:Localize Key=SaveDetail_Fetch}">
+                                    <MenuFlyoutItem
+                                        Click="FetchButton_Click"
+                                        Text="Fetch remote"
+                                        x:Name="FetchFromDropdown">
                                         <MenuFlyoutItem.Icon>
                                             <FontIcon Glyph="&#xE895;" />
                                         </MenuFlyoutItem.Icon>

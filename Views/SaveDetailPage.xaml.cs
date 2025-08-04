@@ -6,11 +6,23 @@ using GitMC.Services;
 using GitMC.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Foundation;
 using Windows.Storage;
 using Windows.System;
 
 namespace GitMC.Views;
+
+// Helper class for branch combo box items
+public class BranchComboBoxItem
+{
+    public string DisplayName { get; set; } = string.Empty;
+    public bool IsSeparator { get; set; }
+    public bool IsCreateAction { get; set; }
+    public string? BranchName { get; set; }
+}
 
 public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 {
@@ -26,16 +38,15 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     {
         this.InitializeComponent();
         _nbtService = new NbtService();
-        var configService = new ConfigurationService();
-        _gitService = new GitService(configService);
         _configurationService = new ConfigurationService();
+        _gitService = new GitService(_configurationService);
         _dataStorageService = new DataStorageService();
         _minecraftAnalyzerService = new MinecraftAnalyzerService(_nbtService);
         _managedSaveService = new ManagedSaveService(_dataStorageService);
 
         ViewModel = new SaveDetailViewModel();
         DataContext = this;
-        Loaded += SaveDetailPage_Loaded;
+        // Removed Loaded event handler to prevent potential deadlocks
     }
 
     public SaveDetailViewModel ViewModel { get; }
@@ -48,19 +59,43 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         if (e.Parameter is string saveId)
         {
             _saveId = saveId;
+
+            // Initialize the page asynchronously without blocking navigation
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(100); // Small delay to let navigation complete
+                    DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        await InitializePageAsync();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error initializing SaveDetailPage: {ex.Message}");
+                }
+            });
         }
     }
 
-    private async void SaveDetailPage_Loaded(object sender, RoutedEventArgs e)
+    private async Task InitializePageAsync()
     {
-        // Initialize the page with the selected save
-        await LoadSaveDetailAsync();
+        try
+        {
+            // Initialize the page with the selected save
+            await LoadSaveDetailAsync();
 
-        // Load available branches
-        LoadBranches();
+            // Load available branches
+            LoadBranches();
 
-        // Navigate to the default tab (Overview)
-        NavigateToTab("Overview");
+            // Navigate to the default tab (Overview)
+            NavigateToTab("Overview");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in InitializePageAsync: {ex.Message}");
+        }
     }
 
     private async Task LoadSaveDetailAsync()
@@ -74,7 +109,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 if (saveInfo != null)
                 {
                     ViewModel.SaveInfo = saveInfo;
-                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ViewModel));
 
                     // Update UI elements with save info
                     UpdateSaveHeader(saveInfo);
@@ -280,10 +315,24 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     {
         try
         {
-            if (sender is ComboBox comboBox && comboBox.SelectedItem is string selectedBranch)
+            if (sender is ComboBox comboBox && comboBox.SelectedItem is BranchComboBoxItem selectedItem)
             {
-                // TODO: Implement branch switching functionality
-                Debug.WriteLine($"Switching to branch: {selectedBranch}");
+                if (selectedItem.IsCreateAction)
+                {
+                    // Handle "Create new branch" action
+                    CreateBranchButton_Click(sender, new RoutedEventArgs());
+
+                    // Reset selection to current branch to avoid showing "Create new branch" as selected
+                    var currentBranchItem = ((List<BranchComboBoxItem>)comboBox.ItemsSource)
+                        .FirstOrDefault(item => !item.IsSeparator && !item.IsCreateAction && item.BranchName == "main");
+                    comboBox.SelectedItem = currentBranchItem;
+                }
+                else if (!selectedItem.IsSeparator && !string.IsNullOrEmpty(selectedItem.BranchName))
+                {
+                    // Handle actual branch selection
+                    Debug.WriteLine($"Switching to branch: {selectedItem.BranchName}");
+                    // TODO: Implement branch switching functionality
+                }
             }
         }
         catch (Exception ex)
@@ -299,11 +348,20 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         {
             if (!string.IsNullOrEmpty(ViewModel.SaveInfo?.Path))
             {
-                // TODO: Implement git fetch functionality
-                Debug.WriteLine("Fetching changes...");
+                // Set fetching state
+                SetFetchingState(true);
 
-                // After fetch, update the button to show pull if there are changes
+                Debug.WriteLine("Fetching changes...");
+                // TODO: Implement git fetch functionality
+
+                // Simulate fetch operation
+                await Task.Delay(2000);
+
+                // After fetch, check if there are commits to pull and update accordingly
                 UpdateFetchPullButton(true, 2); // Example: 2 commits to pull
+
+                // Reset fetching state
+                SetFetchingState(false);
 
                 // Refresh save info
                 await LoadSaveDetailAsync();
@@ -311,38 +369,23 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            SetFetchingState(false);
             Debug.WriteLine($"Error fetching changes: {ex.Message}");
             // TODO: Show error message to user
         }
     }
 
-    private async void FetchPullButton_Click(SplitButton sender, SplitButtonClickEventArgs args)
+    private async void PullButton_Click(SplitButton sender, SplitButtonClickEventArgs e)
     {
         try
         {
             if (!string.IsNullOrEmpty(ViewModel.SaveInfo?.Path))
             {
-                // Handle the main button click - this could be either fetch or pull depending on current state
-                var fetchPullText = FindName("FetchPullText") as TextBlock;
+                Debug.WriteLine("Pulling changes...");
+                // TODO: Implement git pull functionality
 
-                if (fetchPullText?.Text.Contains("Pull") == true)
-                {
-                    // Currently in Pull mode - do pull
-                    Debug.WriteLine("Pulling changes...");
-                    // TODO: Implement git pull functionality
-
-                    // After pull, reset to fetch mode
-                    UpdateFetchPullButton(false, 0);
-                }
-                else
-                {
-                    // Currently in Fetch mode - do fetch
-                    Debug.WriteLine("Fetching changes...");
-                    // TODO: Implement git fetch functionality
-
-                    // After fetch, check if there are commits to pull and update accordingly
-                    UpdateFetchPullButton(true, 2); // Example: 2 commits to pull
-                }
+                // After pull, reset to fetch mode
+                UpdateFetchPullButton(false, 0);
 
                 // Refresh save info
                 await LoadSaveDetailAsync();
@@ -350,7 +393,74 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error with fetch/pull operation: {ex.Message}");
+            Debug.WriteLine($"Error pulling changes: {ex.Message}");
+            // TODO: Show error message to user
+        }
+    }
+
+    private void SetFetchingState(bool isFetching)
+    {
+        if (FindName("FetchButton") is Button fetchButton &&
+            FindName("FetchIcon") is FontIcon fetchIcon &&
+            FindName("FetchText") is TextBlock fetchText)
+        {
+            fetchButton.IsEnabled = !isFetching;
+
+            if (isFetching)
+            {
+                fetchText.Text = "Fetching...";
+                // Add spinning animation to icon
+                var storyboard = new Storyboard();
+                var animation = new DoubleAnimation
+                {
+                    From = 0,
+                    To = 360,
+                    Duration = TimeSpan.FromSeconds(1),
+                    RepeatBehavior = RepeatBehavior.Forever
+                };
+
+                var rotateTransform = new RotateTransform();
+                fetchIcon.RenderTransform = rotateTransform;
+                fetchIcon.RenderTransformOrigin = new Point(0.5, 0.5);
+
+                Storyboard.SetTarget(animation, rotateTransform);
+                Storyboard.SetTargetProperty(animation, "Angle");
+                storyboard.Children.Add(animation);
+                storyboard.Begin();
+
+                // Store storyboard for later cleanup
+                fetchIcon.Tag = storyboard;
+            }
+            else
+            {
+                fetchText.Text = "Fetch remote";
+                // Stop spinning animation
+                if (fetchIcon.Tag is Storyboard storyboard)
+                {
+                    storyboard.Stop();
+                    fetchIcon.RenderTransform = null;
+                    fetchIcon.Tag = null;
+                }
+            }
+        }
+    }
+
+    private void CreateBranchButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // TODO: Implement create branch dialog and functionality
+            Debug.WriteLine("Creating new branch...");
+
+            // For now, just close the dropdown
+            if (FindName("BranchComboBox") is ComboBox branchComboBox)
+            {
+                branchComboBox.IsDropDownOpen = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error creating branch: {ex.Message}");
             // TODO: Show error message to user
         }
     }
@@ -397,25 +507,24 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 
     private void UpdateFetchPullButton(bool hasPendingPulls, int pullCount)
     {
-        if (FindName("FetchPullButton") is SplitButton fetchPullButton &&
-            FindName("FetchPullIcon") is FontIcon fetchPullIcon &&
-            FindName("FetchPullText") is TextBlock fetchPullText &&
+        if (FindName("FetchButton") is Button fetchButton &&
+            FindName("PullButton") is SplitButton pullButton &&
             FindName("PullBadge") is Border pullBadge &&
             FindName("PullBadgeText") is TextBlock pullBadgeText)
         {
             if (hasPendingPulls)
             {
-                // Change to Pull button
-                fetchPullIcon.Glyph = "\uE896"; // Pull icon
-                fetchPullText.Text = "Pull"; // TODO: Use localization
+                // Show pull button, hide fetch button
+                fetchButton.Visibility = Visibility.Collapsed;
+                pullButton.Visibility = Visibility.Visible;
                 pullBadge.Visibility = Visibility.Visible;
                 pullBadgeText.Text = pullCount.ToString();
             }
             else
             {
-                // Keep as Fetch button
-                fetchPullIcon.Glyph = "\uE895"; // Fetch icon
-                fetchPullText.Text = "Fetch"; // TODO: Use localization
+                // Show fetch button, hide pull button
+                fetchButton.Visibility = Visibility.Visible;
+                pullButton.Visibility = Visibility.Collapsed;
                 pullBadge.Visibility = Visibility.Collapsed;
             }
         }
@@ -450,8 +559,39 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 // TODO: Get actual branches from git service
                 var branches = new List<string> { "main", "develop", "feature/new-feature" };
 
-                branchComboBox.ItemsSource = branches;
-                branchComboBox.SelectedItem = "main"; // TODO: Get current branch
+                var comboBoxItems = new List<BranchComboBoxItem>();
+
+                // Add actual branches
+                foreach (var branch in branches)
+                {
+                    comboBoxItems.Add(new BranchComboBoxItem
+                    {
+                        DisplayName = branch,
+                        BranchName = branch,
+                        IsSeparator = false,
+                        IsCreateAction = false
+                    });
+                }
+
+                // Add separator
+                comboBoxItems.Add(new BranchComboBoxItem
+                {
+                    IsSeparator = true
+                });
+
+                // Add "Create new branch" option
+                comboBoxItems.Add(new BranchComboBoxItem
+                {
+                    DisplayName = "Create new branch",
+                    IsCreateAction = true,
+                    IsSeparator = false
+                });
+
+                branchComboBox.ItemsSource = comboBoxItems;
+
+                // Set selected item to current branch (main for now)
+                var currentBranchItem = comboBoxItems.FirstOrDefault(item => item.BranchName == "main");
+                branchComboBox.SelectedItem = currentBranchItem;
             }
         }
         catch (Exception ex)

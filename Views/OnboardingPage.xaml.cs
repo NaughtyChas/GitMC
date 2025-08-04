@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
 using GitMC.Constants;
+using GitMC.Extensions;
 using GitMC.Helpers;
 using GitMC.Models;
 using GitMC.Services;
@@ -28,13 +29,16 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     public OnboardingPage()
     {
         InitializeComponent();
-        _nbtService = new NbtService();
-        _configurationService = new ConfigurationService();
-        _gitService = new GitService(_configurationService);
-        _dataStorageService = new DataStorageService();
-        _minecraftAnalyzerService = new MinecraftAnalyzerService(_nbtService);
+
+        // Use ServiceFactory to get shared service instances
+        var services = ServiceFactory.Services;
+        _nbtService = services.Nbt as NbtService ?? new NbtService();
+        _configurationService = services.Configuration;
+        _gitService = services.Git;
+        _dataStorageService = services.DataStorage;
+        _minecraftAnalyzerService = ServiceFactory.MinecraftAnalyzer;
         _managedSaveService = new ManagedSaveService(_dataStorageService);
-        OnboardingService = new OnboardingService(_gitService, _configurationService);
+        OnboardingService = services.Onboarding;
 
         // Subscribe to onboarding changes
         OnboardingService.PropertyChanged += OnboardingService_PropertyChanged;

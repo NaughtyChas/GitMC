@@ -269,11 +269,10 @@ public sealed partial class MainWindow : Window
     private void ContentFrame_Navigated(object sender, NavigationEventArgs e)
     {
         // NavView.IsBackEnabled = ContentFrame.CanGoBack;
-        // IsBackButtonEnabled 已通过 XAML 绑定到 ContentFrame.CanGoBack
-        UpdateNavigationSelection(e.SourcePageType);
+        UpdateNavigationSelection(e.SourcePageType, e.Parameter);
     }
 
-    private void UpdateNavigationSelection(Type pageType)
+    private void UpdateNavigationSelection(Type pageType, object? parameter = null)
     {
         if (pageType == typeof(HomePage))
         {
@@ -290,6 +289,16 @@ public sealed partial class MainWindow : Window
             // keep Home selected to maintain navigation state
             foreach (object? item in NavView.MenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Home")
+                {
+                    NavView.SelectedItem = navItem;
+                    break;
+                }
+        }
+        else if (pageType == typeof(SaveDetailPage) && parameter is string saveId)
+        {
+            // For SaveDetailPage, find the corresponding save navigation item by saveId
+            foreach (object? item in NavView.MenuItems)
+                if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == saveId)
                 {
                     NavView.SelectedItem = navItem;
                     break;
