@@ -6,12 +6,14 @@ namespace GitMC.Services;
 
 public class GitService : IGitService
 {
+    private readonly IConfigurationService _configurationService;
     private readonly List<string> _directoryStack = [];
     private readonly string _initialDirectory;
     private string _currentDirectory;
 
-    public GitService()
+    public GitService(IConfigurationService configurationService)
     {
+        _configurationService = configurationService;
         _initialDirectory = _currentDirectory = Directory.GetCurrentDirectory();
     }
 
@@ -125,15 +127,29 @@ public class GitService : IGitService
     {
         try
         {
-            // For global Git configuration, use command line since LibGit2Sharp doesn't easily support global config
-            GitCommandResult nameResult = await ExecuteCommandAsync($"config --global user.name \"{userName}\"");
-            GitCommandResult emailResult = await ExecuteCommandAsync($"config --global user.email \"{userEmail}\"");
+            // Store LibGit2Sharp identity in application configuration (not in system Git)
+            _configurationService.DefaultGitUserName = userName;
+            _configurationService.DefaultGitUserEmail = userEmail;
+            await _configurationService.SaveAsync();
 
-            return nameResult.Success && emailResult.Success;
+            return true;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error configuring Git identity: {ex.Message}");
+            Debug.WriteLine($"Error configuring LibGit2Sharp identity: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> HasGitIdentityAsync()
+    {
+        try
+        {
+            (string? userName, string? userEmail) = await GetIdentityAsync();
+            return !string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail);
+        }
+        catch
+        {
             return false;
         }
     }
@@ -142,7 +158,26 @@ public class GitService : IGitService
     {
         try
         {
-            // Get global Git configuration using command line
+            // Get LibGit2Sharp identity from application configuration (not from system Git)
+            string? userName = _configurationService.DefaultGitUserName;
+            string? userEmail = _configurationService.DefaultGitUserEmail;
+
+            return await Task.FromResult((
+                string.IsNullOrEmpty(userName) ? null : userName,
+                string.IsNullOrEmpty(userEmail) ? null : userEmail
+            ));
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    public async Task<(string? userName, string? userEmail)> GetSystemGitIdentityAsync()
+    {
+        try
+        {
+            // Get system Git configuration using command line for migration purposes only
             GitCommandResult nameResult = await ExecuteCommandAsync("config --global user.name");
             GitCommandResult emailResult = await ExecuteCommandAsync("config --global user.email");
 

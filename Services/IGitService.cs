@@ -16,6 +16,8 @@ public interface IGitService
     // Configuration
     Task<bool> ConfigureIdentityAsync(string userName, string userEmail);
     Task<(string? userName, string? userEmail)> GetIdentityAsync();
+    Task<bool> HasGitIdentityAsync();
+    Task<(string? userName, string? userEmail)> GetSystemGitIdentityAsync();
 
     // Remote Operations
     Task<bool> AddRemoteAsync(string name, string url, string? workingDirectory = null);

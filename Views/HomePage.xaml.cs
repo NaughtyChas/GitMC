@@ -14,8 +14,8 @@ public sealed partial class HomePage : Page, INotifyPropertyChanged
     public HomePage()
     {
         InitializeComponent();
-        _gitService = new GitService();
         _configurationService = new ConfigurationService();
+        _gitService = new GitService(_configurationService);
         _dataStorageService = new DataStorageService();
         _onboardingService = new OnboardingService(_gitService, _configurationService);
 

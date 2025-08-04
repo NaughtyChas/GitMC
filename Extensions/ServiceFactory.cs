@@ -27,7 +27,7 @@ public static class ServiceFactory
     {
         // Create core services
         var configurationService = new ConfigurationService();
-        var gitService = new GitService();
+        var gitService = new GitService(configurationService);
         var dataStorageService = new DataStorageService();
         var localizationService = new LocalizationService();
         var nbtService = new NbtService();

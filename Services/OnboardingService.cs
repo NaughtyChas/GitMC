@@ -38,6 +38,12 @@ public class OnboardingService : IOnboardingService
             case "LanguageConfigured":
                 _configurationService.IsLanguageConfigured = value;
                 break;
+            case "GitSystemConfigured":
+                _configurationService.IsGitSystemConfigured = value;
+                break;
+            case "GitIdentityConfigured":
+                _configurationService.IsGitIdentityConfigured = value;
+                break;
             case "PlatformConfigured":
                 _configurationService.IsPlatformConfigured = value;
                 break;
@@ -214,18 +220,18 @@ public class OnboardingService : IOnboardingService
             },
             new OnboardingStep
             {
-                Title = "Install Git",
-                ShortDescription = "Git version control system",
-                FullDescription = "Git is required for version control functionality.",
-                StatusChecker = CheckGitInstallation
+                Title = "Git System Setup",
+                ShortDescription = "Choose your Git implementation",
+                FullDescription = "GitMC includes built-in Git support which works without installing Git. You can download and install system Git for enhanced functionality and ecosystem compatibility, or skip to use the built-in system.",
+                StatusChecker = CheckGitSystemSetup
             },
             new OnboardingStep
             {
-                Title = "Configure Git",
-                ShortDescription = "Mark your changes in the Git system",
+                Title = "Configure Git Identity",
+                ShortDescription = "Set your author information",
                 FullDescription =
-                    "In order to make your save works with version control, you have to provide your credentials. If you wish to connect to any code hosting platform, fill in your platform email and username here.",
-                StatusChecker = CheckGitConfiguration
+                    "Configure your name and email for Git commits. This step requires manual configuration regardless of any existing system Git settings.",
+                StatusChecker = CheckGitIdentityConfiguration
             },
             new OnboardingStep
             {
@@ -256,17 +262,47 @@ public class OnboardingService : IOnboardingService
         return Task.FromResult(_configurationService.IsLanguageConfigured);
     }
 
+    private async Task<bool> CheckGitSystemSetup()
+    {
+        // Check if user has already made a choice (download Git or use built-in)
+        if (_configurationService.IsGitSystemConfigured)
+        {
+            return true;
+        }
+
+        // Auto-detect if system Git is installed
+        bool isGitInstalled = await _gitService.IsInstalledAsync();
+        if (isGitInstalled)
+        {
+            // Auto-complete step if Git is detected
+            _configurationService.IsGitSystemConfigured = true;
+            await _configurationService.SaveAsync();
+            return true;
+        }
+
+        // Otherwise, step requires manual completion (download or use built-in)
+        return false;
+    }
+
     private async Task<bool> CheckGitInstallation()
     {
+        // Since we use LibGit2Sharp, Git is always "available"
+        // But we still check for system Git for enhanced functionality
         return await _gitService.IsInstalledAsync();
+    }
+
+    private Task<bool> CheckGitIdentityConfiguration()
+    {
+        // This step now requires manual configuration regardless of system Git identity
+        // We check if the user has explicitly configured identity in GitMC
+        return Task.FromResult(_configurationService.IsGitIdentityConfigured);
     }
 
     private async Task<bool> CheckGitConfiguration()
     {
         try
         {
-            (string? userName, string? userEmail) = await _gitService.GetIdentityAsync();
-            return !string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail);
+            return await _gitService.HasGitIdentityAsync();
         }
         catch
         {

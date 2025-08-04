@@ -1,9 +1,9 @@
 using System.Diagnostics;
-using Windows.Graphics;
 using GitMC.Models;
 using GitMC.Services;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Graphics;
 
 namespace GitMC.Views;
 
@@ -20,8 +20,8 @@ public partial class MainWindow
 
         // Initialize services
         _dataStorageService = new DataStorageService();
-        IGitService gitService = new GitService();
         _configurationService = new ConfigurationService();
+        IGitService gitService = new GitService(_configurationService);
         _onboardingService = new OnboardingService(gitService, _configurationService);
         _managedSaveService = new ManagedSaveService(_dataStorageService);
 
@@ -159,7 +159,9 @@ public partial class MainWindow
     {
         NavView.MenuItems.Add(new NavigationViewItem
         {
-            Content = saveName, Icon = new SymbolIcon(Symbol.Folder), Tag = savePath
+            Content = saveName,
+            Icon = new SymbolIcon(Symbol.Folder),
+            Tag = savePath
         });
     }
 

@@ -1,14 +1,14 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using Windows.ApplicationModel.DataTransfer;
-using Windows.System;
-using Windows.UI.Core;
 using GitMC.Services;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.System;
+using Windows.UI.Core;
 
 namespace GitMC.Views;
 
@@ -22,7 +22,8 @@ public sealed partial class ConsolePage : Page
     public ConsolePage()
     {
         InitializeComponent();
-        _gitService = new GitService();
+        var configService = new ConfigurationService();
+        _gitService = new GitService(configService);
         CommandInput.Focus(FocusState.Programmatic);
         _ = InitializeGitVersion();
     }
