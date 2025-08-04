@@ -126,7 +126,14 @@ public class SaveInitializationService : ISaveInitializationService
             // Step 7: Initial commits for both repositories
             await ExecuteStepAsync(steps[6], progress, async () =>
             {
+                // Set up progress tracking for commit operations
+                int totalOperations = 6; // GitMC: scan, stage, commit; Save: stage, status check, commit (if needed)
+                int currentOperation = 0;
+
+                steps[6].CurrentProgress = currentOperation;
+                steps[6].TotalProgress = totalOperations;
                 steps[6].Message = "Creating initial commits...";
+                progress?.Report(steps[6]);
 
                 // First, create initial commit in GitMC directory (which should have SNBT files)
                 string gitMcPath = Path.Combine(savePath, "GitMC");
@@ -135,43 +142,81 @@ public class SaveInitializationService : ISaveInitializationService
                 if (!Directory.Exists(gitMcPath))
                     throw new InvalidOperationException("GitMC directory does not exist");
 
+                currentOperation++;
+                steps[6].CurrentProgress = currentOperation;
+                steps[6].Message = "Scanning GitMC directory for files...";
+                progress?.Report(steps[6]);
+                await Task.Delay(100); // Brief pause for UI update
+
                 var gitMcFiles = Directory.GetFiles(gitMcPath, "*", SearchOption.AllDirectories);
                 if (gitMcFiles.Length == 0)
                     throw new InvalidOperationException("GitMC directory is empty - no files to commit");
 
-                steps[6].Message = "Staging files in GitMC directory...";
+                currentOperation++;
+                steps[6].CurrentProgress = currentOperation;
+                steps[6].Message = $"Staging {gitMcFiles.Length} files in GitMC directory...";
+                progress?.Report(steps[6]);
+                await Task.Delay(100); // Brief pause for UI update
+
                 GitOperationResult gitMcStageResult = await _gitService.StageAllAsync(gitMcPath);
                 if (!gitMcStageResult.Success)
                     throw new InvalidOperationException($"Failed to stage files in GitMC directory: {gitMcStageResult.ErrorMessage}");
 
+                currentOperation++;
+                steps[6].CurrentProgress = currentOperation;
                 steps[6].Message = "Creating commit in GitMC directory...";
+                progress?.Report(steps[6]);
+                await Task.Delay(100); // Brief pause for UI update
+
                 GitOperationResult gitMcCommitResult =
                     await _gitService.CommitAsync("Initial import", gitMcPath);
                 if (!gitMcCommitResult.Success)
                     throw new InvalidOperationException($"Failed to commit in GitMC directory: {gitMcCommitResult.ErrorMessage}");
 
                 // Then, create initial commit in save directory (excluding GitMC due to .gitignore)
+                currentOperation++;
+                steps[6].CurrentProgress = currentOperation;
                 steps[6].Message = "Staging files in save directory...";
+                progress?.Report(steps[6]);
+                await Task.Delay(100); // Brief pause for UI update
+
                 GitOperationResult saveStageResult = await _gitService.StageAllAsync(savePath);
                 if (!saveStageResult.Success)
                     throw new InvalidOperationException($"Failed to stage files in save directory: {saveStageResult.ErrorMessage}");
 
                 // Only commit if there are files staged
+                currentOperation++;
+                steps[6].CurrentProgress = currentOperation;
+                steps[6].Message = "Checking staged files in save directory...";
+                progress?.Report(steps[6]);
+                await Task.Delay(100); // Brief pause for UI update
+
                 var saveStatus = await _gitService.GetStatusAsync(savePath);
                 if (saveStatus.StagedFiles.Length > 0)
                 {
-                    steps[6].Message = "Creating commit in save directory...";
+                    currentOperation++;
+                    steps[6].CurrentProgress = currentOperation;
+                    steps[6].Message = $"Creating commit for {saveStatus.StagedFiles.Length} files in save directory...";
+                    progress?.Report(steps[6]);
+                    await Task.Delay(100); // Brief pause for UI update
+
                     GitOperationResult saveCommitResult =
-                        await _gitService.CommitAsync("Initial import)", savePath);
+                        await _gitService.CommitAsync("Initial import", savePath);
                     if (!saveCommitResult.Success)
                         throw new InvalidOperationException($"Failed to commit in save directory: {saveCommitResult.ErrorMessage}");
                 }
                 else
                 {
+                    currentOperation++;
+                    steps[6].CurrentProgress = currentOperation;
                     steps[6].Message = "No files to commit in save directory (all excluded by .gitignore)";
+                    progress?.Report(steps[6]);
+                    await Task.Delay(100); // Brief pause for UI update
                 }
 
+                steps[6].CurrentProgress = totalOperations;
                 steps[6].Message = "Repositories committed successfully";
+                progress?.Report(steps[6]);
                 return true;
             }); return true;
         }

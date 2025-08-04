@@ -52,10 +52,10 @@ public class SaveInitStep : INotifyPropertyChanged
     public bool HasProgress => TotalProgress > 0;
 
     /// <summary>
-    ///     Display name that includes progress for "Extracting chunks" step when in progress
+    ///     Display name that includes progress for steps that have progress tracking when in progress
     /// </summary>
     public string DisplayName =>
-        IsInProgress && HasProgress && Name == "Extracting chunks"
+        IsInProgress && HasProgress && (Name == "Extracting chunks" || Name == "Initial commit")
             ? $"{Name} {ProgressText}"
             : Name;
 
