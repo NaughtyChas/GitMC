@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using GitMC.Constants;
@@ -25,10 +24,10 @@ namespace GitMC.Views;
 
 public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 {
+    private readonly SaveInitializationStatusService _initStatusService;
     private readonly ManagedSaveService _managedSaveService;
     private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
     private readonly IServiceAggregator _services;
-    private readonly SaveInitializationStatusService _initStatusService;
 
     // Cancellation support
     private CancellationTokenSource? _initCancellationTokenSource;
@@ -88,24 +87,22 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             Debug.WriteLine($"Error loading saves: {ex.Message}");
         }
     }
+
     private void SaveManagementPage_Unloaded(object sender, RoutedEventArgs e)
     {
         // Unsubscribe from progress updates to avoid memory leaks
-        if (_initStatusService.IsInitializing)
-        {
-            _initStatusService.UnsubscribeFromProgress(OnProgressUpdated);
-        }
+        if (_initStatusService.IsInitializing) _initStatusService.UnsubscribeFromProgress(OnProgressUpdated);
     }
 
     /// <summary>
-    /// Restore initialization state if navigation occurred during initialization
+    ///     Restore initialization state if navigation occurred during initialization
     /// </summary>
     private async Task RestoreInitializationState()
     {
         if (!_initStatusService.IsInitializing) return;
 
-        var initializingSave = _initStatusService.CurrentInitializingSave;
-        var savedSteps = _initStatusService.InitSteps;
+        ManagedSaveInfo? initializingSave = _initStatusService.CurrentInitializingSave;
+        ObservableCollection<SaveInitStep>? savedSteps = _initStatusService.InitSteps;
 
         if (initializingSave == null || savedSteps == null) return;
 
@@ -115,7 +112,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         {
             // All steps completed, clear initialization state and refresh the saves list
             _initStatusService.ClearInitialization();
-            
+
             // Update the save info to reflect Git initialization
             initializingSave.IsGitInitialized = true;
             initializingSave.Branch = "main"; // Set default branch
@@ -132,7 +129,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         InitSteps = savedSteps;
 
-        var saveContainer = await FindSaveContainer(initializingSave);
+        DependencyObject? saveContainer = await FindSaveContainer(initializingSave);
         if (saveContainer == null) return;
 
         RestoreInitializationUI(saveContainer, savedSteps);
@@ -143,7 +140,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Handle progress updates during initialization
+    ///     Handle progress updates during initialization
     /// </summary>
     private void OnProgressUpdated(SaveInitStep step)
     {
@@ -159,42 +156,39 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 existingStep.CurrentProgress = step.CurrentProgress;
                 existingStep.TotalProgress = step.TotalProgress;
 
-                var currentSave = _initStatusService.CurrentInitializingSave;
+                ManagedSaveInfo? currentSave = _initStatusService.CurrentInitializingSave;
                 if (currentSave != null)
                 {
-                    var saveContainer = await FindSaveContainer(currentSave);
-                    if (saveContainer != null)
-                    {
-                        UpdateInitializationUIForProgress(saveContainer, step, existingStep);
-                    }
+                    DependencyObject? saveContainer = await FindSaveContainer(currentSave);
+                    if (saveContainer != null) UpdateInitializationUIForProgress(saveContainer, step, existingStep);
                 }
             }
         });
     }
 
     /// <summary>
-    /// Update initialization UI elements when progress is reported
+    ///     Update initialization UI elements when progress is reported
     /// </summary>
-    private void UpdateInitializationUIForProgress(DependencyObject container, SaveInitStep step, SaveInitStep existingStep)
+    private void UpdateInitializationUIForProgress(DependencyObject container, SaveInitStep step,
+        SaveInitStep existingStep)
     {
-        ProgressBar? progressBar = FindChildByName(container, "InitializationProgressBar") as ProgressBar;
-        TextBlock? progressStepText = FindChildByName(container, "ProgressStepText") as TextBlock;
-        StackPanel? stepsContainer = FindChildByName(container, "StepsContainer") as StackPanel;
+        var progressBar = FindChildByName(container, "InitializationProgressBar") as ProgressBar;
+        var progressStepText = FindChildByName(container, "ProgressStepText") as TextBlock;
+        var stepsContainer = FindChildByName(container, "StepsContainer") as StackPanel;
 
         if (stepsContainer != null && InitSteps != null)
         {
             int stepIndex = InitSteps.IndexOf(existingStep);
             if (stepIndex >= 0 && stepIndex < stepsContainer.Children.Count)
-            {
                 UpdateStepUI(stepsContainer.Children[stepIndex] as Grid, existingStep);
-            }
         }
 
-        UpdateInitializationProgress(InitSteps ?? new ObservableCollection<SaveInitStep>(), progressBar, progressStepText);
+        UpdateInitializationProgress(InitSteps ?? new ObservableCollection<SaveInitStep>(), progressBar,
+            progressStepText);
     }
 
     /// <summary>
-    /// Find the container for a specific save in the UI
+    ///     Find the container for a specific save in the UI
     /// </summary>
     private async Task<DependencyObject?> FindSaveContainer(ManagedSaveInfo saveInfo)
     {
@@ -202,31 +196,27 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var savesGridView = FindName("SavesGridView") as GridView;
         if (savesGridView?.Items != null)
-        {
-            foreach (var item in savesGridView.Items)
-            {
+            foreach (object? item in savesGridView.Items)
                 if (item is ManagedSaveInfo managedSave && managedSave.OriginalPath == saveInfo.OriginalPath)
                 {
                     var container = savesGridView.ContainerFromItem(item) as FrameworkElement;
                     return container;
                 }
-            }
-        }
 
         return null;
     }
 
     /// <summary>
-    /// Restore the initialization UI for a save container
+    ///     Restore the initialization UI for a save container
     /// </summary>
     private void RestoreInitializationUI(DependencyObject container, ObservableCollection<SaveInitStep> steps)
     {
-        Button? initializeButton = FindChildByName(container, "InitializeButton") as Button;
-        Border? initializationPanel = FindChildByName(container, "InitializationPanel") as Border;
-        StackPanel? setupDescriptionSection = FindChildByName(container, "SetupDescriptionSection") as StackPanel;
-        ProgressBar? progressBar = FindChildByName(container, "InitializationProgressBar") as ProgressBar;
-        TextBlock? progressStepText = FindChildByName(container, "ProgressStepText") as TextBlock;
-        StackPanel? stepsContainer = FindChildByName(container, "StepsContainer") as StackPanel;
+        var initializeButton = FindChildByName(container, "InitializeButton") as Button;
+        var initializationPanel = FindChildByName(container, "InitializationPanel") as Border;
+        var setupDescriptionSection = FindChildByName(container, "SetupDescriptionSection") as StackPanel;
+        var progressBar = FindChildByName(container, "InitializationProgressBar") as ProgressBar;
+        var progressStepText = FindChildByName(container, "ProgressStepText") as TextBlock;
+        var stepsContainer = FindChildByName(container, "StepsContainer") as StackPanel;
 
         if (initializeButton != null && initializationPanel != null)
         {
@@ -246,10 +236,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 }
             }
 
-            if (progressBar != null)
-            {
-                progressBar.Maximum = steps.Count;
-            }
+            if (progressBar != null) progressBar.Maximum = steps.Count;
 
             UpdateInitializationProgress(steps, progressBar, progressStepText);
         }
@@ -1041,7 +1028,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                     }
 
                     // Update progress bar and step text with fixed logic and percentage
-                    UpdateInitializationProgress(InitSteps ?? new ObservableCollection<SaveInitStep>(), progressBar, progressStepText);
+                    UpdateInitializationProgress(InitSteps ?? new ObservableCollection<SaveInitStep>(), progressBar,
+                        progressStepText);
                 });
 
                 // Subscribe to progress updates from the status service for cross-page updates
@@ -1300,9 +1288,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Update initialization progress display
+    ///     Update initialization progress display
     /// </summary>
-    private void UpdateInitializationProgress(ObservableCollection<SaveInitStep> steps, ProgressBar? progressBar, TextBlock? progressStepText)
+    private void UpdateInitializationProgress(ObservableCollection<SaveInitStep> steps, ProgressBar? progressBar,
+        TextBlock? progressStepText)
     {
         if (progressBar != null && progressStepText != null)
         {
@@ -1431,11 +1420,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Visible;
 
                 // Revert any changes made during initialization if needed
-                var currentSave = _initStatusService.CurrentInitializingSave;
-                if (currentSave != null)
-                {
-                    await RevertInitializationChanges(currentSave);
-                }
+                ManagedSaveInfo? currentSave = _initStatusService.CurrentInitializingSave;
+                if (currentSave != null) await RevertInitializationChanges(currentSave);
 
                 // Clean up cancellation token
                 _initCancellationTokenSource?.Dispose();

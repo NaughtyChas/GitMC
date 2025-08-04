@@ -72,10 +72,7 @@ public class ManagedSaveService
                 saveInfo.Size = await Task.Run(() => CommonHelpers.CalculateFolderSize(directoryInfo));
 
                 // Update Git status if initialized
-                if (saveInfo.IsGitInitialized)
-                {
-                    await UpdateGitStatus(saveInfo);
-                }
+                if (saveInfo.IsGitInitialized) await UpdateGitStatus(saveInfo);
             }
             else
             {
@@ -99,7 +96,7 @@ public class ManagedSaveService
         try
         {
             // Get Git service from service factory
-            var gitService = ServiceFactory.Services.Git;
+            IGitService gitService = ServiceFactory.Services.Git;
 
             // Check if it's a Git repository
             bool isRepo = await gitService.IsRepositoryAsync(saveInfo.OriginalPath);
@@ -117,13 +114,10 @@ public class ManagedSaveService
             }
 
             // Get Git status for save directory
-            var status = await gitService.GetStatusAsync(saveInfo.OriginalPath);
+            GitStatus status = await gitService.GetStatusAsync(saveInfo.OriginalPath);
 
             // Update branch name
-            if (!string.IsNullOrEmpty(status.CurrentBranch))
-            {
-                saveInfo.Branch = status.CurrentBranch;
-            }
+            if (!string.IsNullOrEmpty(status.CurrentBranch)) saveInfo.Branch = status.CurrentBranch;
 
             // Update push/pull counts
             saveInfo.PendingPushCount = status.AheadCount;
@@ -133,33 +127,25 @@ public class ManagedSaveService
             // Update commit count
             try
             {
-                var commits = await gitService.GetCommitHistoryAsync(1000, saveInfo.OriginalPath);
+                GitCommit[] commits = await gitService.GetCommitHistoryAsync(1000, saveInfo.OriginalPath);
                 saveInfo.CommitCount = commits.Length;
             }
             catch
             {
                 // If we can't get commit history, keep existing count or set to 0
-                if (saveInfo.CommitCount == 0)
-                {
-                    saveInfo.CommitCount = 1; // Assume at least the initial commit exists
-                }
+                if (saveInfo.CommitCount == 0) saveInfo.CommitCount = 1; // Assume at least the initial commit exists
             }
 
             // Determine save status based on Git status
             if (status.HasChanges)
-            {
                 saveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Modified;
-            }
             else if (saveInfo.ConflictCount > 0)
-            {
                 saveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Conflict;
-            }
             else
-            {
                 saveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Clear;
-            }
 
-            Debug.WriteLine($"[UpdateGitStatus] Updated Git status for {saveInfo.Name}: Status={saveInfo.CurrentStatus}, Branch={saveInfo.Branch}, Commits={saveInfo.CommitCount}, Push={saveInfo.PendingPushCount}, Pull={saveInfo.PendingPullCount}");
+            Debug.WriteLine(
+                $"[UpdateGitStatus] Updated Git status for {saveInfo.Name}: Status={saveInfo.CurrentStatus}, Branch={saveInfo.Branch}, Commits={saveInfo.CommitCount}, Push={saveInfo.PendingPushCount}, Pull={saveInfo.PendingPullCount}");
         }
         catch (Exception ex)
         {
@@ -245,8 +231,7 @@ public class ManagedSaveService
             // Create JsonSerializerOptions that ignore UI properties
             var jsonOptions = new JsonSerializerOptions
             {
-                WriteIndented = true,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
             string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
@@ -281,8 +266,7 @@ public class ManagedSaveService
                 // Create JsonSerializerOptions that ignore UI properties
                 var jsonOptions = new JsonSerializerOptions
                 {
-                    WriteIndented = true,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                    WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
                 };
 
                 string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
@@ -321,8 +305,8 @@ public class ManagedSaveService
     /// <returns>Task</returns>
     public async Task RefreshAllGitStatus()
     {
-        var saves = await GetManagedSaves();
-        var gitUpdates = saves.Where(s => s.IsGitInitialized).Select(RefreshGitStatus);
+        List<ManagedSaveInfo> saves = await GetManagedSaves();
+        IEnumerable<Task> gitUpdates = saves.Where(s => s.IsGitInitialized).Select(RefreshGitStatus);
         await Task.WhenAll(gitUpdates);
     }
 

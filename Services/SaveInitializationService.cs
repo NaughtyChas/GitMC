@@ -92,17 +92,13 @@ public class SaveInitializationService : ISaveInitializationService
                 // Initialize Git repository in the save directory
                 bool saveRepoSuccess = await _gitService.InitializeRepositoryAsync(savePath);
                 if (!saveRepoSuccess)
-                {
                     throw new InvalidOperationException("Failed to initialize Git repository in save directory");
-                }
 
                 // Initialize Git repository in the GitMC directory
                 string gitMcPath = Path.Combine(savePath, "GitMC");
                 bool gitMcRepoSuccess = await _gitService.InitializeRepositoryAsync(gitMcPath);
                 if (!gitMcRepoSuccess)
-                {
                     throw new InvalidOperationException("Failed to initialize Git repository in GitMC directory");
-                }
 
                 return true;
             });
@@ -155,7 +151,7 @@ public class SaveInitializationService : ISaveInitializationService
                 progressWrapper.Report(steps[6]);
                 await Task.Delay(100); // Brief pause for UI update
 
-                var gitMcFiles = Directory.GetFiles(gitMcPath, "*", SearchOption.AllDirectories);
+                string[] gitMcFiles = Directory.GetFiles(gitMcPath, "*", SearchOption.AllDirectories);
                 if (gitMcFiles.Length == 0)
                     throw new InvalidOperationException("GitMC directory is empty - no files to commit");
 
@@ -167,7 +163,8 @@ public class SaveInitializationService : ISaveInitializationService
 
                 GitOperationResult gitMcStageResult = await _gitService.StageAllAsync(gitMcPath);
                 if (!gitMcStageResult.Success)
-                    throw new InvalidOperationException($"Failed to stage files in GitMC directory: {gitMcStageResult.ErrorMessage}");
+                    throw new InvalidOperationException(
+                        $"Failed to stage files in GitMC directory: {gitMcStageResult.ErrorMessage}");
 
                 currentOperation++;
                 steps[6].CurrentProgress = currentOperation;
@@ -178,7 +175,8 @@ public class SaveInitializationService : ISaveInitializationService
                 GitOperationResult gitMcCommitResult =
                     await _gitService.CommitAsync("Initial import", gitMcPath);
                 if (!gitMcCommitResult.Success)
-                    throw new InvalidOperationException($"Failed to commit in GitMC directory: {gitMcCommitResult.ErrorMessage}");
+                    throw new InvalidOperationException(
+                        $"Failed to commit in GitMC directory: {gitMcCommitResult.ErrorMessage}");
 
                 // Then, create initial commit in save directory (excluding GitMC due to .gitignore)
                 currentOperation++;
@@ -189,7 +187,8 @@ public class SaveInitializationService : ISaveInitializationService
 
                 GitOperationResult saveStageResult = await _gitService.StageAllAsync(savePath);
                 if (!saveStageResult.Success)
-                    throw new InvalidOperationException($"Failed to stage files in save directory: {saveStageResult.ErrorMessage}");
+                    throw new InvalidOperationException(
+                        $"Failed to stage files in save directory: {saveStageResult.ErrorMessage}");
 
                 // Only commit if there are files staged
                 currentOperation++;
@@ -198,19 +197,21 @@ public class SaveInitializationService : ISaveInitializationService
                 progressWrapper.Report(steps[6]);
                 await Task.Delay(100); // Brief pause for UI update
 
-                var saveStatus = await _gitService.GetStatusAsync(savePath);
+                GitStatus saveStatus = await _gitService.GetStatusAsync(savePath);
                 if (saveStatus.StagedFiles.Length > 0)
                 {
                     currentOperation++;
                     steps[6].CurrentProgress = currentOperation;
-                    steps[6].Message = $"Creating commit for {saveStatus.StagedFiles.Length} files in save directory...";
+                    steps[6].Message =
+                        $"Creating commit for {saveStatus.StagedFiles.Length} files in save directory...";
                     progressWrapper.Report(steps[6]);
                     await Task.Delay(100); // Brief pause for UI update
 
                     GitOperationResult saveCommitResult =
                         await _gitService.CommitAsync("Initial import", savePath);
                     if (!saveCommitResult.Success)
-                        throw new InvalidOperationException($"Failed to commit in save directory: {saveCommitResult.ErrorMessage}");
+                        throw new InvalidOperationException(
+                            $"Failed to commit in save directory: {saveCommitResult.ErrorMessage}");
                 }
                 else
                 {
@@ -225,7 +226,8 @@ public class SaveInitializationService : ISaveInitializationService
                 steps[6].Message = "Repositories committed successfully";
                 progressWrapper.Report(steps[6]);
                 return true;
-            }); return true;
+            });
+            return true;
         }
         catch (Exception ex)
         {
@@ -589,13 +591,12 @@ public class SaveInitializationService : ISaveInitializationService
                 // Empty MCA files are treated as multi-chunk structure but with 0 chunks
                 return (true, 0);
             }
-            else
-            {
-                // For non-MCA files, create standard single SNBT file
-                string snbtPath = filePath + ".snbt";
 
-                // Create SNBT content for empty file
-                string emptyFileSnbtContent = $@"// Empty file: {fileName}
+            // For non-MCA files, create standard single SNBT file
+            string snbtPath = filePath + ".snbt";
+
+            // Create SNBT content for empty file
+            string emptyFileSnbtContent = $@"// Empty file: {fileName}
 // File size: 0 bytes
 // Original path: {filePath}
 
@@ -609,11 +610,10 @@ public class SaveInitializationService : ISaveInitializationService
     }}
 }}";
 
-                await File.WriteAllTextAsync(snbtPath, emptyFileSnbtContent, Encoding.UTF8);
+            await File.WriteAllTextAsync(snbtPath, emptyFileSnbtContent, Encoding.UTF8);
 
-                // Non-MCA empty files are not multi-chunk
-                return (false, 0);
-            }
+            // Non-MCA empty files are not multi-chunk
+            return (false, 0);
         }
         catch (Exception)
         {
@@ -685,7 +685,6 @@ public class SaveInitializationService : ISaveInitializationService
             // Check if this is an MCA/MCC file - use chunk-based conversion for initialization
             if (extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
                 extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase))
-            {
                 try
                 {
                     // Use chunk-based processing for MCA files (same as SaveTranslatorPage chunk mode)
@@ -728,21 +727,19 @@ public class SaveInitializationService : ISaveInitializationService
                     await File.WriteAllTextAsync(errorSnbtPath, errorSnbtContent, Encoding.UTF8);
                     return (false, 0);
                 }
-            }
-            else
-            {
-                // For non-MCA files, use standard single-file conversion
-                string snbtPath = filePath + ".snbt";
 
-                try
-                {
-                    await _nbtService.ConvertToSnbtAsync(filePath, snbtPath, progressCallback);
-                }
-                catch (Exception ex)
-                {
-                    // If conversion fails, create a basic SNBT file indicating the issue
-                    var fileInfo = new FileInfo(filePath);
-                    string errorSnbtContent = $@"// Failed to convert: {Path.GetFileName(filePath)}
+            // For non-MCA files, use standard single-file conversion
+            string snbtPath = filePath + ".snbt";
+
+            try
+            {
+                await _nbtService.ConvertToSnbtAsync(filePath, snbtPath, progressCallback);
+            }
+            catch (Exception ex)
+            {
+                // If conversion fails, create a basic SNBT file indicating the issue
+                var fileInfo = new FileInfo(filePath);
+                string errorSnbtContent = $@"// Failed to convert: {Path.GetFileName(filePath)}
 // File size: {fileInfo.Length} bytes
 // Error: {ex.Message}
 // Original path: {filePath}
@@ -757,25 +754,24 @@ public class SaveInitializationService : ISaveInitializationService
     }}
 }}";
 
-                    await File.WriteAllTextAsync(snbtPath, errorSnbtContent, Encoding.UTF8);
-                }
+                await File.WriteAllTextAsync(snbtPath, errorSnbtContent, Encoding.UTF8);
+            }
 
-                // Verify SNBT file was created (should always exist now)
-                if (!File.Exists(snbtPath))
-                {
-                    // Last resort: create minimal SNBT file
-                    string fileName = Path.GetFileName(filePath);
-                    string fallbackContent = $@"// File: {fileName}
+            // Verify SNBT file was created (should always exist now)
+            if (!File.Exists(snbtPath))
+            {
+                // Last resort: create minimal SNBT file
+                string fileName = Path.GetFileName(filePath);
+                string fallbackContent = $@"// File: {fileName}
 // Note: Conversion failed and fallback creation also failed
 
 {{
     ""Error"": ""Failed to process file: {fileName}""
 }}";
-                    await File.WriteAllTextAsync(snbtPath, fallbackContent, Encoding.UTF8);
-                }
-
-                return (isMultiChunk, chunkCount);
+                await File.WriteAllTextAsync(snbtPath, fallbackContent, Encoding.UTF8);
             }
+
+            return (isMultiChunk, chunkCount);
         }
         catch (Exception ex)
         {
@@ -786,7 +782,6 @@ public class SaveInitializationService : ISaveInitializationService
                 // For MCA files, create error SNBT in standard location
                 string errorSnbtPath = filePath + ".snbt";
                 if (!File.Exists(errorSnbtPath))
-                {
                     try
                     {
                         var fileInfo = new FileInfo(filePath);
@@ -818,14 +813,12 @@ public class SaveInitializationService : ISaveInitializationService
                             // If we can't even create the file, give up on this one
                         }
                     }
-                }
             }
             else
             {
                 // For non-MCA files, create standard error SNBT
                 string snbtPath = filePath + ".snbt";
                 if (!File.Exists(snbtPath))
-                {
                     try
                     {
                         var fileInfo = new FileInfo(filePath);
@@ -857,7 +850,6 @@ public class SaveInitializationService : ISaveInitializationService
                             // If we can't even create the file, give up on this one
                         }
                     }
-                }
             }
 
             // Return false values but don't prevent the process from continuing

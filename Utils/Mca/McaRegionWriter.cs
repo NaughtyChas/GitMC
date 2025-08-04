@@ -137,7 +137,8 @@ public class McaRegionWriter : IDisposable
         string tempPath = _filePath + ".tmp";
         try
         {
-            await using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true))
+            await using (var fileStream =
+                         new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
             {
                 await WriteRegionFileAsync(fileStream);
                 await fileStream.FlushAsync();

@@ -1,19 +1,14 @@
 using System.Diagnostics;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 using GitMC.Services;
 using GitMC.Utils;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.UI;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -30,8 +25,8 @@ public sealed partial class SaveTranslatorPage : Page
     private DateTime _lastLogFlush = DateTime.Now;
     private PerformanceCounter? _memoryCounter;
     private DispatcherTimer? _performanceTimer;
-    private string? _selectedSavePath;
     private string? _selectedGitMcPath;
+    private string? _selectedSavePath;
 
     public SaveTranslatorPage()
     {
@@ -276,34 +271,36 @@ public sealed partial class SaveTranslatorPage : Page
             var batch = filesToProcess.Skip(batchStart).Take(batchSize).ToList();
 
             // Process batch on background thread
-            var batchResults = await Task.Run(async () =>
-            {
-                var results = new List<(bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error)>();
-
-                foreach (FileInfo fileInfo in batch)
+            List<(bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error)> batchResults =
+                await Task.Run(async () =>
                 {
-                    try
-                    {
-                        string relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
-                        string targetPath = Path.Combine(gitMcPath, relativePath);
+                    var results =
+                        new List<(bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error)>();
 
-                        // Track multi-chunk processing
-                        (bool IsMultiChunk, int ChunkCount) isMultiChunk =
-                            await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
+                    foreach (FileInfo fileInfo in batch)
+                        try
+                        {
+                            string relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
+                            string targetPath = Path.Combine(gitMcPath, relativePath);
 
-                        results.Add((isMultiChunk.IsMultiChunk, isMultiChunk.ChunkCount, fileInfo.Name, true, null));
-                    }
-                    catch (Exception ex)
-                    {
-                        results.Add((false, 0, fileInfo.Name, false, ex.Message));
-                    }
-                }
+                            // Track multi-chunk processing
+                            (bool IsMultiChunk, int ChunkCount) isMultiChunk =
+                                await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
 
-                return results;
-            }, cancellationToken);
+                            results.Add((isMultiChunk.IsMultiChunk, isMultiChunk.ChunkCount, fileInfo.Name, true,
+                                null));
+                        }
+                        catch (Exception ex)
+                        {
+                            results.Add((false, 0, fileInfo.Name, false, ex.Message));
+                        }
+
+                    return results;
+                }, cancellationToken);
 
             // Update counters and UI on main thread
-            foreach (var result in batchResults)
+            foreach ((bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error) result in
+                     batchResults)
             {
                 processedCount++;
 
@@ -314,16 +311,12 @@ public sealed partial class SaveTranslatorPage : Page
                 }
 
                 if (!result.success && result.error != null)
-                {
                     LogMessage($"Failed to process file {result.fileName}: {result.error}");
-                }
             }
 
             // Log batch progress less frequently
-            if ((batchStart / batchSize) % 10 == 0 || processedCount >= totalFiles)
-            {
+            if (batchStart / batchSize % 10 == 0 || processedCount >= totalFiles)
                 LogMessage($"Processing batch: {processedCount}/{totalFiles} files completed");
-            }
 
             int progress = 30 + processedCount * 60 / totalFiles;
 
@@ -712,7 +705,8 @@ public sealed partial class SaveTranslatorPage : Page
                     // Clean up marker file
                     File.Delete(markerPath);
 
-                    LogMessage($"    ✓ Reconstructed MCA from {Directory.GetFiles(chunkFolderPath, "chunk_*.snbt").Length} chunk files");
+                    LogMessage(
+                        $"    ✓ Reconstructed MCA from {Directory.GetFiles(chunkFolderPath, "chunk_*.snbt").Length} chunk files");
                 }
                 else
                 {
@@ -903,11 +897,10 @@ public sealed partial class SaveTranslatorPage : Page
                         LogTextBox.Text = sb.ToString();
 
                         // Only auto-scroll occasionally to reduce UI work - scroll less frequently
-                        if (logsToFlush.Count > 10 || logsToFlush.Any(log => log.Contains("complete") || log.Contains("===")))
-                        {
+                        if (logsToFlush.Count > 10 ||
+                            logsToFlush.Any(log => log.Contains("complete") || log.Contains("===")))
                             if (LogTextBox.Parent is ScrollViewer scrollViewer)
                                 scrollViewer.ChangeView(null, scrollViewer.ScrollableHeight, null, false);
-                        }
                     }
 
                     _lastLogFlush = DateTime.Now;
@@ -965,7 +958,7 @@ public sealed partial class SaveTranslatorPage : Page
             DispatcherQueue.TryEnqueue(() =>
             {
                 GitMcValidationText.Text = $"Error selecting folder: {ex.Message}";
-                GitMcValidationText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+                GitMcValidationText.Foreground = new SolidColorBrush(Colors.Red);
             });
         }
     }
@@ -975,22 +968,20 @@ public sealed partial class SaveTranslatorPage : Page
         try
         {
             // Check if it's a valid GitMC folder structure
-            var regionFolder = Path.Combine(folderPath, "region");
+            string regionFolder = Path.Combine(folderPath, "region");
 
             bool hasRegionFolder = Directory.Exists(regionFolder);
             bool hasSnbtFiles = false;
 
             if (hasRegionFolder)
-            {
                 hasSnbtFiles = Directory.GetFiles(regionFolder, "*.snbt", SearchOption.AllDirectories).Length > 0;
-            }
 
             DispatcherQueue.TryEnqueue(() =>
             {
                 if (hasRegionFolder && hasSnbtFiles)
                 {
                     GitMcValidationText.Text = "✓ Valid GitMC folder detected";
-                    GitMcValidationText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green);
+                    GitMcValidationText.Foreground = new SolidColorBrush(Colors.Green);
                     GitMcValidationText.Visibility = Visibility.Visible;
                     StartReverseTranslationButton.IsEnabled = true;
                 }
@@ -1001,7 +992,7 @@ public sealed partial class SaveTranslatorPage : Page
                     if (!hasSnbtFiles) issues.Add("No SNBT files found");
 
                     GitMcValidationText.Text = $"✗ Invalid GitMC folder: {string.Join(", ", issues)}";
-                    GitMcValidationText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+                    GitMcValidationText.Foreground = new SolidColorBrush(Colors.Red);
                     GitMcValidationText.Visibility = Visibility.Visible;
                     StartReverseTranslationButton.IsEnabled = false;
                 }
@@ -1013,7 +1004,7 @@ public sealed partial class SaveTranslatorPage : Page
             DispatcherQueue.TryEnqueue(() =>
             {
                 GitMcValidationText.Text = $"Validation error: {ex.Message}";
-                GitMcValidationText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+                GitMcValidationText.Foreground = new SolidColorBrush(Colors.Red);
                 GitMcValidationText.Visibility = Visibility.Visible;
                 StartReverseTranslationButton.IsEnabled = false;
             });
@@ -1022,15 +1013,12 @@ public sealed partial class SaveTranslatorPage : Page
 
     private async void StartReverseTranslationButton_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(_selectedGitMcPath))
-        {
-            return;
-        }
+        if (string.IsNullOrEmpty(_selectedGitMcPath)) return;
 
         try
         {
             _cancellationTokenSource = new CancellationTokenSource();
-            var cancellationToken = _cancellationTokenSource.Token;
+            CancellationToken cancellationToken = _cancellationTokenSource.Token;
 
             // Disable UI elements
             DispatcherQueue.TryEnqueue(() =>
@@ -1043,13 +1031,10 @@ public sealed partial class SaveTranslatorPage : Page
             });
 
             // Create output folder
-            var outputFolder = Path.Combine(Path.GetDirectoryName(_selectedGitMcPath)!,
+            string outputFolder = Path.Combine(Path.GetDirectoryName(_selectedGitMcPath)!,
                 Path.GetFileName(_selectedGitMcPath) + "_restored");
 
-            if (Directory.Exists(outputFolder))
-            {
-                Directory.Delete(outputFolder, true);
-            }
+            if (Directory.Exists(outputFolder)) Directory.Delete(outputFolder, true);
             Directory.CreateDirectory(outputFolder);
 
             LogMessage($"Starting reverse translation from: {_selectedGitMcPath}");
@@ -1060,7 +1045,7 @@ public sealed partial class SaveTranslatorPage : Page
             DispatcherQueue.TryEnqueue(() =>
             {
                 ReverseTranslationProgressText.Text = "✓ Reverse translation completed successfully!";
-                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Green);
+                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Colors.Green);
             });
 
             LogMessage($"Reverse translation completed. Restored save available at: {outputFolder}");
@@ -1071,7 +1056,7 @@ public sealed partial class SaveTranslatorPage : Page
             DispatcherQueue.TryEnqueue(() =>
             {
                 ReverseTranslationProgressText.Text = "Reverse translation cancelled.";
-                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Colors.Orange);
             });
         }
         catch (Exception ex)
@@ -1081,7 +1066,7 @@ public sealed partial class SaveTranslatorPage : Page
             DispatcherQueue.TryEnqueue(() =>
             {
                 ReverseTranslationProgressText.Text = $"✗ Error: {ex.Message}";
-                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+                ReverseTranslationProgressText.Foreground = new SolidColorBrush(Colors.Red);
             });
         }
         finally
@@ -1095,7 +1080,8 @@ public sealed partial class SaveTranslatorPage : Page
         }
     }
 
-    private async Task PerformReverseTranslation(string gitMcPath, string outputPath, CancellationToken cancellationToken)
+    private async Task PerformReverseTranslation(string gitMcPath, string outputPath,
+        CancellationToken cancellationToken)
     {
         LogMessage("=== Starting reverse translation process ===");
         LogMessage($"Source GitMC folder: {gitMcPath}");
@@ -1107,35 +1093,37 @@ public sealed partial class SaveTranslatorPage : Page
         LogMessage("✓ All files copied to output folder");
 
         // Step 2: Process MCA files in region, poi, and entities folders
-        var mcaFolders = new[] { "region", "poi", "entities" };
-        var totalMcaProcessed = 0;
+        string[] mcaFolders = { "region", "poi", "entities" };
+        int totalMcaProcessed = 0;
 
-        foreach (var folderName in mcaFolders)
+        foreach (string folderName in mcaFolders)
         {
-            var sourceFolder = Path.Combine(outputPath, folderName);
+            string sourceFolder = Path.Combine(outputPath, folderName);
             if (!Directory.Exists(sourceFolder))
             {
                 LogMessage($"  Folder {folderName} does not exist, skipping...");
                 continue;
             }
 
-            LogMessage($"Step 2.{Array.IndexOf(mcaFolders, folderName) + 1}: Processing MCA files in /{folderName} folder...");
-            var processed = await ProcessMcaFilesInFolder(sourceFolder, cancellationToken);
+            LogMessage(
+                $"Step 2.{Array.IndexOf(mcaFolders, folderName) + 1}: Processing MCA files in /{folderName} folder...");
+            int processed = await ProcessMcaFilesInFolder(sourceFolder, cancellationToken);
             totalMcaProcessed += processed;
             LogMessage($"✓ Processed {processed} MCA files in /{folderName}");
         }
 
         // Step 3: Process other SNBT files (dat, nbt files)
         LogMessage("Step 3: Processing other SNBT files (dat, nbt, etc.)...");
-        var otherSnbtProcessed = await ProcessOtherSnbtFiles(outputPath, cancellationToken);
+        int otherSnbtProcessed = await ProcessOtherSnbtFiles(outputPath, cancellationToken);
         LogMessage($"✓ Processed {otherSnbtProcessed} other SNBT files");
 
         // Step 4: Clean up - remove all SNBT files and empty chunk folders
         LogMessage("Step 4: Cleaning up SNBT files and empty chunk folders...");
-        var cleanedUp = await CleanupSnbtFilesAndChunkFolders(outputPath, cancellationToken);
+        (int snbtFiles, int chunkFolders) cleanedUp =
+            await CleanupSnbtFilesAndChunkFolders(outputPath, cancellationToken);
         LogMessage($"✓ Cleaned up {cleanedUp.snbtFiles} SNBT files and {cleanedUp.chunkFolders} chunk folders");
 
-        LogMessage($"✅ Reverse translation completed successfully!");
+        LogMessage("\u2705 Reverse translation completed successfully!");
         LogMessage($"   - Total MCA files reconstructed: {totalMcaProcessed}");
         LogMessage($"   - Other files converted: {otherSnbtProcessed}");
         LogMessage($"   - Files cleaned up: {cleanedUp.snbtFiles} SNBT files, {cleanedUp.chunkFolders} chunk folders");
@@ -1144,10 +1132,10 @@ public sealed partial class SaveTranslatorPage : Page
 
     private async Task<int> ProcessMcaFilesInFolder(string folderPath, CancellationToken cancellationToken)
     {
-        var processedCount = 0;
+        int processedCount = 0;
 
         // Get all chunk marker files in this folder
-        var chunkMarkerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
+        string[] chunkMarkerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
 
         if (chunkMarkerFiles.Length == 0)
         {
@@ -1157,7 +1145,7 @@ public sealed partial class SaveTranslatorPage : Page
 
         LogMessage($"  Found {chunkMarkerFiles.Length} chunk-based MCA files");
 
-        foreach (var markerFile in chunkMarkerFiles)
+        foreach (string markerFile in chunkMarkerFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -1173,9 +1161,7 @@ public sealed partial class SaveTranslatorPage : Page
                     string snbtPath = markerFile.Replace(".chunk_mode", "");
                     string originalFileName = Path.GetFileName(snbtPath);
                     if (originalFileName.EndsWith(".snbt"))
-                    {
                         originalFileName = originalFileName.Substring(0, originalFileName.Length - 5); // Remove .snbt
-                    }
 
                     string outputMcaPath = Path.Combine(folderPath, originalFileName);
 
@@ -1220,12 +1206,12 @@ public sealed partial class SaveTranslatorPage : Page
 
     private async Task<int> ProcessOtherSnbtFiles(string outputPath, CancellationToken cancellationToken)
     {
-        var processedCount = 0;
+        int processedCount = 0;
 
         // Find all SNBT files that are NOT part of chunk-based MCA conversion
-        var allSnbtFiles = Directory.GetFiles(outputPath, "*.snbt", SearchOption.AllDirectories);
+        string[] allSnbtFiles = Directory.GetFiles(outputPath, "*.snbt", SearchOption.AllDirectories);
 
-        var otherSnbtFiles = allSnbtFiles.Where(snbtFile =>
+        string[] otherSnbtFiles = allSnbtFiles.Where(snbtFile =>
         {
             // Skip if this is part of a chunk-based conversion (has marker file)
             string markerPath = snbtFile + ".chunk_mode";
@@ -1252,10 +1238,8 @@ public sealed partial class SaveTranslatorPage : Page
                 // Check if it's a simple .snbt file (not .extension.snbt)
                 string nameWithoutSnbt = fileName.Substring(0, fileName.Length - 5); // Remove .snbt
                 if (!nameWithoutSnbt.Contains('.'))
-                {
                     // This is a pure .snbt file, not converted from another format
                     return false;
-                }
             }
 
             return true;
@@ -1269,7 +1253,7 @@ public sealed partial class SaveTranslatorPage : Page
 
         LogMessage($"  Found {otherSnbtFiles.Length} other SNBT files to convert");
 
-        foreach (var snbtFile in otherSnbtFiles)
+        foreach (string snbtFile in otherSnbtFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -1278,9 +1262,7 @@ public sealed partial class SaveTranslatorPage : Page
                 // Determine output file path by removing .snbt extension
                 string outputFile = snbtFile;
                 if (outputFile.EndsWith(".snbt"))
-                {
                     outputFile = outputFile.Substring(0, outputFile.Length - 5); // Remove .snbt
-                }
 
                 // Convert SNBT back to original format
                 LogMessage($"    Converting {Path.GetFileName(snbtFile)}...");
@@ -1307,7 +1289,8 @@ public sealed partial class SaveTranslatorPage : Page
         return processedCount;
     }
 
-    private async Task<(int snbtFiles, int chunkFolders)> CleanupSnbtFilesAndChunkFolders(string outputPath, CancellationToken cancellationToken)
+    private async Task<(int snbtFiles, int chunkFolders)> CleanupSnbtFilesAndChunkFolders(string outputPath,
+        CancellationToken cancellationToken)
     {
         int snbtFilesDeleted = 0;
         int chunkFoldersDeleted = 0;
@@ -1315,11 +1298,11 @@ public sealed partial class SaveTranslatorPage : Page
         await Task.Run(() =>
         {
             // Define folders where cleanup should happen
-            var targetFolders = new[] { "region", "poi", "entities" };
+            string[] targetFolders = { "region", "poi", "entities" };
 
-            foreach (var folderName in targetFolders)
+            foreach (string folderName in targetFolders)
             {
-                var folderPath = Path.Combine(outputPath, folderName);
+                string folderPath = Path.Combine(outputPath, folderName);
                 if (!Directory.Exists(folderPath))
                 {
                     LogMessage($"  Folder {folderName} does not exist, skipping cleanup...");
@@ -1329,11 +1312,10 @@ public sealed partial class SaveTranslatorPage : Page
                 LogMessage($"  Cleaning up {folderName} folder...");
 
                 // Step 4.1: Delete SNBT files only in this specific folder
-                var snbtFiles = Directory.GetFiles(folderPath, "*.snbt", SearchOption.AllDirectories);
+                string[] snbtFiles = Directory.GetFiles(folderPath, "*.snbt", SearchOption.AllDirectories);
                 LogMessage($"    Found {snbtFiles.Length} SNBT files to remove in {folderName}");
 
-                foreach (var snbtFile in snbtFiles)
-                {
+                foreach (string snbtFile in snbtFiles)
                     try
                     {
                         File.Delete(snbtFile);
@@ -1343,14 +1325,12 @@ public sealed partial class SaveTranslatorPage : Page
                     {
                         LogMessage($"      ⚠ Warning: Failed to delete {Path.GetFileName(snbtFile)}: {ex.Message}");
                     }
-                }
 
                 // Step 4.2: Delete chunk marker files only in this specific folder
-                var markerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
+                string[] markerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
                 LogMessage($"    Found {markerFiles.Length} chunk marker files to remove in {folderName}");
 
-                foreach (var markerFile in markerFiles)
-                {
+                foreach (string markerFile in markerFiles)
                     try
                     {
                         File.Delete(markerFile);
@@ -1359,16 +1339,15 @@ public sealed partial class SaveTranslatorPage : Page
                     {
                         LogMessage($"      ⚠ Warning: Failed to delete {Path.GetFileName(markerFile)}: {ex.Message}");
                     }
-                }
 
                 // Step 4.3: Delete chunk folders only in this specific folder
-                var allDirectories = Directory.GetDirectories(folderPath, "*", SearchOption.AllDirectories);
-                var chunkDirectories = allDirectories.Where(dir => Path.GetFileName(dir).EndsWith(".chunks"));
+                string[] allDirectories = Directory.GetDirectories(folderPath, "*", SearchOption.AllDirectories);
+                IEnumerable<string> chunkDirectories =
+                    allDirectories.Where(dir => Path.GetFileName(dir).EndsWith(".chunks"));
 
                 LogMessage($"    Found {chunkDirectories.Count()} chunk folders to remove in {folderName}");
 
-                foreach (var chunkDir in chunkDirectories)
-                {
+                foreach (string chunkDir in chunkDirectories)
                     try
                     {
                         if (Directory.Exists(chunkDir))
@@ -1380,33 +1359,32 @@ public sealed partial class SaveTranslatorPage : Page
                     }
                     catch (Exception ex)
                     {
-                        LogMessage($"      ⚠ Warning: Failed to delete chunk folder {Path.GetFileName(chunkDir)}: {ex.Message}");
+                        LogMessage(
+                            $"      ⚠ Warning: Failed to delete chunk folder {Path.GetFileName(chunkDir)}: {ex.Message}");
                     }
-                }
 
                 // Step 4.4: Remove any remaining empty directories only in this specific folder
-                var emptyDirs = allDirectories.Where(dir =>
+                string[] emptyDirs = allDirectories.Where(dir =>
                     Directory.Exists(dir) &&
                     Directory.GetFileSystemEntries(dir).Length == 0).ToArray();
 
                 if (emptyDirs.Length > 0)
                 {
                     LogMessage($"    Found {emptyDirs.Length} empty directories to remove in {folderName}");
-                    foreach (var emptyDir in emptyDirs)
-                    {
+                    foreach (string emptyDir in emptyDirs)
                         try
                         {
                             Directory.Delete(emptyDir, false);
-                            LogMessage($"      ✓ Deleted empty directory: {Path.GetRelativePath(folderPath, emptyDir)}");
+                            LogMessage(
+                                $"      ✓ Deleted empty directory: {Path.GetRelativePath(folderPath, emptyDir)}");
                         }
                         catch (Exception ex)
                         {
-                            LogMessage($"      ⚠ Warning: Failed to delete empty directory {Path.GetFileName(emptyDir)}: {ex.Message}");
+                            LogMessage(
+                                $"      ⚠ Warning: Failed to delete empty directory {Path.GetFileName(emptyDir)}: {ex.Message}");
                         }
-                    }
                 }
             }
-
         }, cancellationToken);
 
         return (snbtFilesDeleted, chunkFoldersDeleted);
@@ -1414,31 +1392,27 @@ public sealed partial class SaveTranslatorPage : Page
 
     private async Task CopyNonRegionFiles(string sourcePath, string outputPath, CancellationToken cancellationToken)
     {
-        var allEntries = Directory.GetFileSystemEntries(sourcePath, "*", SearchOption.TopDirectoryOnly);
+        string[] allEntries = Directory.GetFileSystemEntries(sourcePath, "*", SearchOption.TopDirectoryOnly);
 
-        foreach (var entry in allEntries)
+        foreach (string entry in allEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var entryName = Path.GetFileName(entry);
+            string entryName = Path.GetFileName(entry);
 
             // Skip region folder (we handle it separately) and git folder
             if (entryName.Equals("region", StringComparison.OrdinalIgnoreCase) ||
                 entryName.Equals(".git", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var outputEntry = Path.Combine(outputPath, entryName);
+            string outputEntry = Path.Combine(outputPath, entryName);
 
             if (Directory.Exists(entry))
-            {
                 // Copy directory recursively
                 await Task.Run(() => CopyDirectory(entry, outputEntry), cancellationToken);
-            }
             else
-            {
                 // Copy file
                 File.Copy(entry, outputEntry, true);
-            }
         }
     }
 
@@ -1447,16 +1421,16 @@ public sealed partial class SaveTranslatorPage : Page
         Directory.CreateDirectory(destinationDir);
 
         // Copy all files in the source directory
-        foreach (var file in Directory.GetFiles(sourceDir))
+        foreach (string file in Directory.GetFiles(sourceDir))
         {
-            var destFile = Path.Combine(destinationDir, Path.GetFileName(file));
+            string destFile = Path.Combine(destinationDir, Path.GetFileName(file));
             File.Copy(file, destFile, true);
         }
 
         // Recursively copy all subdirectories
-        foreach (var subDir in Directory.GetDirectories(sourceDir))
+        foreach (string subDir in Directory.GetDirectories(sourceDir))
         {
-            var destSubDir = Path.Combine(destinationDir, Path.GetFileName(subDir));
+            string destSubDir = Path.Combine(destinationDir, Path.GetFileName(subDir));
             CopyDirectory(subDir, destSubDir);
         }
     }

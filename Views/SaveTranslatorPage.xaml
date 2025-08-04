@@ -198,9 +198,7 @@
 
             <!--  Reverse Translation Section  -->
             <StackPanel Spacing="16">
-                <TextBlock
-                    Style="{StaticResource TitleTextBlockStyle}"
-                    Text="Reverse Translation (GitMC → Minecraft Save)" />
+                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Reverse Translation (GitMC → Minecraft Save)" />
 
                 <!--  Select GitMC Folder  -->
                 <StackPanel Spacing="12">
