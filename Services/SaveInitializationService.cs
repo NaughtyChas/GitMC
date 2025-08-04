@@ -51,10 +51,17 @@ public class SaveInitializationService : ISaveInitializationService
 
         ObservableCollection<SaveInitStep> steps = GetInitializationSteps();
 
+        // Create a progress wrapper that reports to both the provided handler and the status service
+        IProgress<SaveInitStep> progressWrapper = new Progress<SaveInitStep>(step =>
+        {
+            progress?.Report(step);
+            SaveInitializationStatusService.Instance.ReportProgress(step);
+        });
+
         try
         {
             // Step 1: Create GitMC directory structure (moved first)
-            await ExecuteStepAsync(steps[0], progress, async () =>
+            await ExecuteStepAsync(steps[0], progressWrapper, async () =>
             {
                 steps[0].Message = "Creating GitMC directory structure...";
                 await CreateGitMcStructure(savePath);
@@ -62,23 +69,23 @@ public class SaveInitializationService : ISaveInitializationService
             });
 
             // Step 2: Copy all files (moved before git init)
-            await ExecuteStepAsync(steps[1], progress, async () =>
+            await ExecuteStepAsync(steps[1], progressWrapper, async () =>
             {
                 steps[1].Message = "Copying save files to GitMC directory...";
-                await CopyAllFiles(savePath, steps[1], progress);
+                await CopyAllFiles(savePath, steps[1], progressWrapper);
                 return true;
             });
 
             // Step 3: Extract chunks to SNBT (moved before git init)
-            await ExecuteStepAsync(steps[2], progress, async () =>
+            await ExecuteStepAsync(steps[2], progressWrapper, async () =>
             {
                 steps[2].Message = "Converting files to SNBT format...";
-                await ExtractChunksToSnbt(savePath, steps[2], progress);
+                await ExtractChunksToSnbt(savePath, steps[2], progressWrapper);
                 return true;
             });
 
             // Step 4: Initialize Git repositories (both save directory and GitMC directory)
-            await ExecuteStepAsync(steps[3], progress, async () =>
+            await ExecuteStepAsync(steps[3], progressWrapper, async () =>
             {
                 steps[3].Message = "Initializing Git repositories...";
 
@@ -101,7 +108,7 @@ public class SaveInitializationService : ISaveInitializationService
             });
 
             // Step 5: Create .gitignore files for both repositories
-            await ExecuteStepAsync(steps[4], progress, async () =>
+            await ExecuteStepAsync(steps[4], progressWrapper, async () =>
             {
                 steps[4].Message = "Creating .gitignore files...";
 
@@ -116,7 +123,7 @@ public class SaveInitializationService : ISaveInitializationService
             });
 
             // Step 6: Create manifest file
-            await ExecuteStepAsync(steps[5], progress, async () =>
+            await ExecuteStepAsync(steps[5], progressWrapper, async () =>
             {
                 steps[5].Message = "Creating manifest file...";
                 await CreateManifestFile(savePath);
@@ -124,7 +131,7 @@ public class SaveInitializationService : ISaveInitializationService
             });
 
             // Step 7: Initial commits for both repositories
-            await ExecuteStepAsync(steps[6], progress, async () =>
+            await ExecuteStepAsync(steps[6], progressWrapper, async () =>
             {
                 // Set up progress tracking for commit operations
                 int totalOperations = 6; // GitMC: scan, stage, commit; Save: stage, status check, commit (if needed)
@@ -133,7 +140,7 @@ public class SaveInitializationService : ISaveInitializationService
                 steps[6].CurrentProgress = currentOperation;
                 steps[6].TotalProgress = totalOperations;
                 steps[6].Message = "Creating initial commits...";
-                progress?.Report(steps[6]);
+                progressWrapper.Report(steps[6]);
 
                 // First, create initial commit in GitMC directory (which should have SNBT files)
                 string gitMcPath = Path.Combine(savePath, "GitMC");
@@ -145,7 +152,7 @@ public class SaveInitializationService : ISaveInitializationService
                 currentOperation++;
                 steps[6].CurrentProgress = currentOperation;
                 steps[6].Message = "Scanning GitMC directory for files...";
-                progress?.Report(steps[6]);
+                progressWrapper.Report(steps[6]);
                 await Task.Delay(100); // Brief pause for UI update
 
                 var gitMcFiles = Directory.GetFiles(gitMcPath, "*", SearchOption.AllDirectories);
@@ -155,7 +162,7 @@ public class SaveInitializationService : ISaveInitializationService
                 currentOperation++;
                 steps[6].CurrentProgress = currentOperation;
                 steps[6].Message = $"Staging {gitMcFiles.Length} files in GitMC directory...";
-                progress?.Report(steps[6]);
+                progressWrapper.Report(steps[6]);
                 await Task.Delay(100); // Brief pause for UI update
 
                 GitOperationResult gitMcStageResult = await _gitService.StageAllAsync(gitMcPath);
@@ -165,7 +172,7 @@ public class SaveInitializationService : ISaveInitializationService
                 currentOperation++;
                 steps[6].CurrentProgress = currentOperation;
                 steps[6].Message = "Creating commit in GitMC directory...";
-                progress?.Report(steps[6]);
+                progressWrapper.Report(steps[6]);
                 await Task.Delay(100); // Brief pause for UI update
 
                 GitOperationResult gitMcCommitResult =
@@ -177,7 +184,7 @@ public class SaveInitializationService : ISaveInitializationService
                 currentOperation++;
                 steps[6].CurrentProgress = currentOperation;
                 steps[6].Message = "Staging files in save directory...";
-                progress?.Report(steps[6]);
+                progressWrapper.Report(steps[6]);
                 await Task.Delay(100); // Brief pause for UI update
 
                 GitOperationResult saveStageResult = await _gitService.StageAllAsync(savePath);
@@ -188,7 +195,7 @@ public class SaveInitializationService : ISaveInitializationService
                 currentOperation++;
                 steps[6].CurrentProgress = currentOperation;
                 steps[6].Message = "Checking staged files in save directory...";
-                progress?.Report(steps[6]);
+                progressWrapper.Report(steps[6]);
                 await Task.Delay(100); // Brief pause for UI update
 
                 var saveStatus = await _gitService.GetStatusAsync(savePath);
@@ -197,7 +204,7 @@ public class SaveInitializationService : ISaveInitializationService
                     currentOperation++;
                     steps[6].CurrentProgress = currentOperation;
                     steps[6].Message = $"Creating commit for {saveStatus.StagedFiles.Length} files in save directory...";
-                    progress?.Report(steps[6]);
+                    progressWrapper.Report(steps[6]);
                     await Task.Delay(100); // Brief pause for UI update
 
                     GitOperationResult saveCommitResult =
@@ -210,13 +217,13 @@ public class SaveInitializationService : ISaveInitializationService
                     currentOperation++;
                     steps[6].CurrentProgress = currentOperation;
                     steps[6].Message = "No files to commit in save directory (all excluded by .gitignore)";
-                    progress?.Report(steps[6]);
+                    progressWrapper.Report(steps[6]);
                     await Task.Delay(100); // Brief pause for UI update
                 }
 
                 steps[6].CurrentProgress = totalOperations;
                 steps[6].Message = "Repositories committed successfully";
-                progress?.Report(steps[6]);
+                progressWrapper.Report(steps[6]);
                 return true;
             }); return true;
         }
