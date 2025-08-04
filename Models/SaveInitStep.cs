@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using GitMC.Constants;
+using Windows.UI;
 
 namespace GitMC.Models;
 
@@ -15,6 +17,11 @@ public class SaveInitStep : INotifyPropertyChanged
 
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    ///     Whether to show progress information in the display name when the step is in progress
+    /// </summary>
+    public bool ShowProgressInName { get; set; }
 
     public int CurrentProgress
     {
@@ -52,10 +59,10 @@ public class SaveInitStep : INotifyPropertyChanged
     public bool HasProgress => TotalProgress > 0;
 
     /// <summary>
-    ///     Display name that includes progress for steps that have progress tracking when in progress
+    ///     Display name that includes progress for steps configured to show progress when in progress
     /// </summary>
     public string DisplayName =>
-        IsInProgress && HasProgress && (Name == "Extracting chunks" || Name == "Initial commit")
+        IsInProgress && HasProgress && ShowProgressInName
             ? $"{Name} {ProgressText}"
             : Name;
 
@@ -101,12 +108,12 @@ public class SaveInitStep : INotifyPropertyChanged
         _ => "\uEA3A" // Circle (pending)
     };
 
-    public string StatusColor => Status switch
+    public Color StatusColor => Status switch
     {
-        SaveInitStepStatus.Completed => "#107C10", // Success green
-        SaveInitStepStatus.InProgress => "#0078D4", // Primary blue
-        SaveInitStepStatus.Failed => "#D13438", // Error red
-        _ => "#605E5C" // Neutral gray
+        SaveInitStepStatus.Completed => ColorConstants.SuccessGreen,
+        SaveInitStepStatus.InProgress => ColorConstants.InfoBlue,
+        SaveInitStepStatus.Failed => ColorConstants.ErrorRed,
+        _ => ColorConstants.SecondaryText // Neutral gray for pending
     };
 
     public bool IsCompleted => Status == SaveInitStepStatus.Completed;

@@ -30,14 +30,22 @@ public class SaveInitializationService : ISaveInitializationService
         {
             new() { Name = "Setting up storage structure", Description = "Creating GitMC directory structure" },
             new() { Name = "Copying files", Description = "Copying save files to GitMC directory" },
-            new() { Name = "Extracting chunks", Description = "Converting files to SNBT format" },
+            new() {
+                Name = "Extracting chunks",
+                Description = "Converting files to SNBT format",
+                ShowProgressInName = true // Show progress for chunk extraction
+            },
             new() { Name = "Setting up repo", Description = "Initializing Git repository" },
             new()
             {
                 Name = "Setting up gitignore", Description = "Configuring files to exclude from version control"
             },
             new() { Name = "Preparing manifest", Description = "Creating initial manifest file" },
-            new() { Name = "Initial commit", Description = "Creating first version snapshot" }
+            new() {
+                Name = "Initial commit",
+                Description = "Creating first version snapshot",
+                ShowProgressInName = true // Show progress for initial commit
+            }
         };
     }
 

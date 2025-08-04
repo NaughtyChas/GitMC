@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using GitMC.Constants;
 using GitMC.Extensions;
@@ -34,6 +33,19 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
     // Initialize steps collection for UI binding
     private ObservableCollection<SaveInitStep> _initSteps = new();
+
+    /// <summary>
+    /// A type-safe container for UI controls associated with initialization steps.
+    /// This replaces the fragile anonymous type approach that relied on reflection.
+    /// </summary>
+    private sealed class StepUIControls
+    {
+        public FontIcon Icon { get; init; } = null!;
+        public ProgressRing ProgressRing { get; init; } = null!;
+        public TextBlock StepNameText { get; init; } = null!;
+        public TextBlock DescriptionText { get; init; } = null!;
+        public Grid IconContainer { get; init; } = null!;
+    }
 
     public SaveManagementPage()
     {
@@ -1159,20 +1171,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             Visibility = step.IsInProgress ? Visibility.Visible : Visibility.Collapsed
         };
 
-        // Parse color string to Color and apply to both icon and progress ring
-        if (step.StatusColor.StartsWith("#"))
-        {
-            string colorStr = step.StatusColor.Substring(1);
-            if (colorStr.Length == 6)
-            {
-                byte r = Convert.ToByte(colorStr.Substring(0, 2), 16);
-                byte g = Convert.ToByte(colorStr.Substring(2, 2), 16);
-                byte b = Convert.ToByte(colorStr.Substring(4, 2), 16);
-                var brush = new SolidColorBrush(Color.FromArgb(255, r, g, b));
-                icon.Foreground = brush;
-                progressRing.Foreground = brush;
-            }
-        }
+        // Apply status color to both icon and progress ring
+        var brush = new SolidColorBrush(step.StatusColor);
+        icon.Foreground = brush;
+        progressRing.Foreground = brush;
 
         // Show ProgressRing only for in-progress status, FontIcon otherwise
         icon.Visibility = step.IsInProgress ? Visibility.Collapsed : Visibility.Visible;
@@ -1210,8 +1212,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         Grid.SetRow(descriptionText, 1);
         grid.Children.Add(descriptionText);
 
-        // Store references for easy updating
-        grid.Tag = new
+        // Store references for easy updating using type-safe class
+        grid.Tag = new StepUIControls
         {
             Icon = icon,
             ProgressRing = progressRing,
@@ -1225,64 +1227,33 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
     private void UpdateStepUI(Grid? stepGrid, SaveInitStep step)
     {
-        if (stepGrid?.Tag is { } tag)
+        if (stepGrid?.Tag is StepUIControls controls)
         {
-            PropertyInfo[] properties = tag.GetType().GetProperties();
-            PropertyInfo? iconProperty = properties.FirstOrDefault(p => p.Name == "Icon");
-            PropertyInfo? progressRingProperty = properties.FirstOrDefault(p => p.Name == "ProgressRing");
-            PropertyInfo? stepNameTextProperty = properties.FirstOrDefault(p => p.Name == "StepNameText");
-            PropertyInfo? descriptionTextProperty = properties.FirstOrDefault(p => p.Name == "DescriptionText");
+            // Update icon appearance and visibility
+            controls.Icon.Glyph = step.StatusIcon;
+            controls.Icon.Visibility = step.IsInProgress ? Visibility.Collapsed : Visibility.Visible;
 
-            if (iconProperty?.GetValue(tag) is FontIcon icon)
+            // Update progress ring state
+            controls.ProgressRing.IsActive = step.IsInProgress;
+            controls.ProgressRing.Visibility = step.IsInProgress ? Visibility.Visible : Visibility.Collapsed;
+
+            // Apply status color to both icon and progress ring
+            var brush = new SolidColorBrush(step.StatusColor);
+            controls.Icon.Foreground = brush;
+            controls.ProgressRing.Foreground = brush;
+
+            // Update step name text
+            controls.StepNameText.Text = step.DisplayName;
+
+            // Update description text visibility and content
+            if (step.IsInProgress && !string.IsNullOrEmpty(step.Message))
             {
-                icon.Glyph = step.StatusIcon;
-                icon.Visibility = step.IsInProgress ? Visibility.Collapsed : Visibility.Visible;
-
-                if (step.StatusColor.StartsWith("#"))
-                {
-                    string colorStr = step.StatusColor.Substring(1);
-                    if (colorStr.Length == 6)
-                    {
-                        byte r = Convert.ToByte(colorStr.Substring(0, 2), 16);
-                        byte g = Convert.ToByte(colorStr.Substring(2, 2), 16);
-                        byte b = Convert.ToByte(colorStr.Substring(4, 2), 16);
-                        icon.Foreground = new SolidColorBrush(Color.FromArgb(255, r, g, b));
-                    }
-                }
+                controls.DescriptionText.Text = step.Message;
+                controls.DescriptionText.Visibility = Visibility.Visible;
             }
-
-            if (progressRingProperty?.GetValue(tag) is ProgressRing progressRing)
+            else
             {
-                progressRing.IsActive = step.IsInProgress;
-                progressRing.Visibility = step.IsInProgress ? Visibility.Visible : Visibility.Collapsed;
-
-                if (step.StatusColor.StartsWith("#"))
-                {
-                    string colorStr = step.StatusColor.Substring(1);
-                    if (colorStr.Length == 6)
-                    {
-                        byte r = Convert.ToByte(colorStr.Substring(0, 2), 16);
-                        byte g = Convert.ToByte(colorStr.Substring(2, 2), 16);
-                        byte b = Convert.ToByte(colorStr.Substring(4, 2), 16);
-                        progressRing.Foreground = new SolidColorBrush(Color.FromArgb(255, r, g, b));
-                    }
-                }
-            }
-
-            if (stepNameTextProperty?.GetValue(tag) is TextBlock stepNameText)
-                stepNameText.Text = step.DisplayName;
-
-            if (descriptionTextProperty?.GetValue(tag) is TextBlock descriptionText)
-            {
-                if (step.IsInProgress && !string.IsNullOrEmpty(step.Message))
-                {
-                    descriptionText.Text = step.Message;
-                    descriptionText.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    descriptionText.Visibility = Visibility.Collapsed;
-                }
+                controls.DescriptionText.Visibility = Visibility.Collapsed;
             }
         }
     }
@@ -1450,6 +1421,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             // Remove any other GitMC-created files/folders
             string gitignorePath = Path.Combine(saveInfo.OriginalPath, ".gitignore");
             if (File.Exists(gitignorePath)) File.Delete(gitignorePath);
+
+            // Also remove the GitMC directory and all its contents
+            string gitMcPath = Path.Combine(saveInfo.OriginalPath, "GitMC");
+            if (Directory.Exists(gitMcPath)) Directory.Delete(gitMcPath, true);
         }
         catch (Exception ex)
         {
