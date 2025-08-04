@@ -4,9 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.UI;
 using GitMC.Constants;
 using GitMC.Extensions;
 using GitMC.Helpers;
@@ -18,6 +15,9 @@ using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.UI;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -43,10 +43,12 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         _services = ServiceFactory.Services;
         _minecraftAnalyzerService = ServiceFactory.MinecraftAnalyzer;
         _managedSaveService = new ManagedSaveService(_services.DataStorage);
+        _initStatusService = SaveInitializationStatusService.Instance;
 
         ViewModel = new SaveManagementViewModel();
         DataContext = this;
         Loaded += SaveManagementPage_Loaded;
+        Unloaded += SaveManagementPage_Unloaded;
     }
 
     public SaveManagementViewModel ViewModel { get; }
@@ -75,11 +77,99 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         {
             await LoadManagedSaves();
             UpdateStatistics();
+            
+            // Restore initialization state if any
+            await RestoreInitializationState();
         }
         catch (Exception ex)
         {
             // Log error and show user-friendly message
             Debug.WriteLine($"Error loading saves: {ex.Message}");
+        }
+    }
+
+    private void SaveManagementPage_Unloaded(object sender, RoutedEventArgs e)
+    {
+        // No cleanup needed - global state is preserved
+    }
+
+    /// <summary>
+    /// Restore initialization state if navigation occurred during initialization
+    /// </summary>
+    private async Task RestoreInitializationState()
+    {
+        if (!_initStatusService.IsInitializing) return;
+
+        var initializingSave = _initStatusService.CurrentInitializingSave;
+        var savedSteps = _initStatusService.InitSteps;
+        
+        if (initializingSave == null || savedSteps == null) return;
+
+        // Find the UI elements for this save
+        var saveContainer = await FindSaveContainer(initializingSave);
+        if (saveContainer == null) return;
+
+        // Restore UI state
+        RestoreInitializationUI(saveContainer, savedSteps);
+    }
+
+    /// <summary>
+    /// Find the container for a specific save in the UI
+    /// </summary>
+    private async Task<DependencyObject?> FindSaveContainer(ManagedSaveInfo saveInfo)
+    {
+        // Wait a bit for UI to fully load
+        await Task.Delay(100);
+        
+        // Look through the saves list to find the matching container
+        if (SavesList?.Items != null)
+        {
+            foreach (var item in SavesList.Items)
+            {
+                if (item is ManagedSaveInfo managedSave && managedSave.OriginalPath == saveInfo.OriginalPath)
+                {
+                    var container = SavesList.ContainerFromItem(item) as FrameworkElement;
+                    return container;
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    /// <summary>
+    /// Restore the initialization UI for a save container
+    /// </summary>
+    private void RestoreInitializationUI(DependencyObject container, ObservableCollection<SaveInitStep> steps)
+    {
+        // Find UI elements
+        Button? initializeButton = FindChildByName(container, "InitializeButton") as Button;
+        Border? initializationPanel = FindChildByName(container, "InitializationPanel") as Border;
+        StackPanel? setupDescriptionSection = FindChildByName(container, "SetupDescriptionSection") as StackPanel;
+        ProgressBar? progressBar = FindChildByName(container, "InitializationProgressBar") as ProgressBar;
+        TextBlock? progressStepText = FindChildByName(container, "ProgressStepText") as TextBlock;
+        ListView? stepsList = FindChildByName(container, "InitStepsList") as ListView;
+        Button? cancelButton = FindChildByName(container, "CancelInitButton") as Button;
+
+        if (initializeButton != null && initializationPanel != null)
+        {
+            // Hide initialize button and show initialization panel
+            initializeButton.Visibility = Visibility.Collapsed;
+            initializationPanel.Visibility = Visibility.Visible;
+            
+            if (setupDescriptionSection != null)
+                setupDescriptionSection.Visibility = Visibility.Collapsed;
+
+            // Restore steps list
+            if (stepsList != null)
+            {
+                stepsList.ItemsSource = steps;
+            }
+
+            // Update progress
+            UpdateInitializationProgress(steps, progressBar, progressStepText);
+        }
+    }
             // Could show a message dialog here
         }
     }
@@ -278,7 +368,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var gitStatusHeader = new TextBlock
         {
-            Text = "Git Status:", FontSize = 14, FontWeight = FontWeights.SemiBold, UseLayoutRounding = true
+            Text = "Git Status:",
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            UseLayoutRounding = true
         };
         gitStatusPanel.Children.Add(gitStatusHeader);
 
@@ -303,7 +396,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
         };
 
         if (!string.IsNullOrEmpty(iconPath))
@@ -391,7 +485,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var panel = new StackPanel
         {
-            Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
         };
 
         var icon = new FontIcon
@@ -908,6 +1003,9 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                     saveInfo.Branch = "main"; // Set default branch
                     saveInfo.CommitCount = 1; // Initial commit
                     await _managedSaveService.UpdateManagedSave(saveInfo);
+
+                    // Refresh Git status to get accurate counts and status
+                    await _managedSaveService.RefreshGitStatus(saveInfo);
 
                     // Refresh the saves list to update UI
                     await LoadManagedSaves();

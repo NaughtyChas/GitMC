@@ -249,8 +249,8 @@
 
                             <!--  Status badge  -->
                             <Border
-                                Background="#FFF4CE"
-                                BorderBrush="#F7E018"
+                                Background="{x:Bind StatusBadgeBackground}"
+                                BorderBrush="{x:Bind StatusBadgeBorder}"
                                 BorderThickness="1"
                                 CornerRadius="12"
                                 Grid.Row="0"
@@ -261,8 +261,8 @@
                                 <TextBlock
                                     FontSize="10"
                                     FontWeight="SemiBold"
-                                    Foreground="#8A6914"
-                                    Text="modified"
+                                    Foreground="{x:Bind StatusBadgeText}"
+                                    Text="{x:Bind StatusText}"
                                     UseLayoutRounding="True" />
                             </Border>
 
@@ -406,6 +406,13 @@
                                     Text="Git Status:"
                                     UseLayoutRounding="True" />
 
+                                <!--  Up to date status text (when no badges needed)  -->
+                                <TextBlock
+                                    FontSize="12"
+                                    Text="{x:Bind GitStatusDescription}"
+                                    UseLayoutRounding="True"
+                                    Visibility="{x:Bind ShowStatusTextOnly, Converter={StaticResource BoolToVisibilityConverter}}" />
+
                                 <!--  Push badge  -->
                                 <Border
                                     Background="#E6F3FF"
@@ -413,7 +420,8 @@
                                     BorderThickness="1"
                                     CornerRadius="8"
                                     Padding="8,4,8,4"
-                                    UseLayoutRounding="True">
+                                    UseLayoutRounding="True"
+                                    Visibility="{x:Bind ShowPushBadge, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <FontIcon
                                             FontSize="10"
@@ -426,14 +434,7 @@
                                             FontSize="10"
                                             FontWeight="SemiBold"
                                             Foreground="#0078D4"
-                                            Text="{x:Bind PendingPushCount}"
-                                            UseLayoutRounding="True"
-                                            VerticalAlignment="Center" />
-                                        <TextBlock
-                                            FontSize="10"
-                                            FontWeight="SemiBold"
-                                            Foreground="#0078D4"
-                                            Text=" to push"
+                                            Text="{x:Bind PushStatusText}"
                                             UseLayoutRounding="True"
                                             VerticalAlignment="Center" />
                                     </StackPanel>
@@ -446,7 +447,8 @@
                                     BorderThickness="1"
                                     CornerRadius="8"
                                     Padding="8,4,8,4"
-                                    UseLayoutRounding="True">
+                                    UseLayoutRounding="True"
+                                    Visibility="{x:Bind ShowPullBadge, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <FontIcon
                                             FontSize="10"
@@ -459,14 +461,34 @@
                                             FontSize="10"
                                             FontWeight="SemiBold"
                                             Foreground="#0078D4"
-                                            Text="{x:Bind PendingPullCount}"
+                                            Text="{x:Bind PullStatusText}"
+                                            UseLayoutRounding="True"
+                                            VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!--  Conflict badge  -->
+                                <Border
+                                    Background="{x:Bind ConflictBadgeBackground}"
+                                    BorderBrush="#F7E018"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="8,4,8,4"
+                                    UseLayoutRounding="True"
+                                    Visibility="{x:Bind ShowConflictBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <FontIcon
+                                            FontSize="10"
+                                            Foreground="{x:Bind ConflictBadgeText}"
+                                            Glyph="&#xE7BA;"
+                                            Margin="0,0,4,0"
                                             UseLayoutRounding="True"
                                             VerticalAlignment="Center" />
                                         <TextBlock
                                             FontSize="10"
                                             FontWeight="SemiBold"
-                                            Foreground="#0078D4"
-                                            Text=" to pull"
+                                            Foreground="{x:Bind ConflictBadgeText}"
+                                            Text="{x:Bind ConflictStatusText}"
                                             UseLayoutRounding="True"
                                             VerticalAlignment="Center" />
                                     </StackPanel>
