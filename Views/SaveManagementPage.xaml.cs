@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using GitMC.Constants;
@@ -28,7 +29,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
     private readonly IServiceAggregator _services;
     private readonly SaveInitializationStatusService _initStatusService;
-    private ManagedSaveInfo? _currentInitializingSave;
 
     // Cancellation support
     private CancellationTokenSource? _initCancellationTokenSource;
@@ -109,20 +109,36 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         if (initializingSave == null || savedSteps == null) return;
 
-        // Update the page-level InitSteps property
+        // Check if all steps are completed
+        bool allStepsCompleted = savedSteps.All(s => s.Status == SaveInitStepStatus.Completed);
+        if (allStepsCompleted)
+        {
+            // All steps completed, clear initialization state and refresh the saves list
+            _initStatusService.ClearInitialization();
+            
+            // Update the save info to reflect Git initialization
+            initializingSave.IsGitInitialized = true;
+            initializingSave.Branch = "main"; // Set default branch
+            initializingSave.CommitCount = 1; // Initial commit
+            await _managedSaveService.UpdateManagedSave(initializingSave);
+
+            // Refresh Git status to get accurate counts and status
+            await _managedSaveService.RefreshGitStatus(initializingSave);
+
+            // Refresh the saves list to update UI to normal save card display
+            await LoadManagedSaves();
+            return;
+        }
+
         InitSteps = savedSteps;
 
-        // Find the UI elements for this save
         var saveContainer = await FindSaveContainer(initializingSave);
         if (saveContainer == null) return;
 
-        // Restore UI state
         RestoreInitializationUI(saveContainer, savedSteps);
 
-        // Always resubscribe to progress updates when returning to the page
-        // First unsubscribe to avoid duplicates
+        // Resubscribe to progress updates when returning to the page
         _initStatusService.UnsubscribeFromProgress(OnProgressUpdated);
-        // Then subscribe again
         _initStatusService.SubscribeToProgress(OnProgressUpdated);
     }
 
@@ -131,12 +147,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     /// </summary>
     private void OnProgressUpdated(SaveInitStep step)
     {
-        // Ensure all updates happen on UI thread
         DispatcherQueue.TryEnqueue(async () =>
         {
             if (InitSteps == null) return;
 
-            // Update the step in the collection on UI thread
             SaveInitStep? existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
             if (existingStep != null)
             {
@@ -145,14 +159,12 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 existingStep.CurrentProgress = step.CurrentProgress;
                 existingStep.TotalProgress = step.TotalProgress;
 
-                // Find the UI container for the current save and update UI
                 var currentSave = _initStatusService.CurrentInitializingSave;
                 if (currentSave != null)
                 {
                     var saveContainer = await FindSaveContainer(currentSave);
                     if (saveContainer != null)
                     {
-                        // Update the UI elements directly on UI thread
                         UpdateInitializationUIForProgress(saveContainer, step, existingStep);
                     }
                 }
@@ -165,12 +177,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     /// </summary>
     private void UpdateInitializationUIForProgress(DependencyObject container, SaveInitStep step, SaveInitStep existingStep)
     {
-        // Find UI elements
         ProgressBar? progressBar = FindChildByName(container, "InitializationProgressBar") as ProgressBar;
         TextBlock? progressStepText = FindChildByName(container, "ProgressStepText") as TextBlock;
         StackPanel? stepsContainer = FindChildByName(container, "StepsContainer") as StackPanel;
 
-        // Update the step UI element if it exists
         if (stepsContainer != null && InitSteps != null)
         {
             int stepIndex = InitSteps.IndexOf(existingStep);
@@ -180,7 +190,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             }
         }
 
-        // Update progress bar and step text
         UpdateInitializationProgress(InitSteps ?? new ObservableCollection<SaveInitStep>(), progressBar, progressStepText);
     }
 
@@ -189,10 +198,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     /// </summary>
     private async Task<DependencyObject?> FindSaveContainer(ManagedSaveInfo saveInfo)
     {
-        // Ensure we're on the UI thread and give time for UI to fully render
         await Task.Delay(50);
 
-        // Look through the saves list to find the matching container
         var savesGridView = FindName("SavesGridView") as GridView;
         if (savesGridView?.Items != null)
         {
@@ -214,25 +221,21 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     /// </summary>
     private void RestoreInitializationUI(DependencyObject container, ObservableCollection<SaveInitStep> steps)
     {
-        // Find UI elements
         Button? initializeButton = FindChildByName(container, "InitializeButton") as Button;
         Border? initializationPanel = FindChildByName(container, "InitializationPanel") as Border;
         StackPanel? setupDescriptionSection = FindChildByName(container, "SetupDescriptionSection") as StackPanel;
         ProgressBar? progressBar = FindChildByName(container, "InitializationProgressBar") as ProgressBar;
         TextBlock? progressStepText = FindChildByName(container, "ProgressStepText") as TextBlock;
         StackPanel? stepsContainer = FindChildByName(container, "StepsContainer") as StackPanel;
-        Button? cancelButton = FindChildByName(container, "CancelInitButton") as Button;
 
         if (initializeButton != null && initializationPanel != null)
         {
-            // Hide initialize button and show initialization panel
             initializeButton.Visibility = Visibility.Collapsed;
             initializationPanel.Visibility = Visibility.Visible;
 
             if (setupDescriptionSection != null)
                 setupDescriptionSection.Visibility = Visibility.Collapsed;
 
-            // Restore steps in the container by recreating them
             if (stepsContainer != null)
             {
                 stepsContainer.Children.Clear();
@@ -243,13 +246,11 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 }
             }
 
-            // Set up progress bar maximum
             if (progressBar != null)
             {
                 progressBar.Maximum = steps.Count;
             }
 
-            // Update progress
             UpdateInitializationProgress(steps, progressBar, progressStepText);
         }
     }
@@ -963,7 +964,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             {
                 // Set up cancellation support
                 _initCancellationTokenSource = new CancellationTokenSource();
-                _currentInitializingSave = saveInfo;
 
                 // Find the container elements for initialization UI
                 DependencyObject? container = GetParentContainer(button);
@@ -1245,13 +1245,11 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             PropertyInfo? stepNameTextProperty = properties.FirstOrDefault(p => p.Name == "StepNameText");
             PropertyInfo? descriptionTextProperty = properties.FirstOrDefault(p => p.Name == "DescriptionText");
 
-            // Update icon
             if (iconProperty?.GetValue(tag) is FontIcon icon)
             {
                 icon.Glyph = step.StatusIcon;
                 icon.Visibility = step.IsInProgress ? Visibility.Collapsed : Visibility.Visible;
 
-                // Update icon color
                 if (step.StatusColor.StartsWith("#"))
                 {
                     string colorStr = step.StatusColor.Substring(1);
@@ -1265,13 +1263,11 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 }
             }
 
-            // Update progress ring
             if (progressRingProperty?.GetValue(tag) is ProgressRing progressRing)
             {
                 progressRing.IsActive = step.IsInProgress;
                 progressRing.Visibility = step.IsInProgress ? Visibility.Visible : Visibility.Collapsed;
 
-                // Update progress ring color
                 if (step.StatusColor.StartsWith("#"))
                 {
                     string colorStr = step.StatusColor.Substring(1);
@@ -1285,17 +1281,13 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 }
             }
 
-            // Update step name text with DisplayName (includes progress for extracting chunks)
             if (stepNameTextProperty?.GetValue(tag) is TextBlock stepNameText)
-                // Use DisplayName which includes progress information for "Extracting chunks" step
                 stepNameText.Text = step.DisplayName;
 
-            // Update description text
             if (descriptionTextProperty?.GetValue(tag) is TextBlock descriptionText)
             {
                 if (step.IsInProgress && !string.IsNullOrEmpty(step.Message))
                 {
-                    // Don't add progress info to description text anymore since it's in the title
                     descriptionText.Text = step.Message;
                     descriptionText.Visibility = Visibility.Visible;
                 }
@@ -1319,13 +1311,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
             progressBar.Value = completedSteps;
 
-            // Calculate overall percentage
             double overallPercentage = steps.Count > 0 ? (double)completedSteps / steps.Count * 100 : 0;
 
-            // Show current step number correctly with percentage
             if (inProgressSteps > 0)
             {
-                // Find the current step that's in progress
                 int currentStepIndex = steps.IndexOf(steps.First(s => s.Status == SaveInitStepStatus.InProgress)) + 1;
                 progressStepText.Text = $"Step {currentStepIndex} of {steps.Count} ({overallPercentage:F0}%)";
             }
@@ -1442,10 +1431,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Visible;
 
                 // Revert any changes made during initialization if needed
-                if (_currentInitializingSave != null)
+                var currentSave = _initStatusService.CurrentInitializingSave;
+                if (currentSave != null)
                 {
-                    await RevertInitializationChanges(_currentInitializingSave);
-                    _currentInitializingSave = null;
+                    await RevertInitializationChanges(currentSave);
                 }
 
                 // Clean up cancellation token
