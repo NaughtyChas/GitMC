@@ -1076,12 +1076,13 @@ public class NbtService : INbtService
                     // Read and parse chunk SNBT
                     string chunkSnbt = await File.ReadAllTextAsync(chunkFile, Encoding.UTF8);
 
-                    // Remove header comments and extract SNBT data
-                    string[] lines = chunkSnbt.Split('\n');
+                    // Remove header comments and extract SNBT data (memory-efficient approach)
+                    using var reader = new System.IO.StringReader(chunkSnbt);
                     var snbtLines = new List<string>();
+                    string? line;
                     bool foundSnbtStart = false;
 
-                    foreach (string line in lines)
+                    while ((line = reader.ReadLine()) != null)
                     {
                         string trimmedLine = line.Trim();
                         if (!foundSnbtStart && (trimmedLine.StartsWith("//") || string.IsNullOrEmpty(trimmedLine)))
@@ -1091,7 +1092,7 @@ public class NbtService : INbtService
                         snbtLines.Add(line);
                     }
 
-                    string cleanSnbt = string.Join('\n', snbtLines);
+                    string cleanSnbt = string.Join(Environment.NewLine, snbtLines);
                     var chunkNbt = SnbtParser.Parse(cleanSnbt, false) as NbtCompound;
 
                     if (chunkNbt != null)
