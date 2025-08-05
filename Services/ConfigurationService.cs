@@ -9,6 +9,9 @@ public class ConfigurationService : IConfigurationService
     private readonly IDataStorageService _dataStorageService;
     private readonly object _lock = new();
     private readonly Dictionary<string, object> _settings = new();
+    private readonly SemaphoreSlim _saveSemaphore = new(1, 1);
+    private CancellationTokenSource _saveDelayTokenSource = new();
+    private const int SaveDelayMs = 500; // Debounce save operations
 
     public ConfigurationService()
     {
@@ -56,6 +59,7 @@ public class ConfigurationService : IConfigurationService
 
     public async Task SaveAsync()
     {
+        await _saveSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
             string json;
@@ -69,6 +73,10 @@ public class ConfigurationService : IConfigurationService
         catch
         {
             // Ignore save errors - we don't want to crash the app
+        }
+        finally
+        {
+            _saveSemaphore.Release();
         }
     }
 
@@ -95,7 +103,6 @@ public class ConfigurationService : IConfigurationService
 
         if (changed)
         {
-            // Auto-save on every change
             _ = Task.Run(SaveAsync);
             ConfigurationChanged?.Invoke(this, key);
             NotifySpecificPropertyChanged(key);

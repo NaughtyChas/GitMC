@@ -1,11 +1,11 @@
 using System.Diagnostics;
+using GitMC.Extensions;
 using GitMC.Models;
 using GitMC.Services;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Windows.Graphics;
 using Windows.Graphics;
 
 namespace GitMC.Views;
@@ -21,11 +21,11 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // Initialize services
-        _dataStorageService = new DataStorageService();
-        _configurationService = new ConfigurationService();
-        IGitService gitService = new GitService(_configurationService);
-        _onboardingService = new OnboardingService(gitService, _configurationService);
+        // Initialize services using ServiceFactory for consistency
+        var services = ServiceFactory.Services;
+        _dataStorageService = services.DataStorage;
+        _configurationService = services.Configuration;
+        _onboardingService = services.Onboarding;
         _managedSaveService = new ManagedSaveService(_dataStorageService);
 
         SetWindowProperties();

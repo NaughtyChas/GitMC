@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using GitMC.Extensions;
 using GitMC.Services;
 
 namespace GitMC.Views;
@@ -14,10 +15,13 @@ public sealed partial class HomePage : Page, INotifyPropertyChanged
     public HomePage()
     {
         InitializeComponent();
-        _configurationService = new ConfigurationService();
-        _gitService = new GitService(_configurationService);
-        _dataStorageService = new DataStorageService();
-        _onboardingService = new OnboardingService(_gitService, _configurationService);
+
+        // Use ServiceFactory for consistent service instances
+        var services = ServiceFactory.Services;
+        _configurationService = services.Configuration;
+        _gitService = services.Git;
+        _dataStorageService = services.DataStorage;
+        _onboardingService = services.Onboarding;
 
         DataContext = this;
         Loaded += HomePage_Loaded;

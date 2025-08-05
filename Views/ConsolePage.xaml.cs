@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using GitMC.Extensions;
 using GitMC.Services;
 using Microsoft.UI;
 using Microsoft.UI.Input;
@@ -22,8 +23,8 @@ public sealed partial class ConsolePage : Page
     public ConsolePage()
     {
         InitializeComponent();
-        var configService = new ConfigurationService();
-        _gitService = new GitService(configService);
+        var services = ServiceFactory.Services;
+        _gitService = services.Git;
         CommandInput.Focus(FocusState.Programmatic);
         _ = InitializeGitVersion();
     }

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using GitMC.Models;
@@ -9,6 +10,8 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private ManagedSaveInfo? _saveInfo;
     private bool _isLoading;
     private string _currentTab = "Overview";
+    private ObservableCollection<CommitInfo> _recentCommits = new();
+    private string _remoteUrl = string.Empty;
 
     public ManagedSaveInfo? SaveInfo
     {
@@ -36,6 +39,26 @@ public class SaveDetailViewModel : INotifyPropertyChanged
         set
         {
             _currentTab = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public ObservableCollection<CommitInfo> RecentCommits
+    {
+        get => _recentCommits;
+        set
+        {
+            _recentCommits = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string RemoteUrl
+    {
+        get => _remoteUrl;
+        set
+        {
+            _remoteUrl = value;
             OnPropertyChanged();
         }
     }
