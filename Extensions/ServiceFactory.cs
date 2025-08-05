@@ -13,6 +13,9 @@ public static class ServiceFactory
     private static readonly Lazy<IMinecraftAnalyzerService> _minecraftAnalyzer =
         new(() => new MinecraftAnalyzerService(Services.Nbt));
 
+    private static readonly Lazy<IGitHubAppsService> _gitHubAppsService =
+        new(() => new GitHubAppsService());
+
     /// <summary>
     ///     Gets the singleton service aggregator instance
     /// </summary>
@@ -22,6 +25,11 @@ public static class ServiceFactory
     ///     Gets the Minecraft analyzer service
     /// </summary>
     public static IMinecraftAnalyzerService MinecraftAnalyzer => _minecraftAnalyzer.Value;
+
+    /// <summary>
+    ///     Gets the GitHub Apps service
+    /// </summary>
+    public static IGitHubAppsService GitHubApps => _gitHubAppsService.Value;
 
     private static IServiceAggregator CreateServiceAggregator()
     {

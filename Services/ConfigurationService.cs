@@ -169,6 +169,44 @@ public class ConfigurationService : IConfigurationService
         }
     }
 
+    public DateTime GetDateTime(string key, DateTime defaultValue = default)
+    {
+        lock (_lock)
+        {
+            if (_settings.TryGetValue(key, out object? value))
+            {
+                if (value is DateTime dateTimeValue)
+                    return dateTimeValue;
+                if (value is string stringValue && DateTime.TryParse(stringValue, out DateTime parsedDate))
+                    return parsedDate;
+                if (value is JsonElement element && element.TryGetDateTime(out DateTime jsonDate))
+                    return jsonDate;
+            }
+
+            return defaultValue;
+        }
+    }
+
+    public void SetDateTime(string key, DateTime value)
+    {
+        bool changed = false;
+        lock (_lock)
+        {
+            if (!_settings.TryGetValue(key, out object? currentValue) || !currentValue.Equals(value))
+            {
+                _settings[key] = value;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _ = Task.Run(SaveAsync);
+            ConfigurationChanged?.Invoke(this, key);
+            NotifySpecificPropertyChanged(key);
+        }
+    }
+
     // Convenient properties for onboarding
     public bool IsLanguageConfigured
     {
@@ -325,6 +363,12 @@ public class ConfigurationService : IConfigurationService
     {
         get => GetString("GitHubAccessToken");
         set => SetString("GitHubAccessToken", value);
+    }
+
+    public DateTime GitHubAccessTokenTimestamp
+    {
+        get => GetDateTime("GitHubAccessTokenTimestamp", DateTime.MinValue);
+        set => SetDateTime("GitHubAccessTokenTimestamp", value);
     }
 
     public string GitHubUsername
@@ -575,6 +619,7 @@ public class ConfigurationService : IConfigurationService
 
         // GitHub settings
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubAccessToken)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubAccessTokenTimestamp)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubUsername)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubRepository)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubPrivateRepo)));
@@ -638,6 +683,7 @@ public class ConfigurationService : IConfigurationService
 
             // GitHub settings
             "GitHubAccessToken" => nameof(GitHubAccessToken),
+            "GitHubAccessTokenTimestamp" => nameof(GitHubAccessTokenTimestamp),
             "GitHubUsername" => nameof(GitHubUsername),
             "GitHubRepository" => nameof(GitHubRepository),
             "GitHubPrivateRepo" => nameof(GitHubPrivateRepo),
