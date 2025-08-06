@@ -3,6 +3,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Windows.Storage.Pickers;
+using Windows.UI;
 using GitMC.Constants;
 using GitMC.Extensions;
 using GitMC.Helpers;
@@ -14,9 +16,6 @@ using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.UI;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -33,19 +32,6 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
     // Initialize steps collection for UI binding
     private ObservableCollection<SaveInitStep> _initSteps = new();
-
-    /// <summary>
-    /// A type-safe container for UI controls associated with initialization steps.
-    /// This replaces the fragile anonymous type approach that relied on reflection.
-    /// </summary>
-    private sealed class StepUIControls
-    {
-        public FontIcon Icon { get; init; } = null!;
-        public ProgressRing ProgressRing { get; init; } = null!;
-        public TextBlock StepNameText { get; init; } = null!;
-        public TextBlock DescriptionText { get; init; } = null!;
-        public Grid IconContainer { get; init; } = null!;
-    }
 
     public SaveManagementPage()
     {
@@ -113,13 +99,13 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         if (!_initStatusService.IsInitializing) return;
 
-        ManagedSaveInfo? initializingSave = _initStatusService.CurrentInitializingSave;
-        ObservableCollection<SaveInitStep>? savedSteps = _initStatusService.InitSteps;
+        var initializingSave = _initStatusService.CurrentInitializingSave;
+        var savedSteps = _initStatusService.InitSteps;
 
         if (initializingSave == null || savedSteps == null) return;
 
         // Check if all steps are completed
-        bool allStepsCompleted = savedSteps.All(s => s.Status == SaveInitStepStatus.Completed);
+        var allStepsCompleted = savedSteps.All(s => s.Status == SaveInitStepStatus.Completed);
         if (allStepsCompleted)
         {
             // All steps completed, clear initialization state and refresh the saves list
@@ -141,7 +127,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         InitSteps = savedSteps;
 
-        DependencyObject? saveContainer = await FindSaveContainer(initializingSave);
+        var saveContainer = await FindSaveContainer(initializingSave);
         if (saveContainer == null) return;
 
         RestoreInitializationUI(saveContainer, savedSteps);
@@ -160,7 +146,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         {
             if (InitSteps == null) return;
 
-            SaveInitStep? existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
+            var existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
             if (existingStep != null)
             {
                 existingStep.Status = step.Status;
@@ -168,10 +154,10 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 existingStep.CurrentProgress = step.CurrentProgress;
                 existingStep.TotalProgress = step.TotalProgress;
 
-                ManagedSaveInfo? currentSave = _initStatusService.CurrentInitializingSave;
+                var currentSave = _initStatusService.CurrentInitializingSave;
                 if (currentSave != null)
                 {
-                    DependencyObject? saveContainer = await FindSaveContainer(currentSave);
+                    var saveContainer = await FindSaveContainer(currentSave);
                     if (saveContainer != null) UpdateInitializationUIForProgress(saveContainer, step, existingStep);
                 }
             }
@@ -190,7 +176,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         if (stepsContainer != null && InitSteps != null)
         {
-            int stepIndex = InitSteps.IndexOf(existingStep);
+            var stepIndex = InitSteps.IndexOf(existingStep);
             if (stepIndex >= 0 && stepIndex < stepsContainer.Children.Count)
                 UpdateStepUI(stepsContainer.Children[stepIndex] as Grid, existingStep);
         }
@@ -208,7 +194,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         var savesGridView = FindName("SavesGridView") as GridView;
         if (savesGridView?.Items != null)
-            foreach (object? item in savesGridView.Items)
+            foreach (var item in savesGridView.Items)
                 if (item is ManagedSaveInfo managedSave && managedSave.OriginalPath == saveInfo.OriginalPath)
                 {
                     var container = savesGridView.ContainerFromItem(item) as FrameworkElement;
@@ -241,9 +227,9 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
             if (stepsContainer != null)
             {
                 stepsContainer.Children.Clear();
-                foreach (SaveInitStep step in steps)
+                foreach (var step in steps)
                 {
-                    Grid stepGrid = CreateStepUI(step);
+                    var stepGrid = CreateStepUI(step);
                     stepsContainer.Children.Add(stepGrid);
                 }
             }
@@ -259,7 +245,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         try
         {
             ViewModel.IsLoading = true;
-            List<ManagedSaveInfo> managedSaves = await _managedSaveService.GetManagedSaves();
+            var managedSaves = await _managedSaveService.GetManagedSaves();
             ViewModel.UpdateManagedSaves(managedSaves);
         }
         catch (Exception ex)
@@ -275,13 +261,9 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     private void SaveCard_OpenButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
-        {
             // Navigate to SaveDetailPage instead of opening directory
             if (App.MainWindow is MainWindow mainWindow)
-            {
                 mainWindow.NavigateToSaveDetail(saveInfo.Id);
-            }
-        }
     }
 
     private Border CreateSquaredSaveCard(ManagedSaveInfo saveInfo)
@@ -373,7 +355,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         Grid.SetColumn(titlePathPanel, 1);
 
         // Status badge
-        Border statusBadge = CreateWarningBadge("modified");
+        var statusBadge = CreateWarningBadge("modified");
         statusBadge.Margin = new Thickness(8, 0, 8, 0);
         Grid.SetColumn(statusBadge, 2);
 
@@ -406,22 +388,22 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         Grid.SetRow(infoGrid, 1);
 
         // Branch info
-        StackPanel branchInfoPanel = CreateInfoPanel(null, "Assets/Icons/branch_grey.svg", "Branch", "main",
+        var branchInfoPanel = CreateInfoPanel(null, "Assets/Icons/branch_grey.svg", "Branch", "main",
             ColorConstants.InfoPanelColors.SecondaryIconText);
         Grid.SetColumn(branchInfoPanel, 0);
 
         // Size info
-        StackPanel sizeInfoPanel = CreateInfoPanel(null, "Assets/Icons/db_grey.svg", "Size", "2.4 GB",
+        var sizeInfoPanel = CreateInfoPanel(null, "Assets/Icons/db_grey.svg", "Size", "2.4 GB",
             ColorConstants.InfoPanelColors.SecondaryIconText);
         Grid.SetColumn(sizeInfoPanel, 1);
 
         // Commits info
-        StackPanel commitsInfoPanel = CreateInfoPanel(null, "Assets/Icons/commit_grey.svg", "Commits", "45",
+        var commitsInfoPanel = CreateInfoPanel(null, "Assets/Icons/commit_grey.svg", "Commits", "45",
             ColorConstants.InfoPanelColors.SecondaryIconText);
         Grid.SetColumn(commitsInfoPanel, 2);
 
         // Modified info
-        StackPanel modifiedInfoPanel = CreateInfoPanel("\uE823", null, "Modified", "2 hours ago",
+        var modifiedInfoPanel = CreateInfoPanel("\uE823", null, "Modified", "2 hours ago",
             ColorConstants.InfoPanelColors.SecondaryIconText);
         Grid.SetColumn(modifiedInfoPanel, 3);
 
@@ -453,11 +435,11 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         gitStatusPanel.Children.Add(gitStatusHeader);
 
         // Push badge
-        Border pushBadge = CreateGitStatusBadge("\uE898", "1 to push", ColorConstants.BadgeColors.GitText);
+        var pushBadge = CreateGitStatusBadge("\uE898", "1 to push", ColorConstants.BadgeColors.GitText);
         gitStatusPanel.Children.Add(pushBadge);
 
         // Pull badge
-        Border pullBadge = CreateGitStatusBadge("\uE896", "2 to pull", ColorConstants.BadgeColors.GitText);
+        var pullBadge = CreateGitStatusBadge("\uE896", "2 to pull", ColorConstants.BadgeColors.GitText);
         gitStatusPanel.Children.Add(pullBadge);
 
         mainGrid.Children.Add(headerGrid);
@@ -673,7 +655,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         try
         {
-            List<ManagedSaveInfo> managedSaves = await _managedSaveService.GetManagedSaves().ConfigureAwait(false);
+            var managedSaves = await _managedSaveService.GetManagedSaves().ConfigureAwait(false);
 
             // Update the statistics in the status bar
             var totalSavesCount = FindName("TotalSavesCount") as TextBlock;
@@ -689,19 +671,19 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
                 if (savesWithChangesCount != null)
                 {
-                    int changesCount = managedSaves.Count(s => s.HasPendingChanges);
+                    var changesCount = managedSaves.Count(s => s.HasPendingChanges);
                     savesWithChangesCount.Text = changesCount.ToString(CultureInfo.InvariantCulture);
                 }
 
                 if (remoteUpdatesCount != null)
                 {
-                    int updatesCount = managedSaves.Sum(s => s.PendingPullCount);
+                    var updatesCount = managedSaves.Sum(s => s.PendingPullCount);
                     remoteUpdatesCount.Text = updatesCount.ToString(CultureInfo.InvariantCulture);
                 }
 
                 if (gitStatusText != null)
                 {
-                    int gitInitializedSaves = managedSaves.Count(s => s.IsGitInitialized);
+                    var gitInitializedSaves = managedSaves.Count(s => s.IsGitInitialized);
                     gitStatusText.Text = gitInitializedSaves > 0 ? "Ready" : "Not Configured";
                 }
 
@@ -729,7 +711,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         var pushBadgeText = FindName("PushBadgeText") as TextBlock;
 
         // Enable/disable buttons based on Git status
-        bool hasGitSaves = saves.Any(s => s.IsGitInitialized);
+        var hasGitSaves = saves.Any(s => s.IsGitInitialized);
 
         if (commitAllButton != null)
             commitAllButton.IsEnabled = hasGitSaves;
@@ -740,8 +722,8 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         if (pushAllButton != null)
             pushAllButton.IsEnabled = hasGitSaves;
 
-        int pendingPulls = 0;
-        int pendingPushes = 0;
+        var pendingPulls = 0;
+        var pendingPushes = 0;
 
         if (pullBadge != null && pullBadgeText != null)
         {
@@ -765,7 +747,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
         // Clear existing activity items (except the "no activity" text)
         var itemsToRemove = activityContainer.Children.Where(c => c != noActivityText).ToList();
-        foreach (UIElement? item in itemsToRemove) activityContainer.Children.Remove(item);
+        foreach (var item in itemsToRemove) activityContainer.Children.Remove(item);
 
         if (saves.Count == 0)
         {
@@ -776,11 +758,11 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         noActivityText.Visibility = Visibility.Collapsed;
 
         // Add recent activity items (most recent first)
-        IEnumerable<ManagedSaveInfo> recentSaves = saves.OrderByDescending(s => s.LastModified).Take(3);
+        var recentSaves = saves.OrderByDescending(s => s.LastModified).Take(3);
 
-        foreach (ManagedSaveInfo save in recentSaves)
+        foreach (var save in recentSaves)
         {
-            Border activityItem = CreateActivityItem(save);
+            var activityItem = CreateActivityItem(save);
             activityContainer.Children.Insert(0, activityItem); // Insert at beginning
         }
     }
@@ -806,7 +788,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         };
         panel.Children.Add(titleText);
 
-        TimeSpan timeSpan = DateTime.Now - saveInfo.LastModified;
+        var timeSpan = DateTime.Now - saveInfo.LastModified;
         string timeText;
         if (timeSpan.TotalDays >= 1)
             timeText = $"{(int)timeSpan.TotalDays} day{(timeSpan.TotalDays >= 2 ? "s" : "")} ago";
@@ -832,7 +814,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         return Task.Run(() =>
         {
             long totalSize = 0;
-            foreach (ManagedSaveInfo save in saves)
+            foreach (var save in saves)
                 try
                 {
                     if (Directory.Exists(save.OriginalPath))
@@ -910,18 +892,18 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
 
             if (App.MainWindow != null)
             {
-                IntPtr hwnd = WindowNative.GetWindowHandle(App.MainWindow);
+                var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
                 InitializeWithWindow.Initialize(folderPicker, hwnd);
             }
 
-            StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
+            var folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
-                MinecraftSave? save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
+                var save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
                     // Register this save in our managed saves system first
-                    string saveId = await RegisterManagedSave(save);
+                    var saveId = await RegisterManagedSave(save);
 
                     // Add to navigation in MainWindow with the generated save ID
                     if (App.MainWindow is MainWindow mainWindow)
@@ -963,23 +945,23 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 _initCancellationTokenSource = new CancellationTokenSource();
 
                 // Find the container elements for initialization UI
-                DependencyObject? container = GetParentContainer(button);
-                Button? initializeButton =
+                var container = GetParentContainer(button);
+                var initializeButton =
                     container != null ? FindChildByName(container, "InitializeButton") as Button : null;
-                Border? initializationPanel =
+                var initializationPanel =
                     container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
-                StackPanel? setupDescriptionSection = container != null
+                var setupDescriptionSection = container != null
                     ? FindChildByName(container, "SetupDescriptionSection") as StackPanel
                     : null;
-                ProgressBar? progressBar = container != null
+                var progressBar = container != null
                     ? FindChildByName(container, "InitializationProgressBar") as ProgressBar
                     : null;
-                TextBlock? progressStepText =
+                var progressStepText =
                     container != null ? FindChildByName(container, "ProgressStepText") as TextBlock : null;
-                ProgressRing? overallProgressRing = container != null
+                var overallProgressRing = container != null
                     ? FindChildByName(container, "OverallProgressRing") as ProgressRing
                     : null;
-                StackPanel? stepsContainer =
+                var stepsContainer =
                     container != null ? FindChildByName(container, "StepsContainer") as StackPanel : null;
 
                 // Initialize the steps collection
@@ -1009,9 +991,9 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 if (stepsContainer != null)
                 {
                     stepsContainer.Children.Clear();
-                    foreach (SaveInitStep step in InitSteps)
+                    foreach (var step in InitSteps)
                     {
-                        Grid stepGrid = CreateStepUI(step);
+                        var stepGrid = CreateStepUI(step);
                         stepsContainer.Children.Add(stepGrid);
                     }
                 }
@@ -1020,7 +1002,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 var progress = new Progress<SaveInitStep>(step =>
                 {
                     // Update the step in the collection
-                    SaveInitStep? existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
+                    var existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
                     if (existingStep != null)
                     {
                         existingStep.Status = step.Status;
@@ -1031,7 +1013,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                         // Update the corresponding UI element
                         if (stepsContainer != null)
                         {
-                            int stepIndex = InitSteps.IndexOf(existingStep);
+                            var stepIndex = InitSteps.IndexOf(existingStep);
                             if (stepIndex >= 0 && stepIndex < stepsContainer.Children.Count)
                                 UpdateStepUI(stepsContainer.Children[stepIndex] as Grid, existingStep);
                         }
@@ -1046,7 +1028,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 _initStatusService.SubscribeToProgress(OnProgressUpdated);
 
                 // Start initialization
-                bool success = await _services.SaveInitialization.InitializeSaveAsync(saveInfo.OriginalPath, progress);
+                var success = await _services.SaveInitialization.InitializeSaveAsync(saveInfo.OriginalPath, progress);
 
                 // Stop the overall progress ring
                 if (overallProgressRing != null) overallProgressRing.IsActive = false;
@@ -1107,12 +1089,12 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 _initStatusService.ClearInitialization();
 
                 // Reset UI state on error
-                DependencyObject? container = GetParentContainer(button);
-                Button? initializeButton =
+                var container = GetParentContainer(button);
+                var initializeButton =
                     container != null ? FindChildByName(container, "InitializeButton") as Button : null;
-                Border? initializationPanel =
+                var initializationPanel =
                     container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
-                StackPanel? setupDescriptionSection = container != null
+                var setupDescriptionSection = container != null
                     ? FindChildByName(container, "SetupDescriptionSection") as StackPanel
                     : null;
 
@@ -1264,16 +1246,16 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         if (progressBar != null && progressStepText != null)
         {
-            int completedSteps = steps.Count(s => s.Status == SaveInitStepStatus.Completed);
-            int inProgressSteps = steps.Count(s => s.Status == SaveInitStepStatus.InProgress);
+            var completedSteps = steps.Count(s => s.Status == SaveInitStepStatus.Completed);
+            var inProgressSteps = steps.Count(s => s.Status == SaveInitStepStatus.InProgress);
 
             progressBar.Value = completedSteps;
 
-            double overallPercentage = steps.Count > 0 ? (double)completedSteps / steps.Count * 100 : 0;
+            var overallPercentage = steps.Count > 0 ? (double)completedSteps / steps.Count * 100 : 0;
 
             if (inProgressSteps > 0)
             {
-                int currentStepIndex = steps.IndexOf(steps.First(s => s.Status == SaveInitStepStatus.InProgress)) + 1;
+                var currentStepIndex = steps.IndexOf(steps.First(s => s.Status == SaveInitStepStatus.InProgress)) + 1;
                 progressStepText.Text = $"Step {currentStepIndex} of {steps.Count} ({overallPercentage:F0}%)";
             }
             else if (completedSteps == steps.Count)
@@ -1323,15 +1305,15 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     {
         if (parent == null) return null;
 
-        int childCount = VisualTreeHelper.GetChildrenCount(parent);
-        for (int i = 0; i < childCount; i++)
+        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < childCount; i++)
         {
-            DependencyObject? child = VisualTreeHelper.GetChild(parent, i);
+            var child = VisualTreeHelper.GetChild(parent, i);
 
             if (child is FrameworkElement element && element.Name == name)
                 return element;
 
-            FrameworkElement? result = FindChildByName(child, name);
+            var result = FindChildByName(child, name);
             if (result != null)
                 return result;
         }
@@ -1344,7 +1326,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         if (child == null) return null;
 
         // Walk up the visual tree to find the GridViewItem container
-        DependencyObject? parent = VisualTreeHelper.GetParent(child);
+        var parent = VisualTreeHelper.GetParent(child);
         while (parent != null)
         {
             if (parent is GridViewItem)
@@ -1364,15 +1346,15 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 _initCancellationTokenSource?.Cancel();
 
                 // Find the container elements
-                DependencyObject? container = GetParentContainer(button);
-                Button? initializeButton =
+                var container = GetParentContainer(button);
+                var initializeButton =
                     container != null ? FindChildByName(container, "InitializeButton") as Button : null;
-                Border? initializationPanel =
+                var initializationPanel =
                     container != null ? FindChildByName(container, "InitializationPanel") as Border : null;
-                StackPanel? setupDescriptionSection = container != null
+                var setupDescriptionSection = container != null
                     ? FindChildByName(container, "SetupDescriptionSection") as StackPanel
                     : null;
-                ProgressRing? overallProgressRing = container != null
+                var overallProgressRing = container != null
                     ? FindChildByName(container, "OverallProgressRing") as ProgressRing
                     : null;
 
@@ -1390,7 +1372,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
                 if (setupDescriptionSection != null) setupDescriptionSection.Visibility = Visibility.Visible;
 
                 // Revert any changes made during initialization if needed
-                ManagedSaveInfo? currentSave = _initStatusService.CurrentInitializingSave;
+                var currentSave = _initStatusService.CurrentInitializingSave;
                 if (currentSave != null) await RevertInitializationChanges(currentSave);
 
                 // Clean up cancellation token
@@ -1414,15 +1396,15 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         {
             // This would revert any changes made during initialization
             // For now, we'll just ensure the .git folder is removed if it exists
-            string gitPath = Path.Combine(saveInfo.OriginalPath, ".git");
+            var gitPath = Path.Combine(saveInfo.OriginalPath, ".git");
             if (Directory.Exists(gitPath)) Directory.Delete(gitPath, true);
 
             // Remove any other GitMC-created files/folders
-            string gitignorePath = Path.Combine(saveInfo.OriginalPath, ".gitignore");
+            var gitignorePath = Path.Combine(saveInfo.OriginalPath, ".gitignore");
             if (File.Exists(gitignorePath)) File.Delete(gitignorePath);
 
             // Also remove the GitMC directory and all its contents
-            string gitMcPath = Path.Combine(saveInfo.OriginalPath, "GitMC");
+            var gitMcPath = Path.Combine(saveInfo.OriginalPath, "GitMC");
             if (Directory.Exists(gitMcPath)) Directory.Delete(gitMcPath, true);
         }
         catch (Exception ex)
@@ -1431,5 +1413,18 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    ///     A type-safe container for UI controls associated with initialization steps.
+    ///     This replaces the fragile anonymous type approach that relied on reflection.
+    /// </summary>
+    private sealed class StepUIControls
+    {
+        public FontIcon Icon { get; init; } = null!;
+        public ProgressRing ProgressRing { get; init; } = null!;
+        public TextBlock StepNameText { get; init; } = null!;
+        public TextBlock DescriptionText { get; init; } = null!;
+        public Grid IconContainer { get; init; } = null!;
     }
 }

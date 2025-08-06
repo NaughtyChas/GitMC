@@ -1,12 +1,9 @@
 using System.Diagnostics;
+using Windows.Graphics;
 using GitMC.Extensions;
-using GitMC.Models;
 using GitMC.Services;
 using Microsoft.UI.Windowing;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Windows.Graphics;
 
 namespace GitMC.Views;
 
@@ -45,7 +42,7 @@ public sealed partial class MainWindow : Window
             await _onboardingService.InitializeAsync();
 
             // Determine target page and navigate directly
-            Type targetPageType = GetHomeTargetPageType();
+            var targetPageType = GetHomeTargetPageType();
             ContentFrame.Navigate(targetPageType);
         }
         catch
@@ -78,7 +75,7 @@ public sealed partial class MainWindow : Window
         catch
         {
             // If there's any error accessing the filesystem, fall back to onboarding check
-            OnboardingStepStatus[] statuses = _onboardingService.StepStatuses;
+            var statuses = _onboardingService.StepStatuses;
             if (statuses.Length > 4 &&
                 statuses[4] == OnboardingStepStatus.Completed) return 1; // At least one save exists based on onboarding
             return 0;
@@ -110,7 +107,7 @@ public sealed partial class MainWindow : Window
         const int defaultHeight = 800;
 
         // Check if this is the first launch
-        bool isFirstLaunch = !_configurationService.IsFirstLaunchComplete;
+        var isFirstLaunch = !_configurationService.IsFirstLaunchComplete;
 
         if (isFirstLaunch)
         {
@@ -121,8 +118,8 @@ public sealed partial class MainWindow : Window
             var displayArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
             if (displayArea != null)
             {
-                int centerX = (displayArea.WorkArea.Width - defaultWidth) / 2;
-                int centerY = (displayArea.WorkArea.Height - defaultHeight) / 2;
+                var centerX = (displayArea.WorkArea.Width - defaultWidth) / 2;
+                var centerY = (displayArea.WorkArea.Height - defaultHeight) / 2;
                 AppWindow.Move(new PointInt32(centerX, centerY));
             }
 
@@ -133,10 +130,10 @@ public sealed partial class MainWindow : Window
         else
         {
             // Restore saved window size and position
-            int savedWidth = (int)Math.Max(_configurationService.WindowWidth, minWidth);
-            int savedHeight = (int)Math.Max(_configurationService.WindowHeight, minHeight);
-            int savedX = (int)_configurationService.WindowX;
-            int savedY = (int)_configurationService.WindowY;
+            var savedWidth = (int)Math.Max(_configurationService.WindowWidth, minWidth);
+            var savedHeight = (int)Math.Max(_configurationService.WindowHeight, minHeight);
+            var savedX = (int)_configurationService.WindowX;
+            var savedY = (int)_configurationService.WindowY;
 
             AppWindow.Resize(new SizeInt32(savedWidth, savedHeight));
             AppWindow.Move(new PointInt32(savedX, savedY));
@@ -177,8 +174,8 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            List<ManagedSaveInfo> managedSaves = await _managedSaveService.GetManagedSaves();
-            foreach (ManagedSaveInfo save in managedSaves) AddSaveToNavigation(save.Name, save.Id);
+            var managedSaves = await _managedSaveService.GetManagedSaves();
+            foreach (var save in managedSaves) AddSaveToNavigation(save.Name, save.Id);
         }
         catch (Exception ex)
         {
@@ -195,14 +192,14 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            NavigationViewItemBase? item = args.InvokedItemContainer;
+            var item = args.InvokedItemContainer;
             if (item != null)
             {
-                string? tag = item.Tag?.ToString();
+                var tag = item.Tag?.ToString();
                 if (tag == "Home")
                 {
                     // Get the target home page type and only navigate if different
-                    Type targetPageType = GetHomeTargetPageType();
+                    var targetPageType = GetHomeTargetPageType();
                     if (ContentFrame.CurrentSourcePageType != targetPageType) ContentFrame.Navigate(targetPageType);
                 }
                 else if (tag == "Console")
@@ -235,11 +232,11 @@ public sealed partial class MainWindow : Window
             var selectedItem = args.SelectedItem as NavigationViewItem;
             if (selectedItem != null)
             {
-                string? tag = selectedItem.Tag?.ToString();
+                var tag = selectedItem.Tag?.ToString();
                 if (tag == "Home")
                 {
                     // Get the target home page type and only navigate if different
-                    Type targetPageType = GetHomeTargetPageType();
+                    var targetPageType = GetHomeTargetPageType();
                     if (ContentFrame.CurrentSourcePageType != targetPageType) ContentFrame.Navigate(targetPageType);
                 }
                 else if (tag == "Console")
@@ -276,7 +273,7 @@ public sealed partial class MainWindow : Window
     {
         if (pageType == typeof(HomePage))
         {
-            foreach (object? item in NavView.MenuItems)
+            foreach (var item in NavView.MenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Home")
                 {
                     NavView.SelectedItem = navItem;
@@ -287,7 +284,7 @@ public sealed partial class MainWindow : Window
         {
             // When HomePage routes to OnboardingPage or SaveManagementPage,
             // keep Home selected to maintain navigation state
-            foreach (object? item in NavView.MenuItems)
+            foreach (var item in NavView.MenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Home")
                 {
                     NavView.SelectedItem = navItem;
@@ -297,7 +294,7 @@ public sealed partial class MainWindow : Window
         else if (pageType == typeof(SaveDetailPage) && parameter is string saveId)
         {
             // For SaveDetailPage, find the corresponding save navigation item by saveId
-            foreach (object? item in NavView.MenuItems)
+            foreach (var item in NavView.MenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == saveId)
                 {
                     NavView.SelectedItem = navItem;
@@ -306,7 +303,7 @@ public sealed partial class MainWindow : Window
         }
         else if (pageType == typeof(ConsolePage))
         {
-            foreach (object? item in NavView.FooterMenuItems)
+            foreach (var item in NavView.FooterMenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Console")
                 {
                     NavView.SelectedItem = navItem;
@@ -316,7 +313,7 @@ public sealed partial class MainWindow : Window
         else if (pageType == typeof(SettingsPage))
         {
             // Look for custom Settings item in FooterMenuItems
-            foreach (object? item in NavView.FooterMenuItems)
+            foreach (var item in NavView.FooterMenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Settings")
                 {
                     NavView.SelectedItem = navItem;
@@ -330,7 +327,7 @@ public sealed partial class MainWindow : Window
         {
             // For debug/tools pages, keep settings selected since they're accessed from settings
             // Look for custom Settings item in FooterMenuItems
-            foreach (object? item in NavView.FooterMenuItems)
+            foreach (var item in NavView.FooterMenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Settings")
                 {
                     NavView.SelectedItem = navItem;
@@ -355,10 +352,10 @@ public sealed partial class MainWindow : Window
 
         if (args.DidSizeChange)
         {
-            SizeInt32 currentSize = sender.Size;
-            bool needsResize = false;
-            int newWidth = currentSize.Width;
-            int newHeight = currentSize.Height;
+            var currentSize = sender.Size;
+            var needsResize = false;
+            var newWidth = currentSize.Width;
+            var newHeight = currentSize.Height;
 
             if (currentSize.Width < minWidth)
             {

@@ -1,21 +1,20 @@
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using CommunityToolkit.WinUI;
+using Windows.Foundation;
+using Windows.Storage;
+using Windows.System;
+using Windows.UI;
+using GitMC.Constants;
 using GitMC.Extensions;
 using GitMC.Models;
 using GitMC.Models.GitHub;
 using GitMC.Services;
 using GitMC.ViewModels;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
-using Windows.Foundation;
-using Windows.Storage;
-using Windows.System;
 
 namespace GitMC.Views;
 
@@ -32,16 +31,16 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 {
     private readonly IConfigurationService _configurationService;
     private readonly IDataStorageService _dataStorageService;
+    private readonly IGitHubAppsService _gitHubAppsService;
     private readonly IGitService _gitService;
     private readonly ManagedSaveService _managedSaveService;
     private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
     private readonly NbtService _nbtService;
-    private readonly IGitHubAppsService _gitHubAppsService;
     private string? _saveId;
 
     public SaveDetailPage()
     {
-        this.InitializeComponent();
+        InitializeComponent();
 
         // Use ServiceFactory to get shared service instances
         var services = ServiceFactory.Services;
@@ -133,10 +132,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 }).ToList();
 
                 ViewModel.RecentCommits.Clear();
-                foreach (var commit in commitInfos)
-                {
-                    ViewModel.RecentCommits.Add(commit);
-                }
+                foreach (var commit in commitInfos) ViewModel.RecentCommits.Add(commit);
             }
         }
         catch (Exception ex)
@@ -174,8 +170,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         }
 
         // Check GitHub token
-        string token = _configurationService.GitHubAccessToken;
-        DateTime tokenTime = _configurationService.GitHubAccessTokenTimestamp;
+        var token = _configurationService.GitHubAccessToken;
+        var tokenTime = _configurationService.GitHubAccessTokenTimestamp;
 
         if (string.IsNullOrEmpty(token))
         {
@@ -191,7 +187,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         }
 
         // Check if this save has a linked repo (save-specific configuration)
-        if (ViewModel.SaveInfo == null || !ViewModel.SaveInfo.IsGitHubLinked || string.IsNullOrWhiteSpace(ViewModel.SaveInfo.GitHubRepositoryName))
+        if (ViewModel.SaveInfo == null || !ViewModel.SaveInfo.IsGitHubLinked ||
+            string.IsNullOrWhiteSpace(ViewModel.SaveInfo.GitHubRepositoryName))
         {
             noRepoPanel.Visibility = Visibility.Visible;
             return;
@@ -202,15 +199,17 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         // Username, avatar
         var user = await _gitHubAppsService.GetUserAsync(token);
         if (FindName("GitHubAvatar") is Image avatar && user?.AvatarUrl is string avatarUrl)
-            avatar.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(avatarUrl));
+            avatar.Source = new BitmapImage(new Uri(avatarUrl));
         if (FindName("GitHubUserNameText") is TextBlock userNameText)
             userNameText.Text = user?.Login ?? "";
         // Repo link
         if (FindName("GitHubRepoLink") is HyperlinkButton repoLink)
         {
             repoLink.Content = ViewModel.SaveInfo.GitHubRepositoryName;
-            repoLink.NavigateUri = new Uri($"https://github.com/{user?.Login}/{ViewModel.SaveInfo.GitHubRepositoryName}");
+            repoLink.NavigateUri =
+                new Uri($"https://github.com/{user?.Login}/{ViewModel.SaveInfo.GitHubRepositoryName}");
         }
+
         // Repo description, visibility, branch, remote URL
         if (FindName("GitHubRepoDescText") is TextBlock descText)
             descText.Text = ViewModel.SaveInfo.GitHubRepositoryDescription;
@@ -221,6 +220,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         if (FindName("GitHubRemoteUrlBox") is TextBox remoteBox)
             remoteBox.Text = ViewModel.SaveInfo.GitHubRemoteUrl;
     }
+
     // GitHub sign-in button event
     private async void SignInGitHub_Click(object sender, RoutedEventArgs e)
     {
@@ -242,7 +242,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 Title = "GitHub Sign-in Failed",
                 Content = result.ErrorMessage ?? "Unknown error",
                 CloseButtonText = "OK",
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
         }
@@ -252,10 +252,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     private async void CreateAndLinkRepo_Click(object sender, RoutedEventArgs e)
     {
         // Prevent multiple clicks
-        if (sender is Button repoCreateButton)
-        {
-            repoCreateButton.IsEnabled = false;
-        }
+        if (sender is Button repoCreateButton) repoCreateButton.IsEnabled = false;
 
         ContentDialog? progressDialog = null;
 
@@ -270,9 +267,9 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 return;
             }
 
-            string repoName = nameBox.Text.Trim();
-            string desc = descBox.Text.Trim();
-            bool isPrivate = privateBox.IsChecked ?? true;
+            var repoName = nameBox.Text.Trim();
+            var desc = descBox.Text.Trim();
+            var isPrivate = privateBox.IsChecked ?? true;
 
             // Validate repository name
             try
@@ -287,13 +284,14 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             catch (Exception ex)
             {
                 Debug.WriteLine($"Repository name validation failed: {ex.Message}");
-                await ShowErrorDialogSafe("Validation Error", "Unable to validate repository name. Please check the name and try again.");
+                await ShowErrorDialogSafe("Validation Error",
+                    "Unable to validate repository name. Please check the name and try again.");
                 return;
             }
 
             // Get and validate access token
-            string token = _configurationService.GitHubAccessToken;
-            DateTime tokenTime = _configurationService.GitHubAccessTokenTimestamp;
+            var token = _configurationService.GitHubAccessToken;
+            var tokenTime = _configurationService.GitHubAccessTokenTimestamp;
 
             if (string.IsNullOrEmpty(token))
             {
@@ -304,10 +302,11 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             // Validate token state
             try
             {
-                var (isTokenValid, isExpired, tokenError) = await _gitHubAppsService.ValidateTokenStateAsync(token, tokenTime);
+                var (isTokenValid, isExpired, tokenError) =
+                    await _gitHubAppsService.ValidateTokenStateAsync(token, tokenTime);
                 if (!isTokenValid)
                 {
-                    string errorMsg = isExpired
+                    var errorMsg = isExpired
                         ? "Your GitHub access token has expired. Please sign in again."
                         : tokenError ?? "GitHub access token is invalid.";
                     await ShowErrorDialogSafe("Authentication Error", errorMsg);
@@ -341,7 +340,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 },
                 IsPrimaryButtonEnabled = false,
                 IsSecondaryButtonEnabled = false,
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             };
 
             // Show progress dialog without await to prevent blocking
@@ -359,8 +358,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                     ViewModel.SaveInfo.GitHubIsPrivateRepository = isPrivate;
                     ViewModel.SaveInfo.GitHubRepositoryDescription = desc;
                     ViewModel.SaveInfo.GitHubDefaultBranch = "main";
-                    string user = _configurationService.GitHubUsername;
-                    string remoteUrl = $"https://github.com/{user}/{repoName}.git";
+                    var user = _configurationService.GitHubUsername;
+                    var remoteUrl = $"https://github.com/{user}/{repoName}.git";
                     ViewModel.SaveInfo.GitHubRemoteUrl = remoteUrl;
                     ViewModel.SaveInfo.IsGitHubLinked = true;
 
@@ -369,7 +368,6 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 
                     // Simulate adding remote to local repo if git is initialized
                     if (ViewModel.SaveInfo.IsGitInitialized && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
-                    {
                         try
                         {
                             // In actual implementation, this would add the remote
@@ -380,7 +378,6 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                         {
                             Debug.WriteLine($"Error simulating git remote addition: {gitEx.Message}");
                         }
-                    }
                 }
 
                 // Clear input fields
@@ -423,10 +420,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 Debug.WriteLine($"Error hiding progress dialog: {hideEx.Message}");
             }
 
-            if (sender is Button repoButton)
-            {
-                repoButton.IsEnabled = true;
-            }
+            if (sender is Button repoButton) repoButton.IsEnabled = true;
         }
     }
 
@@ -559,18 +553,15 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     private async void LinkExistingRepo_Click(object sender, RoutedEventArgs e)
     {
         // Prevent multiple clicks
-        if (sender is Button linkButton)
-        {
-            linkButton.IsEnabled = false;
-        }
+        if (sender is Button linkButton) linkButton.IsEnabled = false;
 
         ContentDialog? loadingDialog = null;
 
         try
         {
             // Get and validate access token
-            string token = _configurationService.GitHubAccessToken;
-            DateTime tokenTime = _configurationService.GitHubAccessTokenTimestamp;
+            var token = _configurationService.GitHubAccessToken;
+            var tokenTime = _configurationService.GitHubAccessTokenTimestamp;
 
             if (string.IsNullOrEmpty(token))
             {
@@ -581,10 +572,11 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             // Validate token state
             try
             {
-                var (isTokenValid, isExpired, tokenError) = await _gitHubAppsService.ValidateTokenStateAsync(token, tokenTime);
+                var (isTokenValid, isExpired, tokenError) =
+                    await _gitHubAppsService.ValidateTokenStateAsync(token, tokenTime);
                 if (!isTokenValid)
                 {
-                    string errorMsg = isExpired
+                    var errorMsg = isExpired
                         ? "Your GitHub access token has expired. Please sign in again."
                         : tokenError ?? "GitHub access token is invalid.";
                     await ShowErrorDialogSafe("Authentication Error", errorMsg);
@@ -618,7 +610,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 },
                 IsPrimaryButtonEnabled = false,
                 IsSecondaryButtonEnabled = false,
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             };
 
             // Show loading dialog without await to prevent blocking
@@ -681,7 +673,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 PrimaryButtonText = "Link",
                 CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Primary,
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             };
 
             var panel = new StackPanel { Spacing = 12 };
@@ -692,7 +684,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 Severity = InfoBarSeverity.Informational,
                 IsOpen = true,
                 Title = "Test Mode",
-                Message = "This is using pseudo data for testing purposes. Actual GitHub API integration will be implemented in the future."
+                Message =
+                    "This is using pseudo data for testing purposes. Actual GitHub API integration will be implemented in the future."
             };
             panel.Children.Add(infoBar);
 
@@ -735,9 +728,10 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             repoSelectionDialog.Content = panel;
 
             var result = await repoSelectionDialog.ShowAsync();
-            if (result == ContentDialogResult.Primary && repoComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is GitHubRepository selectedRepo)
+            if (result == ContentDialogResult.Primary && repoComboBox.SelectedItem is ComboBoxItem selectedItem &&
+                selectedItem.Tag is GitHubRepository selectedRepo)
             {
-                string branch = branchBox.Text.Trim();
+                var branch = branchBox.Text.Trim();
                 if (string.IsNullOrWhiteSpace(branch))
                     branch = selectedRepo.DefaultBranch;
 
@@ -757,8 +751,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                         await _managedSaveService.UpdateManagedSave(ViewModel.SaveInfo);
 
                         // Simulate adding remote to local repo if git is initialized
-                        if (ViewModel.SaveInfo.IsGitInitialized && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
-                        {
+                        if (ViewModel.SaveInfo.IsGitInitialized &&
+                            !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
                             try
                             {
                                 // In actual implementation, this would add the remote
@@ -769,7 +763,6 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                             {
                                 Debug.WriteLine($"Error simulating git remote addition: {gitEx.Message}");
                             }
-                        }
                     }
 
                     await LoadRemoteInfoAsync();
@@ -809,10 +802,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 Debug.WriteLine($"Error hiding loading dialog: {hideEx.Message}");
             }
 
-            if (sender is Button linkRepoButton)
-            {
-                linkRepoButton.IsEnabled = true;
-            }
+            if (sender is Button linkRepoButton) linkRepoButton.IsEnabled = true;
         }
     }
 
@@ -839,7 +829,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                     TextWrapping = TextWrapping.Wrap
                 },
                 CloseButtonText = "OK",
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
         }
@@ -870,7 +860,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                         new FontIcon
                         {
                             Glyph = "\uE783", // Error icon
-                            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 196, 43, 28)),
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 196, 43, 28)),
                             FontSize = 20,
                             Margin = new Thickness(0, 0, 0, 8),
                             HorizontalAlignment = HorizontalAlignment.Center
@@ -884,7 +874,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                     }
                 },
                 CloseButtonText = "OK",
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
         }
@@ -915,7 +905,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                         new FontIcon
                         {
                             Glyph = "\uE73E", // CheckMark icon
-                            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 16, 124, 16)),
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 16, 124, 16)),
                             FontSize = 20,
                             Margin = new Thickness(0, 0, 0, 8),
                             HorizontalAlignment = HorizontalAlignment.Center
@@ -929,7 +919,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                     }
                 },
                 CloseButtonText = "OK",
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
         }
@@ -960,7 +950,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                         new FontIcon
                         {
                             Glyph = "\uE7BA", // Warning icon
-                            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 185, 0)),
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 185, 0)),
                             FontSize = 20,
                             Margin = new Thickness(0, 0, 0, 8),
                             HorizontalAlignment = HorizontalAlignment.Center
@@ -974,7 +964,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                     }
                 },
                 CloseButtonText = "OK",
-                XamlRoot = this.XamlRoot
+                XamlRoot = XamlRoot
             };
             await dialog.ShowAsync();
         }
@@ -1009,22 +999,13 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     {
         if (ViewModel.SaveInfo == null) return;
 
-        // Update Current Status
-        UpdateCurrentStatus();
-
-        // Update World Information
-        UpdateWorldInformation();
-
-        // Update Statistics
-        UpdateStatistics();
-
         // Update Remote Status
         UpdateRemoteStatus();
         UpdateStatusDisplay();
     }
 
     /// <summary>
-    /// Updates the premium-styled status display with current save information
+    ///     Updates the premium-styled status display with current save information
     /// </summary>
     private void UpdateStatusDisplay()
     {
@@ -1034,9 +1015,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         {
             // Update Current Branch Display Text
             if (FindName("CurrentBranchDisplayText") is TextBlock branchDisplayText)
-            {
                 branchDisplayText.Text = ViewModel.SaveInfo.Branch ?? "main";
-            }
 
             // Update Sync Status Badge
             UpdateSyncStatusBadge();
@@ -1060,7 +1039,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Updates the sync status badge with appropriate colors and text
+    ///     Updates the sync status badge with appropriate colors and text
     /// </summary>
     private void UpdateSyncStatusBadge()
     {
@@ -1078,7 +1057,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Updates the main status InfoBar with current save status
+    ///     Updates the main status InfoBar with current save status
     /// </summary>
     private void UpdateStatusInfoBar()
     {
@@ -1092,7 +1071,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Updates the sync progress bar and percentage text
+    ///     Updates the sync progress bar and percentage text
     /// </summary>
     private void UpdateSyncProgressDisplay()
     {
@@ -1107,7 +1086,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Updates the file changes summary section with current statistics
+    ///     Updates the file changes summary section with current statistics
     /// </summary>
     private void UpdateFileChangesSummary()
     {
@@ -1143,7 +1122,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Updates the branch tags display with available branches
+    ///     Updates the branch tags display with available branches
     /// </summary>
     private void UpdateBranchTagsDisplay()
     {
@@ -1157,8 +1136,9 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 var branchBorder = new Border
                 {
                     Background = branch == ViewModel.SaveInfo.Branch
-                        ? new SolidColorBrush(Constants.ColorConstants.BadgeColors.InfoText) // Use InfoText blue for current branch
-                        : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 229, 231, 235)), // Light gray for other branches
+                        ? new SolidColorBrush(ColorConstants.BadgeColors
+                            .InfoText) // Use InfoText blue for current branch
+                        : new SolidColorBrush(ColorConstants.CardBackground), // Use CardBackground for other branches
                     CornerRadius = new CornerRadius(8),
                     Padding = new Thickness(6, 3, 6, 3)
                 };
@@ -1166,10 +1146,10 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 var branchText = new TextBlock
                 {
                     FontSize = 10,
-                    FontWeight = branch == ViewModel.SaveInfo.Branch ? Microsoft.UI.Text.FontWeights.Medium : Microsoft.UI.Text.FontWeights.Normal,
+                    FontWeight = branch == ViewModel.SaveInfo.Branch ? FontWeights.Medium : FontWeights.Normal,
                     Foreground = branch == ViewModel.SaveInfo.Branch
-                        ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)) // White text for current branch
-                        : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 75, 85, 99)), // Dark gray for other branches
+                        ? new SolidColorBrush(Color.FromArgb(255, 255, 255, 255)) // White text for current branch
+                        : new SolidColorBrush(ColorConstants.SecondaryText), // Use SecondaryText for other branches
                     Text = branch
                 };
 
@@ -1177,9 +1157,11 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 branchContainer.Children.Add(branchBorder);
             }
         }
-    }    /// <summary>
-         /// Refreshes all status displays with current save information
-         /// </summary>
+    }
+
+    /// <summary>
+    ///     Refreshes all status displays with current save information
+    /// </summary>
     public void RefreshStatusDisplays()
     {
         try
@@ -1189,138 +1171,6 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         catch (Exception ex)
         {
             Debug.WriteLine($"Error refreshing status displays: {ex.Message}");
-        }
-    }
-
-    private void UpdateCurrentStatus()
-    {
-        var saveInfo = ViewModel.SaveInfo;
-        if (saveInfo == null) return;
-
-        // Update InfoBar with status information
-        if (FindName("StatusInfoBar") is InfoBar statusInfoBar)
-        {
-            statusInfoBar.Title = GetStatusTitle(saveInfo);
-            statusInfoBar.Message = GetStatusDescription(saveInfo);
-            statusInfoBar.Severity = GetStatusSeverity(saveInfo);
-            statusInfoBar.IsOpen = true;
-        }
-
-        // Update Current Branch Display (new main display)
-        if (FindName("CurrentBranchDisplayText") is TextBlock branchDisplayText)
-        {
-            branchDisplayText.Text = saveInfo.Branch ?? "main";
-        }
-
-        // Update legacy current branch display for compatibility
-        if (FindName("CurrentBranchText") is TextBlock branchText)
-            branchText.Text = saveInfo.Branch ?? "main";
-
-        // Update Sync Status
-        UpdateSyncStatus(saveInfo);
-
-        // Update File Changes Breakdown
-        UpdateFileChangesBreakdown(saveInfo);
-
-        // Update Branch Status
-        UpdateBranchStatus(saveInfo);
-    }
-
-    private void UpdateSyncStatus(ManagedSaveInfo saveInfo)
-    {
-        // Update Sync Progress
-        if (FindName("SyncProgressBar") is ProgressBar syncProgressBar &&
-            FindName("SyncProgressText") is TextBlock syncProgressText)
-        {
-            var syncProgress = CalculateSyncProgress(saveInfo);
-            syncProgressBar.Value = syncProgress;
-            syncProgressText.Text = $"{syncProgress:F0}%";
-        }
-
-        // Update Sync Status Badge
-        if (FindName("SyncStatusBadge") is Border syncStatusBadge &&
-            FindName("SyncStatusText") is TextBlock syncStatusText)
-        {
-            var (statusText, backgroundColor, borderColor, textColor) = GetSyncStatusInfo(saveInfo);
-            syncStatusText.Text = statusText;
-
-            // Apply colors using SolidColorBrush
-            syncStatusBadge.Background = new SolidColorBrush(backgroundColor);
-            syncStatusBadge.BorderBrush = new SolidColorBrush(borderColor);
-            syncStatusText.Foreground = new SolidColorBrush(textColor);
-        }
-
-        // Update Ahead/Behind Status
-        if (FindName("AheadCommitsText") is TextBlock aheadText)
-        {
-            var aheadCount = GetAheadCommitsCount(saveInfo);
-            aheadText.Text = aheadCount == 0 ? "0 commits" : $"{aheadCount} commit{(aheadCount == 1 ? "" : "s")}";
-        }
-
-        if (FindName("BehindCommitsText") is TextBlock behindText)
-        {
-            var behindCount = GetBehindCommitsCount(saveInfo);
-            behindText.Text = behindCount == 0 ? "0 commits" : $"{behindCount} commit{(behindCount == 1 ? "" : "s")}";
-        }
-    }
-
-    private void UpdateFileChangesBreakdown(ManagedSaveInfo saveInfo)
-    {
-        // Update individual file type counts
-        var fileBreakdown = CalculateFileBreakdown(saveInfo);
-
-        if (FindName("RegionChunksCountText") is TextBlock regionChunksText)
-            regionChunksText.Text = fileBreakdown.RegionChunks.ToString();
-
-        if (FindName("WorldDataCountText") is TextBlock worldDataText)
-            worldDataText.Text = fileBreakdown.WorldData.ToString();
-
-        if (FindName("PlayerDataCountText") is TextBlock playerDataText)
-            playerDataText.Text = fileBreakdown.PlayerData.ToString();
-
-        if (FindName("EntityDataCountText") is TextBlock entityDataText)
-            entityDataText.Text = fileBreakdown.EntityData.ToString();
-
-        if (FindName("StructureDataCountText") is TextBlock structureDataText)
-            structureDataText.Text = fileBreakdown.StructureData.ToString();
-
-        // Update changes summary
-        if (FindName("AddedFilesText") is TextBlock addedText)
-            addedText.Text = fileBreakdown.AddedFiles > 0 ? $"+{fileBreakdown.AddedFiles}" : "0";
-
-        if (FindName("DeletedFilesText") is TextBlock deletedText)
-            deletedText.Text = fileBreakdown.DeletedFiles > 0 ? $"-{fileBreakdown.DeletedFiles}" : "0";
-
-        if (FindName("TotalFilesText") is TextBlock totalText)
-            totalText.Text = fileBreakdown.TotalFiles.ToString();
-    }
-
-    private void UpdateBranchStatus(ManagedSaveInfo saveInfo)
-    {
-        // Update Available Branches
-        if (FindName("BranchTagsContainer") is StackPanel branchContainer)
-        {
-            branchContainer.Children.Clear();
-            var branches = GetAvailableBranches(saveInfo);
-
-            foreach (var branch in branches.Take(3)) // Show max 3 branches to avoid overflow
-            {
-                var branchBorder = new Border
-                {
-                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 243, 244, 246)),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(6, 2, 6, 2)
-                };
-
-                var branchText = new TextBlock
-                {
-                    FontSize = 11,
-                    Text = branch
-                };
-
-                branchBorder.Child = branchText;
-                branchContainer.Children.Add(branchBorder);
-            }
         }
     }
 
@@ -1369,39 +1219,31 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         return 75.0;
     }
 
-    private (string statusText, Windows.UI.Color backgroundColor, Windows.UI.Color borderColor, Windows.UI.Color textColor) GetSyncStatusInfo(ManagedSaveInfo saveInfo)
+    private (string statusText, Color backgroundColor, Color borderColor, Color textColor) GetSyncStatusInfo(
+        ManagedSaveInfo saveInfo)
     {
         var aheadCount = GetAheadCommitsCount(saveInfo);
         var behindCount = GetBehindCommitsCount(saveInfo);
 
         if (aheadCount == 0 && behindCount == 0)
-        {
             return ("Up to date",
-                   Windows.UI.Color.FromArgb(255, 230, 243, 255), // Light blue background
-                   Windows.UI.Color.FromArgb(255, 179, 217, 255), // Blue border
-                   Windows.UI.Color.FromArgb(255, 0, 102, 204));   // Dark blue text
-        }
-        else if (aheadCount > 0 && behindCount == 0)
-        {
+                Color.FromArgb(255, 230, 243, 255), // Light blue background
+                Color.FromArgb(255, 179, 217, 255), // Blue border
+                Color.FromArgb(255, 0, 102, 204)); // Dark blue text
+        if (aheadCount > 0 && behindCount == 0)
             return ($"{aheadCount} ahead",
-                   Windows.UI.Color.FromArgb(255, 220, 252, 231), // Light green background
-                   Windows.UI.Color.FromArgb(255, 187, 247, 208), // Green border
-                   Windows.UI.Color.FromArgb(255, 22, 163, 74));   // Dark green text
-        }
-        else if (aheadCount == 0 && behindCount > 0)
-        {
+                Color.FromArgb(255, 220, 252, 231), // Light green background
+                Color.FromArgb(255, 187, 247, 208), // Green border
+                Color.FromArgb(255, 22, 163, 74)); // Dark green text
+        if (aheadCount == 0 && behindCount > 0)
             return ($"{behindCount} behind",
-                   Windows.UI.Color.FromArgb(255, 255, 248, 197), // Light yellow background
-                   Windows.UI.Color.FromArgb(255, 238, 216, 136), // Yellow border
-                   Windows.UI.Color.FromArgb(255, 211, 149, 0));   // Dark yellow text
-        }
-        else
-        {
-            return ($"{aheadCount} ahead, {behindCount} behind",
-                   Windows.UI.Color.FromArgb(255, 254, 226, 226), // Light red background
-                   Windows.UI.Color.FromArgb(255, 252, 165, 165), // Red border
-                   Windows.UI.Color.FromArgb(255, 220, 38, 38));   // Dark red text
-        }
+                Color.FromArgb(255, 255, 248, 197), // Light yellow background
+                Color.FromArgb(255, 238, 216, 136), // Yellow border
+                Color.FromArgb(255, 211, 149, 0)); // Dark yellow text
+        return ($"{aheadCount} ahead, {behindCount} behind",
+            Color.FromArgb(255, 254, 226, 226), // Light red background
+            Color.FromArgb(255, 252, 165, 165), // Red border
+            Color.FromArgb(255, 220, 38, 38)); // Dark red text
     }
 
     private int GetAheadCommitsCount(ManagedSaveInfo saveInfo)
@@ -1416,7 +1258,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         return 0; // saveInfo.BehindCommits ?? 0;
     }
 
-    private (int RegionChunks, int WorldData, int PlayerData, int EntityData, int StructureData, int AddedFiles, int DeletedFiles, int TotalFiles) CalculateFileBreakdown(ManagedSaveInfo saveInfo)
+    private (int RegionChunks, int WorldData, int PlayerData, int EntityData, int StructureData, int AddedFiles, int
+        DeletedFiles, int TotalFiles) CalculateFileBreakdown(ManagedSaveInfo saveInfo)
     {
         // Mock implementation - in real scenario, this would analyze the save files
         return (
@@ -1437,102 +1280,23 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         return new List<string> { "main", "feature/castle-wing", "hotfix/water-fix" };
     }
 
-    private void UpdateWorldInformation()
-    {
-        var saveInfo = ViewModel.SaveInfo;
-        if (saveInfo == null) return;
-
-        if (FindName("WorldSizeText") is TextBlock sizeText)
-            sizeText.Text = FormatFileSize(saveInfo.Size);
-
-        if (FindName("GameVersionText") is TextBlock versionText)
-            versionText.Text = saveInfo.GameVersion ?? "Unknown";
-
-        if (FindName("WorldLastModifiedText") is TextBlock modifiedText)
-            modifiedText.Text = saveInfo.LastModifiedFormatted;
-
-        if (FindName("AddedDateText") is TextBlock addedText)
-            addedText.Text = saveInfo.AddedDate.ToString("MMM dd, yyyy");
-    }
-
-    private void UpdateStatistics()
-    {
-        var saveInfo = ViewModel.SaveInfo;
-        if (saveInfo == null) return;
-
-        if (FindName("TotalCommitsText") is TextBlock commitsText)
-            commitsText.Text = saveInfo.CommitCount.ToString();
-
-        if (FindName("BranchesCountText") is TextBlock branchesText)
-            branchesText.Text = "1"; // TODO: Add branch count to SaveInfo
-
-        if (FindName("RepositoryAgeText") is TextBlock ageText)
-        {
-            var age = DateTime.Now - saveInfo.AddedDate;
-            ageText.Text = FormatTimeSpan(age);
-        }
-
-        if (FindName("WorkingTreeStatusText") is TextBlock treeStatusText)
-        {
-            treeStatusText.Text = saveInfo.CurrentStatus switch
-            {
-                ManagedSaveInfo.SaveStatus.Clear => "Clean",
-                ManagedSaveInfo.SaveStatus.Modified => "Modified",
-                ManagedSaveInfo.SaveStatus.Conflict => "Conflicts",
-                _ => "Unknown"
-            };
-        }
-    }
-
     private void UpdateRemoteStatus()
     {
         var saveInfo = ViewModel.SaveInfo;
         if (saveInfo == null) return;
 
         if (FindName("PushStatusDisplay") is TextBlock pushStatus)
-        {
             pushStatus.Text = saveInfo.PendingPushCount > 0
                 ? $"{saveInfo.PendingPushCount} commits to push"
                 : "Up to date";
-        }
 
         if (FindName("PullStatusDisplay") is TextBlock pullStatus)
-        {
             pullStatus.Text = saveInfo.PendingPullCount > 0
                 ? $"{saveInfo.PendingPullCount} commits to pull"
                 : "Up to date";
-        }
 
         if (FindName("RemoteUrlText") is TextBlock remoteUrlText)
-        {
             remoteUrlText.Text = saveInfo.GitHubRemoteUrl ?? "Not configured";
-        }
-    }
-
-    private static string FormatFileSize(long bytes)
-    {
-        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-        double len = bytes;
-        int order = 0;
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len = len / 1024;
-        }
-        return $"{len:0.##} {sizes[order]}";
-    }
-
-    private static string FormatTimeSpan(TimeSpan timeSpan)
-    {
-        if (timeSpan.TotalDays >= 365)
-            return $"{(int)(timeSpan.TotalDays / 365)} years";
-        if (timeSpan.TotalDays >= 30)
-            return $"{(int)(timeSpan.TotalDays / 30)} months";
-        if (timeSpan.TotalDays >= 1)
-            return $"{(int)timeSpan.TotalDays} days";
-        if (timeSpan.TotalHours >= 1)
-            return $"{(int)timeSpan.TotalHours} hours";
-        return $"{(int)timeSpan.TotalMinutes} minutes";
     }
 
     private void ViewAllCommits_Click(object sender, RoutedEventArgs e)
@@ -1540,9 +1304,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         // Switch to History tab to show all commits
         if (FindName("TabSelector") is SelectorBar tabSelector &&
             FindName("HistoryTab") is SelectorBarItem historyTab)
-        {
             tabSelector.SelectedItem = historyTab;
-        }
     }
 
     private async Task LoadSaveDetailAsync()
@@ -1664,6 +1426,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                         overview.Visibility = Visibility.Visible;
                         _ = LoadOverviewDataAsync();
                     }
+
                     break;
                 case "Files":
                     if (FindName("FilesContent") is TextBlock files)
@@ -1928,10 +1691,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             Debug.WriteLine("Creating new branch...");
 
             // For now, just close the dropdown
-            if (FindName("BranchComboBox") is ComboBox branchComboBox)
-            {
-                branchComboBox.IsDropDownOpen = false;
-            }
+            if (FindName("BranchComboBox") is ComboBox branchComboBox) branchComboBox.IsDropDownOpen = false;
         }
         catch (Exception ex)
         {
@@ -2029,7 +1789,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     {
         try
         {
-            if (!string.IsNullOrEmpty(ViewModel.SaveInfo?.Path) && FindName("BranchComboBox") is ComboBox branchComboBox)
+            if (!string.IsNullOrEmpty(ViewModel.SaveInfo?.Path) &&
+                FindName("BranchComboBox") is ComboBox branchComboBox)
             {
                 // TODO: Get actual branches from git service
                 var branches = new List<string> { "main", "develop", "feature/new-feature" };
@@ -2038,7 +1799,6 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 
                 // Add actual branches
                 foreach (var branch in branches)
-                {
                     comboBoxItems.Add(new BranchComboBoxItem
                     {
                         DisplayName = branch,
@@ -2046,7 +1806,6 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                         IsSeparator = false,
                         IsCreateAction = false
                     });
-                }
 
                 // Add separator
                 comboBoxItems.Add(new BranchComboBoxItem
@@ -2094,7 +1853,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         catch (Exception ex)
         {
             Debug.WriteLine($"Error opening GitHub repository: {ex.Message}");
-            await ShowErrorDialogSafe("Error", "Unable to open the GitHub repository. Please check your internet connection and try again.");
+            await ShowErrorDialogSafe("Error",
+                "Unable to open the GitHub repository. Please check your internet connection and try again.");
         }
     }
 

@@ -15,7 +15,10 @@ public class SaveInitializationStatusService
     /// </summary>
     private readonly List<Action<SaveInitStep>> _progressHandlers = new();
 
-    private SaveInitializationStatusService() { }
+    private SaveInitializationStatusService()
+    {
+    }
+
     public static SaveInitializationStatusService Instance => instance ??= new SaveInitializationStatusService();
 
     /// <summary>
@@ -64,7 +67,7 @@ public class SaveInitializationStatusService
         // Update the step in our stored collection
         if (InitSteps != null)
         {
-            SaveInitStep? existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
+            var existingStep = InitSteps.FirstOrDefault(s => s.Name == step.Name);
             if (existingStep != null)
             {
                 existingStep.Status = step.Status;
@@ -78,7 +81,7 @@ public class SaveInitializationStatusService
         CurrentProgressHandler?.Report(step);
 
         // Notify all subscribers (they will handle UI thread marshaling)
-        foreach (Action<SaveInitStep> handler in
+        foreach (var handler in
                  _progressHandlers.ToList()) // ToList to avoid modification during iteration
             handler(step);
     }

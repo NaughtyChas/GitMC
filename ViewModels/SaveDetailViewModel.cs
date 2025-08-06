@@ -7,11 +7,11 @@ namespace GitMC.ViewModels;
 
 public class SaveDetailViewModel : INotifyPropertyChanged
 {
-    private ManagedSaveInfo? _saveInfo;
-    private bool _isLoading;
     private string _currentTab = "Overview";
+    private bool _isLoading;
     private ObservableCollection<CommitInfo> _recentCommits = new();
     private string _remoteUrl = string.Empty;
+    private ManagedSaveInfo? _saveInfo;
 
     public ManagedSaveInfo? SaveInfo
     {

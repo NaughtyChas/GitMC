@@ -27,11 +27,11 @@ internal static class UiHelper
                 return parentAsT;
 
             // Search children
-            int childCount = VisualTreeHelper.GetChildrenCount(parent);
-            for (int i = 0; i < childCount; i++)
+            var childCount = VisualTreeHelper.GetChildrenCount(parent);
+            for (var i = 0; i < childCount; i++)
             {
-                DependencyObject? child = VisualTreeHelper.GetChild(parent, i);
-                T? result = FindElementByName<T>(child, name);
+                var child = VisualTreeHelper.GetChild(parent, i);
+                var result = FindElementByName<T>(child, name);
                 if (result != null)
                     return result;
             }
@@ -74,10 +74,10 @@ internal static class UiHelper
         if (parent is T parentAsT)
             results.Add(parentAsT);
 
-        int childCount = VisualTreeHelper.GetChildrenCount(parent);
-        for (int i = 0; i < childCount; i++)
+        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < childCount; i++)
         {
-            DependencyObject? child = VisualTreeHelper.GetChild(parent, i);
+            var child = VisualTreeHelper.GetChild(parent, i);
             FindElementsOfTypeRecursive(child, results);
         }
     }
@@ -92,7 +92,7 @@ internal static class UiHelper
     {
         try
         {
-            DependencyObject? parent = VisualTreeHelper.GetParent(element);
+            var parent = VisualTreeHelper.GetParent(element);
             while (parent != null)
             {
                 if (parent is T parentAsT)
@@ -120,7 +120,7 @@ internal static class UiHelper
 
         try
         {
-            DispatcherQueue? currentDispatcher = dispatcher ?? DispatcherQueue.GetForCurrentThread();
+            var currentDispatcher = dispatcher ?? DispatcherQueue.GetForCurrentThread();
 
             if (currentDispatcher?.HasThreadAccess == true)
                 action();
@@ -140,14 +140,14 @@ internal static class UiHelper
     /// <returns>Throttled action</returns>
     public static Action CreateThrottledAction(Action action, TimeSpan delay)
     {
-        DateTime lastExecution = DateTime.MinValue;
+        var lastExecution = DateTime.MinValue;
         object lockObj = new();
 
         return () =>
         {
             lock (lockObj)
             {
-                DateTime now = DateTime.Now;
+                var now = DateTime.Now;
                 if (now - lastExecution >= delay)
                 {
                     lastExecution = now;

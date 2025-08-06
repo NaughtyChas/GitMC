@@ -14,9 +14,9 @@ public class DataStorageService : IDataStorageService
     public DataStorageService()
     {
         // Get the executable directory
-        string exeDirectory = Path.GetDirectoryName(Environment.ProcessPath) ??
-                              Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ??
-                              Environment.CurrentDirectory;
+        var exeDirectory = Path.GetDirectoryName(Environment.ProcessPath) ??
+                           Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ??
+                           Environment.CurrentDirectory;
 
         if (string.IsNullOrEmpty(exeDirectory))
         {
@@ -69,7 +69,7 @@ public class DataStorageService : IDataStorageService
                 // Create main data directory and set as hidden
                 if (!Directory.Exists(_dataDirectory))
                 {
-                    DirectoryInfo dirInfo = Directory.CreateDirectory(_dataDirectory);
+                    var dirInfo = Directory.CreateDirectory(_dataDirectory);
                     // Set hidden attribute on Windows
                     if (OperatingSystem.IsWindows()) dirInfo.Attributes |= FileAttributes.Hidden;
                 }
@@ -81,10 +81,10 @@ public class DataStorageService : IDataStorageService
                 Directory.CreateDirectory(GetCacheDirectory());
 
                 // Create a README file to explain the folder structure
-                string readmePath = Path.Combine(_dataDirectory, "README.txt");
+                var readmePath = Path.Combine(_dataDirectory, "README.txt");
                 if (!File.Exists(readmePath))
                 {
-                    string readmeContent = @"GitMC Data Directory
+                    var readmeContent = @"GitMC Data Directory
 ===================
 
 This folder contains all GitMC application data:
@@ -114,7 +114,7 @@ Do not delete this folder unless you want to reset all GitMC data.
         try
         {
             // Test if we can create and delete a test file
-            string testFile = Path.Combine(_dataDirectory, ".test");
+            var testFile = Path.Combine(_dataDirectory, ".test");
             File.WriteAllText(testFile, "test");
             File.Delete(testFile);
             return true;

@@ -1,4 +1,3 @@
-using GitMC.Constants;
 using GitMC.Models.GitHub;
 using GitMC.Services;
 
@@ -24,15 +23,13 @@ public static class GitHubTestHelper
             // Start device flow
             var deviceCode = await gitHubService.StartDeviceFlowAsync();
             if (deviceCode == null)
-            {
                 return new GitHubAuthResult
                 {
                     IsSuccess = false,
                     ErrorMessage = "Failed to start device flow"
                 };
-            }
 
-            Console.WriteLine($"Device Flow started successfully:");
+            Console.WriteLine("Device Flow started successfully:");
             Console.WriteLine($"  User Code: {deviceCode.UserCode}");
             Console.WriteLine($"  Verification URL: {deviceCode.VerificationUri}");
             Console.WriteLine($"  Expires in: {deviceCode.ExpiresIn} seconds");
@@ -46,7 +43,7 @@ public static class GitHubTestHelper
 
             if (result.IsSuccess)
             {
-                Console.WriteLine($"✅ Authentication successful!");
+                Console.WriteLine("\u2705 Authentication successful!");
                 Console.WriteLine($"  Username: {result.User?.Login}");
                 Console.WriteLine($"  User ID: {result.User?.Id}");
                 Console.WriteLine($"  Email: {result.User?.Email}");
@@ -118,7 +115,8 @@ public static class GitHubTestHelper
     /// <param name="accessToken">Valid GitHub access token</param>
     /// <param name="repositoryName">Name of repository to create</param>
     /// <returns>True if repository was created successfully</returns>
-    public static async Task<bool> TestRepositoryCreationAsync(string accessToken, string repositoryName = "gitmc-test-repo")
+    public static async Task<bool> TestRepositoryCreationAsync(string accessToken,
+        string repositoryName = "gitmc-test-repo")
     {
         var gitHubService = new GitHubAppsService();
 
@@ -129,17 +127,13 @@ public static class GitHubTestHelper
             var success = await gitHubService.CreateRepositoryAsync(
                 accessToken,
                 repositoryName,
-                isPrivate: true,
-                description: "Test repository created by GitMC");
+                true,
+                "Test repository created by GitMC");
 
             if (success)
-            {
                 Console.WriteLine($"✅ Repository '{repositoryName}' created successfully");
-            }
             else
-            {
                 Console.WriteLine($"❌ Failed to create repository '{repositoryName}'");
-            }
 
             return success;
         }

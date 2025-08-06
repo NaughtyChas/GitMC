@@ -27,17 +27,17 @@ public class ManagedSaveService
     public async Task<List<ManagedSaveInfo>> GetManagedSaves()
     {
         var saves = new List<ManagedSaveInfo>();
-        string managedSavesPath = GetManagedSavesStoragePath();
+        var managedSavesPath = GetManagedSavesStoragePath();
 
         if (!Directory.Exists(managedSavesPath))
             return saves;
 
-        string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
-        foreach (string jsonFile in jsonFiles)
+        var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+        foreach (var jsonFile in jsonFiles)
             try
             {
-                string json = await File.ReadAllTextAsync(jsonFile);
-                ManagedSaveInfo? saveInfo = JsonSerializer.Deserialize<ManagedSaveInfo>(json);
+                var json = await File.ReadAllTextAsync(jsonFile);
+                var saveInfo = JsonSerializer.Deserialize<ManagedSaveInfo>(json);
                 if (saveInfo != null)
                 {
                     // Update size and last modified time with current values
@@ -62,13 +62,13 @@ public class ManagedSaveService
     {
         try
         {
-            string managedSavesPath = GetManagedSavesStoragePath();
-            string saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
+            var managedSavesPath = GetManagedSavesStoragePath();
+            var saveInfoPath = Path.Combine(managedSavesPath, $"{saveId}.json");
 
             if (!File.Exists(saveInfoPath))
                 return null;
 
-            string json = await File.ReadAllTextAsync(saveInfoPath);
+            var json = await File.ReadAllTextAsync(saveInfoPath);
             return JsonSerializer.Deserialize<ManagedSaveInfo>(json);
         }
         catch (Exception ex)
@@ -121,10 +121,10 @@ public class ManagedSaveService
         try
         {
             // Get Git service from service factory
-            IGitService gitService = ServiceFactory.Services.Git;
+            var gitService = ServiceFactory.Services.Git;
 
             // Check if it's a Git repository
-            bool isRepo = await gitService.IsRepositoryAsync(saveInfo.OriginalPath);
+            var isRepo = await gitService.IsRepositoryAsync(saveInfo.OriginalPath);
             if (!isRepo)
             {
                 // Not a Git repository anymore, mark as not initialized
@@ -139,7 +139,7 @@ public class ManagedSaveService
             }
 
             // Get Git status for save directory
-            GitStatus status = await gitService.GetStatusAsync(saveInfo.OriginalPath);
+            var status = await gitService.GetStatusAsync(saveInfo.OriginalPath);
 
             // Update branch name
             if (!string.IsNullOrEmpty(status.CurrentBranch)) saveInfo.Branch = status.CurrentBranch;
@@ -152,7 +152,7 @@ public class ManagedSaveService
             // Update commit count
             try
             {
-                GitCommit[] commits = await gitService.GetCommitHistoryAsync(1000, saveInfo.OriginalPath);
+                var commits = await gitService.GetCommitHistoryAsync(1000, saveInfo.OriginalPath);
                 saveInfo.CommitCount = commits.Length;
             }
             catch
@@ -187,11 +187,11 @@ public class ManagedSaveService
     {
         try
         {
-            string managedSavesPath = GetManagedSavesStoragePath();
+            var managedSavesPath = GetManagedSavesStoragePath();
             if (!Directory.Exists(managedSavesPath))
                 return 0;
 
-            string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+            var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
             return jsonFiles.Length;
         }
         catch
@@ -221,7 +221,7 @@ public class ManagedSaveService
         {
             Debug.WriteLine($"[RegisterManagedSave] Starting registration for save: {save.Name}");
 
-            string managedSavesPath = GetManagedSavesStoragePath();
+            var managedSavesPath = GetManagedSavesStoragePath();
             Debug.WriteLine($"[RegisterManagedSave] Managed saves path: {managedSavesPath}");
 
             if (!Directory.Exists(managedSavesPath))
@@ -231,10 +231,10 @@ public class ManagedSaveService
                 Debug.WriteLine("[RegisterManagedSave] Directory created successfully");
             }
 
-            string actualSaveId = saveId ?? GenerateSaveId(save.Name);
+            var actualSaveId = saveId ?? GenerateSaveId(save.Name);
             Debug.WriteLine($"[RegisterManagedSave] Generated save ID: {actualSaveId}");
 
-            string saveInfoPath = Path.Combine(managedSavesPath, $"{actualSaveId}.json");
+            var saveInfoPath = Path.Combine(managedSavesPath, $"{actualSaveId}.json");
             Debug.WriteLine($"[RegisterManagedSave] Save info path: {saveInfoPath}");
 
             var saveInfo = new ManagedSaveInfo
@@ -260,7 +260,7 @@ public class ManagedSaveService
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
 
-            string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
+            var json = JsonSerializer.Serialize(saveInfo, jsonOptions);
             Debug.WriteLine($"[RegisterManagedSave] Serialized to JSON, length: {json.Length}");
 
             Debug.WriteLine($"[RegisterManagedSave] About to write file to: {saveInfoPath}");
@@ -286,8 +286,8 @@ public class ManagedSaveService
     {
         try
         {
-            string managedSavesPath = GetManagedSavesStoragePath();
-            string saveInfoPath = Path.Combine(managedSavesPath, $"{saveInfo.Id}.json");
+            var managedSavesPath = GetManagedSavesStoragePath();
+            var saveInfoPath = Path.Combine(managedSavesPath, $"{saveInfo.Id}.json");
 
             if (File.Exists(saveInfoPath))
             {
@@ -298,7 +298,7 @@ public class ManagedSaveService
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
                 };
 
-                string json = JsonSerializer.Serialize(saveInfo, jsonOptions);
+                var json = JsonSerializer.Serialize(saveInfo, jsonOptions);
                 await File.WriteAllTextAsync(saveInfoPath, json);
                 Debug.WriteLine($"[UpdateManagedSave] Updated save info for: {saveInfo.Name}");
             }
@@ -334,8 +334,8 @@ public class ManagedSaveService
     /// <returns>Task</returns>
     public async Task RefreshAllGitStatus()
     {
-        List<ManagedSaveInfo> saves = await GetManagedSaves();
-        IEnumerable<Task> gitUpdates = saves.Where(s => s.IsGitInitialized).Select(RefreshGitStatus);
+        var saves = await GetManagedSaves();
+        var gitUpdates = saves.Where(s => s.IsGitInitialized).Select(RefreshGitStatus);
         await Task.WhenAll(gitUpdates);
     }
 
@@ -346,9 +346,9 @@ public class ManagedSaveService
     /// <returns>Unique save ID</returns>
     private string GenerateSaveId(string saveName)
     {
-        char[] invalidChars = Path.GetInvalidFileNameChars();
-        string safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-        string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
         return $"{safeName}_{timestamp}";
     }
 }

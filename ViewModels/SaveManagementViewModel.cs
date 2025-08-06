@@ -68,7 +68,7 @@ public class SaveManagementViewModel : INotifyPropertyChanged
     public void UpdateManagedSaves(List<ManagedSaveInfo> saves)
     {
         ManagedSaves.Clear();
-        foreach (ManagedSaveInfo save in saves) ManagedSaves.Add(save);
+        foreach (var save in saves) ManagedSaves.Add(save);
         OnPropertyChanged(nameof(SaveCount));
         UpdateSaveCountText();
         UpdateTotalSizeText();
@@ -84,7 +84,7 @@ public class SaveManagementViewModel : INotifyPropertyChanged
 
     private void UpdateTotalSizeText()
     {
-        long totalSize = ManagedSaves.Sum(save => save.Size);
+        var totalSize = ManagedSaves.Sum(save => save.Size);
         TotalSizeText = CommonHelpers.FormatFileSize(totalSize);
     }
 }

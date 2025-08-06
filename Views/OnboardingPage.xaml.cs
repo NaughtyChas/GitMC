@@ -1,18 +1,15 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
+using Windows.Storage.Pickers;
+using Windows.System;
 using GitMC.Constants;
 using GitMC.Extensions;
 using GitMC.Helpers;
-using GitMC.Models;
-using GitMC.Models.GitHub;
 using GitMC.Services;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
-using Windows.Storage;
-using Windows.Storage.Pickers;
-using Windows.System;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -22,11 +19,11 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly IConfigurationService _configurationService;
     private readonly IDataStorageService _dataStorageService;
+    private readonly IGitHubAppsService _gitHubAppsService;
     private readonly IGitService _gitService;
     private readonly ManagedSaveService _managedSaveService;
     private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
     private readonly NbtService _nbtService;
-    private readonly IGitHubAppsService _gitHubAppsService;
 
     public OnboardingPage()
     {
@@ -123,14 +120,15 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             if (_configurationService.SelectedPlatform != "GitHub")
                 return;
 
-            string accessToken = _configurationService.GitHubAccessToken;
-            DateTime tokenTimestamp = _configurationService.GitHubAccessTokenTimestamp;
+            var accessToken = _configurationService.GitHubAccessToken;
+            var tokenTimestamp = _configurationService.GitHubAccessTokenTimestamp;
 
             if (string.IsNullOrEmpty(accessToken))
                 return; // No token stored, nothing to validate
 
             // Validate token state
-            var (isValid, isExpired, errorMessage) = await _gitHubAppsService.ValidateTokenStateAsync(accessToken, tokenTimestamp);
+            var (isValid, isExpired, errorMessage) =
+                await _gitHubAppsService.ValidateTokenStateAsync(accessToken, tokenTimestamp);
 
             if (isValid)
             {
@@ -152,7 +150,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                 {
                     authStatusPanel.Visibility = Visibility.Visible;
                     authStatusPanel.Title = "GitHub Authentication Expired";
-                    authStatusPanel.Message = "Your GitHub access token has expired. Please re-authenticate to continue using GitHub features.";
+                    authStatusPanel.Message =
+                        "Your GitHub access token has expired. Please re-authenticate to continue using GitHub features.";
                     authStatusPanel.Severity = InfoBarSeverity.Warning;
 
                     // Add action button for re-authentication
@@ -161,10 +160,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                         Content = "Re-authenticate",
                         Style = Application.Current.Resources["AccentButtonStyle"] as Style
                     };
-                    reAuthButton.Click += async (sender, e) =>
-                    {
-                        await ConnectToGitHub(sender as FrameworkElement);
-                    };
+                    reAuthButton.Click += async (sender, e) => { await ConnectToGitHub(sender as FrameworkElement); };
                     authStatusPanel.ActionButton = reAuthButton;
                 }
 
@@ -181,7 +177,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                 {
                     authStatusPanel.Visibility = Visibility.Visible;
                     authStatusPanel.Title = "GitHub Authentication Invalid";
-                    authStatusPanel.Message = $"Your GitHub access token is no longer valid: {errorMessage}. Please re-authenticate.";
+                    authStatusPanel.Message =
+                        $"Your GitHub access token is no longer valid: {errorMessage}. Please re-authenticate.";
                     authStatusPanel.Severity = InfoBarSeverity.Error;
 
                     // Add action button for re-authentication
@@ -190,10 +187,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                         Content = "Re-authenticate",
                         Style = Application.Current.Resources["AccentButtonStyle"] as Style
                     };
-                    reAuthButton.Click += async (sender, e) =>
-                    {
-                        await ConnectToGitHub(sender as FrameworkElement);
-                    };
+                    reAuthButton.Click += async (sender, e) => { await ConnectToGitHub(sender as FrameworkElement); };
                     authStatusPanel.ActionButton = reAuthButton;
                 }
 
@@ -216,13 +210,13 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             var systemIdentityPanel = FindName("SystemIdentityPanel") as InfoBar;
 
             // Check if system Git is installed and has identity configured
-            bool isSystemGitInstalled = await _gitService.IsInstalledAsync();
+            var isSystemGitInstalled = await _gitService.IsInstalledAsync();
             if (isSystemGitInstalled)
             {
                 try
                 {
                     // Use GitService's new method to get system Git identity
-                    (string? systemUserName, string? systemUserEmail) = await _gitService.GetSystemGitIdentityAsync();
+                    (var systemUserName, var systemUserEmail) = await _gitService.GetSystemGitIdentityAsync();
 
                     if (!string.IsNullOrEmpty(systemUserName) && !string.IsNullOrEmpty(systemUserEmail))
                     {
@@ -231,7 +225,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                         {
                             systemIdentityPanel.Visibility = Visibility.Visible;
                             systemIdentityPanel.Title = "System Git identity detected";
-                            systemIdentityPanel.Message = $"System Git configuration: {systemUserName} ({systemUserEmail}) - can migrate to built-in";
+                            systemIdentityPanel.Message =
+                                $"System Git configuration: {systemUserName} ({systemUserEmail}) - can migrate to built-in";
                             systemIdentityPanel.Severity = InfoBarSeverity.Informational;
                         }
                     }
@@ -276,8 +271,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
     private void UpdateStepVisibility()
     {
-        int currentStep = OnboardingService.CurrentStepIndex;
-        OnboardingStepStatus[] statuses = OnboardingService.StepStatuses;
+        var currentStep = OnboardingService.CurrentStepIndex;
+        var statuses = OnboardingService.StepStatuses;
 
         // Update step displays (only if elements exist)
         UpdateStepDisplaySafe(0, "Step1Content", "Step1CollapsedContent", currentStep, statuses);
@@ -323,9 +318,9 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         if (stepIndex >= statuses.Length || fullContent == null || collapsedContent == null) return;
 
         // Check if all previous steps are completed
-        bool canBeActive = stepIndex == 0 || statuses.Take(stepIndex).All(s => s == OnboardingStepStatus.Completed);
-        bool isCurrentStep = stepIndex == currentStep && statuses[stepIndex] == OnboardingStepStatus.Current &&
-                             canBeActive;
+        var canBeActive = stepIndex == 0 || statuses.Take(stepIndex).All(s => s == OnboardingStepStatus.Completed);
+        var isCurrentStep = stepIndex == currentStep && statuses[stepIndex] == OnboardingStepStatus.Current &&
+                            canBeActive;
 
         fullContent.Visibility = isCurrentStep ? Visibility.Visible : Visibility.Collapsed;
         collapsedContent.Visibility = isCurrentStep ? Visibility.Collapsed : Visibility.Visible;
@@ -336,12 +331,12 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     {
         if (stepIndex >= statuses.Length || circleBorder == null) return;
 
-        OnboardingStepStatus status = statuses[stepIndex];
-        int currentStep = OnboardingService.CurrentStepIndex;
+        var status = statuses[stepIndex];
+        var currentStep = OnboardingService.CurrentStepIndex;
 
         // Check if all previous steps are completed
-        bool canBeActive = stepIndex == 0 || (stepIndex <= currentStep &&
-                                              statuses.Take(stepIndex).All(s => s == OnboardingStepStatus.Completed));
+        var canBeActive = stepIndex == 0 || (stepIndex <= currentStep &&
+                                             statuses.Take(stepIndex).All(s => s == OnboardingStepStatus.Completed));
 
         switch (status)
         {
@@ -381,12 +376,12 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     {
         try
         {
-            OnboardingStepStatus[] statuses = OnboardingService.StepStatuses;
+            var statuses = OnboardingService.StepStatuses;
 
             // Step 2: Git System Setup (now manual choice, not auto-detection)
             if (statuses.Length > 1)
             {
-                bool gitInstalled = await _gitService.IsInstalledAsync();
+                var gitInstalled = await _gitService.IsInstalledAsync();
                 var gitFoundText = FindName("GitFoundText") as TextBlock;
                 var gitNotFoundPanel = FindName("GitNotFoundPanel") as StackPanel;
 
@@ -398,13 +393,14 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                         // Show completion status based on what user chose
                         if (gitInstalled)
                         {
-                            string gitVersion = await _gitService.GetVersionAsync();
+                            var gitVersion = await _gitService.GetVersionAsync();
                             gitFoundText.Text = $"✓ Using system Git version {gitVersion}";
                         }
                         else
                         {
                             gitFoundText.Text = "✓ Using built-in Git";
                         }
+
                         gitFoundText.Visibility = Visibility.Visible;
                         gitNotFoundPanel.Visibility = Visibility.Collapsed;
                     }
@@ -426,7 +422,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             // Step 3: Git Configuration
             if (statuses.Length > 2)
             {
-                (string? userName, string? userEmail) = await _gitService.GetIdentityAsync();
+                (var userName, var userEmail) = await _gitService.GetIdentityAsync();
                 if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail) &&
                     statuses[2] == OnboardingStepStatus.Completed)
                 {
@@ -465,7 +461,9 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                 }
             }
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private async void LanguageSettingsButton_Click(object sender, RoutedEventArgs e)
@@ -488,7 +486,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
     private async void UseLocallyButton_Click(object sender, RoutedEventArgs e)
     {
         // Show confirmation flyout first, only proceed if user clicks OK
-        bool confirmed = await ShowConfirmationFlyoutWithOk(sender as FrameworkElement, "Local Mode Activated",
+        var confirmed = await ShowConfirmationFlyoutWithOk(sender as FrameworkElement, "Local Mode Activated",
             "GitMC will now operate in local mode. Your saves will be managed locally with Git version control.");
 
         if (confirmed)
@@ -520,8 +518,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             if (userNameBox == null || userEmailBox == null || validationText == null)
                 return;
 
-            string userName = userNameBox.Text.Trim();
-            string userEmail = userEmailBox.Text.Trim();
+            var userName = userNameBox.Text.Trim();
+            var userEmail = userEmailBox.Text.Trim();
 
             // Validate input
             if (string.IsNullOrEmpty(userName))
@@ -550,7 +548,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             validationText.Visibility = Visibility.Collapsed;
 
             // Configure Git identity using LibGit2Sharp
-            bool success = await _gitService.ConfigureIdentityAsync(userName, userEmail);
+            var success = await _gitService.ConfigureIdentityAsync(userName, userEmail);
 
             if (success)
             {
@@ -596,7 +594,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         try
         {
             // First check if system Git is installed
-            bool isSystemGitInstalled = await _gitService.IsInstalledAsync();
+            var isSystemGitInstalled = await _gitService.IsInstalledAsync();
             if (!isSystemGitInstalled)
             {
                 FlyoutHelper.ShowErrorFlyout(sender as FrameworkElement, "System Git Not Found",
@@ -605,12 +603,12 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             }
 
             // Get system Git identity using GitService's new method
-            (string? systemUserName, string? systemUserEmail) = await _gitService.GetSystemGitIdentityAsync();
+            (var systemUserName, var systemUserEmail) = await _gitService.GetSystemGitIdentityAsync();
 
             if (!string.IsNullOrEmpty(systemUserName) && !string.IsNullOrEmpty(systemUserEmail))
             {
                 // Apply system Git identity to LibGit2Sharp
-                bool success = await _gitService.ConfigureIdentityAsync(systemUserName, systemUserEmail);
+                var success = await _gitService.ConfigureIdentityAsync(systemUserName, systemUserEmail);
 
                 if (success)
                 {
@@ -692,7 +690,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             if (statusText == null) return;
 
             // Test LibGit2Sharp Git identity configuration
-            (string? userName, string? userEmail) = await _gitService.GetIdentityAsync();
+            (var userName, var userEmail) = await _gitService.GetIdentityAsync();
 
             if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
             {
@@ -759,20 +757,20 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
             if (App.MainWindow != null)
             {
-                IntPtr hwnd = WindowNative.GetWindowHandle(App.MainWindow);
+                var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
                 InitializeWithWindow.Initialize(folderPicker, hwnd);
             }
 
-            StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
+            var folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
-                MinecraftSave? save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
+                var save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
                     // Register this save in our managed saves system using the service first
                     try
                     {
-                        string saveId = await _managedSaveService.RegisterManagedSave(save);
+                        var saveId = await _managedSaveService.RegisterManagedSave(save);
 
                         // Add to navigation in MainWindow with the generated save ID
                         if (App.MainWindow is MainWindow mainWindow)
@@ -831,21 +829,21 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
             if (App.MainWindow != null)
             {
-                IntPtr hwnd = WindowNative.GetWindowHandle(App.MainWindow);
+                var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
                 InitializeWithWindow.Initialize(folderPicker, hwnd);
             }
 
-            StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
+            var folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
                 // For version folders, we might have different validation logic
-                MinecraftSave? save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
+                var save = await _minecraftAnalyzerService.AnalyzeSaveFolder(folder.Path);
                 if (save != null)
                 {
                     // Register this save in our managed saves system using the service first
                     try
                     {
-                        string saveId = await _managedSaveService.RegisterManagedSave(save);
+                        var saveId = await _managedSaveService.RegisterManagedSave(save);
 
                         // Add to navigation in MainWindow with the generated save ID
                         if (App.MainWindow is MainWindow mainWindow)
@@ -889,8 +887,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         try
         {
             // Check Git installation status
-            bool gitInstalled = await _gitService.IsInstalledAsync();
-            OnboardingStepStatus[] statuses = OnboardingService.StepStatuses;
+            var gitInstalled = await _gitService.IsInstalledAsync();
+            var statuses = OnboardingService.StepStatuses;
 
             var gitStatusIcon = FindName("GitStatusIcon") as Border;
             var gitStatusText = FindName("GitStatusText") as TextBlock;
@@ -904,7 +902,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                     gitStatusIcon.Background = new SolidColorBrush(ColorConstants.SuccessGreen);
                     if (gitInstalled)
                     {
-                        string gitVersion = await _gitService.GetVersionAsync();
+                        var gitVersion = await _gitService.GetVersionAsync();
                         gitStatusText.Text = $"Using system Git v{gitVersion}";
                     }
                     else
@@ -941,7 +939,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
             if (gitIdentityStatusIcon != null && gitIdentityStatusText != null)
             {
-                (string? userName, string? userEmail) = await _gitService.GetIdentityAsync();
+                (var userName, var userEmail) = await _gitService.GetIdentityAsync();
                 if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
                 {
                     gitIdentityStatusIcon.Background = new SolidColorBrush(ColorConstants.SuccessGreen);
@@ -995,15 +993,17 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
 
             if (overallProgressBar != null && progressText != null)
             {
-                int completedSteps = OnboardingService.StepStatuses.Count(s => s == OnboardingStepStatus.Completed);
-                int totalSteps = OnboardingService.StepStatuses.Length;
-                double progressPercentage = totalSteps > 0 ? completedSteps * 100.0 / totalSteps : 0;
+                var completedSteps = OnboardingService.StepStatuses.Count(s => s == OnboardingStepStatus.Completed);
+                var totalSteps = OnboardingService.StepStatuses.Length;
+                var progressPercentage = totalSteps > 0 ? completedSteps * 100.0 / totalSteps : 0;
 
                 overallProgressBar.Value = progressPercentage;
                 progressText.Text = $"{completedSteps} of {totalSteps} steps completed";
             }
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private async void DownloadGitButton_Click(object sender, RoutedEventArgs e)
@@ -1020,10 +1020,11 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         // Do NOT mark the step as completed here - user hasn't actually installed Git yet
         // The step will be marked complete when system Git is detected or user chooses built-in Git
     }
+
     private async void SkipToBuiltInGitButton_Click(object sender, RoutedEventArgs e)
     {
         // Show confirmation flyout first
-        bool confirmed = await ShowConfirmationFlyoutWithOk(sender as FrameworkElement, "Use Built-in Git",
+        var confirmed = await ShowConfirmationFlyoutWithOk(sender as FrameworkElement, "Use Built-in Git",
             "GitMC will use the built-in Git system (LibGit2Sharp) instead of system Git. You can always install system Git later for enhanced functionality.");
 
         if (confirmed)
@@ -1064,7 +1065,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
         var platformSelector = FindName("PlatformSelector") as SelectorBar;
         var gitHubSelectorItem = FindName("GitHubSelectorItem") as SelectorBarItem;
 
-        if (gitHubConfigPanel != null && selfHostingConfigPanel != null && platformSelector != null && gitHubSelectorItem != null)
+        if (gitHubConfigPanel != null && selfHostingConfigPanel != null && platformSelector != null &&
+            gitHubSelectorItem != null)
         {
             if (platformSelector.SelectedItem == gitHubSelectorItem) // GitHub
             {
@@ -1139,7 +1141,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             {
                 gitHubStatusPanel.Visibility = Visibility.Visible;
                 gitHubStatusPanel.Title = "Starting GitHub Authentication";
-                gitHubStatusPanel.Message = "Preparing to connect to GitHub. This will open your browser for authorization.";
+                gitHubStatusPanel.Message =
+                    "Preparing to connect to GitHub. This will open your browser for authorization.";
                 gitHubStatusPanel.Severity = InfoBarSeverity.Informational;
                 gitHubStatusPanel.IsClosable = false;
                 gitHubStatusPanel.IsOpen = true;
@@ -1161,9 +1164,11 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                 if (gitHubStatusPanel != null)
                 {
                     gitHubStatusPanel.Title = "Authentication Error";
-                    gitHubStatusPanel.Message = "Failed to start GitHub authentication. Please check your internet connection and try again.";
+                    gitHubStatusPanel.Message =
+                        "Failed to start GitHub authentication. Please check your internet connection and try again.";
                     gitHubStatusPanel.Severity = InfoBarSeverity.Error;
                 }
+
                 return;
             }
 
@@ -1172,26 +1177,24 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             {
                 gitHubStatusPanel.Title = "GitHub Authorization Required";
                 gitHubStatusPanel.Message = $"Please visit the following URL in your browser and enter this code:\n\n" +
-                    $"URL: {deviceCodeResponse.VerificationUri}\n" +
-                    $"Code: {deviceCodeResponse.UserCode}\n\n" +
-                    $"The browser will open automatically. Complete the authorization and return here.";
+                                            $"URL: {deviceCodeResponse.VerificationUri}\n" +
+                                            $"Code: {deviceCodeResponse.UserCode}\n\n" +
+                                            $"The browser will open automatically. Complete the authorization and return here.";
                 gitHubStatusPanel.Severity = InfoBarSeverity.Warning;
             }
 
             // Step 3: Open browser automatically
             try
             {
-                await Windows.System.Launcher.LaunchUriAsync(new Uri(deviceCodeResponse.VerificationUri));
+                await Launcher.LaunchUriAsync(new Uri(deviceCodeResponse.VerificationUri));
             }
             catch
             {
                 // Ignore browser launch failures - user can navigate manually
                 if (gitHubStatusPanel != null)
-                {
                     gitHubStatusPanel.Message = $"Please manually visit: {deviceCodeResponse.VerificationUri}\n" +
-                        $"And enter this code: {deviceCodeResponse.UserCode}\n\n" +
-                        $"Waiting for authorization...";
-                }
+                                                $"And enter this code: {deviceCodeResponse.UserCode}\n\n" +
+                                                $"Waiting for authorization...";
             }
 
             // Step 4: Show polling status
@@ -1199,7 +1202,7 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             {
                 gitHubStatusPanel.Title = "Waiting for Authorization";
                 gitHubStatusPanel.Message = $"Code: {deviceCodeResponse.UserCode}\n\n" +
-                    "Please complete the authorization in your browser. GitMC is waiting for confirmation...";
+                                            "Please complete the authorization in your browser. GitMC is waiting for confirmation...";
                 gitHubStatusPanel.Severity = InfoBarSeverity.Informational;
             }
 
@@ -1222,25 +1225,26 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                 {
                     var repoNameBox = FindName("GitHubRepoNameBox") as TextBox;
                     if (repoNameBox != null && !string.IsNullOrWhiteSpace(repoNameBox.Text))
-                    {
                         repoName = repoNameBox.Text.Trim();
-                    }
                 }
-                catch { /* Ignore if control doesn't exist */ }
+                catch
+                {
+                    /* Ignore if control doesn't exist */
+                }
 
                 _configurationService.GitHubRepository = repoName;
 
                 // Set private repo preference
-                bool isPrivate = true; // Default to private
+                var isPrivate = true; // Default to private
                 try
                 {
                     var privateRepoBox = FindName("GitHubPrivateRepoBox") as CheckBox;
-                    if (privateRepoBox != null)
-                    {
-                        isPrivate = privateRepoBox.IsChecked ?? true;
-                    }
+                    if (privateRepoBox != null) isPrivate = privateRepoBox.IsChecked ?? true;
                 }
-                catch { /* Ignore if control doesn't exist */ }
+                catch
+                {
+                    /* Ignore if control doesn't exist */
+                }
 
                 _configurationService.GitHubPrivateRepo = isPrivate;
 
@@ -1263,16 +1267,13 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
                 {
                     gitHubStatusPanel.Title = "GitHub Connected Successfully";
                     gitHubStatusPanel.Message = $"Successfully connected to GitHub as {authResult.User.Login}!\n\n" +
-                        "Authentication status will be automatically validated when the app starts. " +
-                        "Your tokens will be refreshed automatically if they expire.";
+                                                "Authentication status will be automatically validated when the app starts. " +
+                                                "Your tokens will be refreshed automatically if they expire.";
                     gitHubStatusPanel.Severity = InfoBarSeverity.Success;
                 }
 
                 // Show repository settings
-                if (gitHubRepoSettings != null)
-                {
-                    gitHubRepoSettings.Visibility = Visibility.Visible;
-                }
+                if (gitHubRepoSettings != null) gitHubRepoSettings.Visibility = Visibility.Visible;
 
                 // Update system status to reflect the changes
                 UpdateSystemStatus();
@@ -1280,12 +1281,12 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             else
             {
                 // Handle authentication failure
-                string errorMessage = authResult.ErrorMessage ?? "Authentication failed for unknown reason";
+                var errorMessage = authResult.ErrorMessage ?? "Authentication failed for unknown reason";
                 if (gitHubStatusPanel != null)
                 {
                     gitHubStatusPanel.Title = "GitHub Authentication Failed";
                     gitHubStatusPanel.Message = $"Failed to authenticate with GitHub: {errorMessage}\n\n" +
-                        "Please try again or check your network connection.";
+                                                "Please try again or check your network connection.";
                     gitHubStatusPanel.Severity = InfoBarSeverity.Error;
                 }
             }
@@ -1296,7 +1297,8 @@ public sealed partial class OnboardingPage : Page, INotifyPropertyChanged
             if (gitHubStatusPanel != null)
             {
                 gitHubStatusPanel.Title = "Connection Error";
-                gitHubStatusPanel.Message = $"An unexpected error occurred during GitHub authentication: {ex.Message}\n\n" +
+                gitHubStatusPanel.Message =
+                    $"An unexpected error occurred during GitHub authentication: {ex.Message}\n\n" +
                     "Please try again.";
                 gitHubStatusPanel.Severity = InfoBarSeverity.Error;
             }

@@ -1,6 +1,8 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using GitMC.Constants;
 using GitMC.Models.GitHub;
 
@@ -11,12 +13,13 @@ namespace GitMC.Services;
 /// </summary>
 public class GitHubAppsService : IGitHubAppsService, IDisposable
 {
-    private readonly HttpClient _httpClient;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         WriteIndented = true
     };
+
+    private readonly HttpClient _httpClient;
 
     public GitHubAppsService()
     {
@@ -24,6 +27,11 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(GitHubConstants.UserAgent);
         _httpClient.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue(GitHubConstants.AcceptHeader));
+    }
+
+    public void Dispose()
+    {
+        _httpClient?.Dispose();
     }
 
     public async Task<DeviceCodeResponse?> StartDeviceFlowAsync()
@@ -41,10 +49,7 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
 
             var response = await _httpClient.PostAsync(GitHubConstants.DeviceCodeUrl, content);
 
-            if (!response.IsSuccessStatusCode)
-            {
-                return null;
-            }
+            if (!response.IsSuccessStatusCode) return null;
 
             var responseJson = await response.Content.ReadAsStringAsync();
             return JsonSerializer.Deserialize<DeviceCodeResponse>(responseJson, JsonOptions);
@@ -67,7 +72,6 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
         var timeout = TimeSpan.FromSeconds(GitHubConstants.DeviceFlowTimeoutSeconds);
 
         while (!cancellationToken.IsCancellationRequested && DateTime.UtcNow - startTime < timeout)
-        {
             try
             {
                 var json = JsonSerializer.Serialize(tokenRequest, JsonOptions);
@@ -99,7 +103,8 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
                 if (tokenResponse?.Error == "slow_down")
                 {
                     // GitHub is asking us to slow down, increase interval
-                    await Task.Delay(TimeSpan.FromSeconds(GitHubConstants.PollingIntervalSeconds + 5), cancellationToken);
+                    await Task.Delay(TimeSpan.FromSeconds(GitHubConstants.PollingIntervalSeconds + 5),
+                        cancellationToken);
                     continue;
                 }
 
@@ -122,7 +127,6 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
                     ErrorMessage = $"Network error: {ex.Message}"
                 };
             }
-        }
 
         return new GitHubAuthResult
         {
@@ -142,27 +146,22 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
             // Step 1: Get device code
             var deviceCodeResponse = await StartDeviceFlowAsync();
             if (deviceCodeResponse == null)
-            {
                 return new GitHubAuthResult
                 {
                     IsSuccess = false,
                     ErrorMessage = "Failed to start GitHub authentication process"
                 };
-            }
 
-            progress?.Report($"Please visit {deviceCodeResponse.VerificationUri} and enter code: {deviceCodeResponse.UserCode}");
+            progress?.Report(
+                $"Please visit {deviceCodeResponse.VerificationUri} and enter code: {deviceCodeResponse.UserCode}");
 
             // Step 2: Poll for completion
             var result = await PollDeviceFlowAsync(deviceCodeResponse.DeviceCode, cancellationToken);
 
             if (result.IsSuccess)
-            {
                 progress?.Report($"Successfully authenticated as {result.User?.Login ?? "unknown user"}");
-            }
             else
-            {
                 progress?.Report($"Authentication failed: {result.ErrorMessage}");
-            }
 
             return result;
         }
@@ -185,10 +184,7 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
 
             var response = await _httpClient.SendAsync(request);
 
-            if (!response.IsSuccessStatusCode)
-            {
-                return null;
-            }
+            if (!response.IsSuccessStatusCode) return null;
 
             var json = await response.Content.ReadAsStringAsync();
             return JsonSerializer.Deserialize<GitHubUser>(json, JsonOptions);
@@ -213,8 +209,8 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
     }
 
     /// <summary>
-    /// Checks if a GitHub access token is expired based on timestamp.
-    /// GitHub Apps tokens typically expire after 8 hours.
+    ///     Checks if a GitHub access token is expired based on timestamp.
+    ///     GitHub Apps tokens typically expire after 8 hours.
     /// </summary>
     public bool IsTokenExpired(DateTime tokenTimestamp)
     {
@@ -226,32 +222,34 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
     }
 
     /// <summary>
-    /// Validates both token validity and expiration status.
+    ///     Validates both token validity and expiration status.
     /// </summary>
-    public async Task<(bool IsValid, bool IsExpired, string? ErrorMessage)> ValidateTokenStateAsync(string? accessToken, DateTime tokenTimestamp)
+    public async Task<(bool IsValid, bool IsExpired, string? ErrorMessage)> ValidateTokenStateAsync(string? accessToken,
+        DateTime tokenTimestamp)
     {
         if (string.IsNullOrEmpty(accessToken))
             return (false, false, "No access token found");
 
-        bool isExpired = IsTokenExpired(tokenTimestamp);
+        var isExpired = IsTokenExpired(tokenTimestamp);
         if (isExpired)
             return (false, true, "Token has expired (older than 8 hours)");
 
-        bool isValid = await ValidateTokenAsync(accessToken);
+        var isValid = await ValidateTokenAsync(accessToken);
         if (!isValid)
             return (false, false, "Token is invalid or revoked");
 
         return (true, false, null);
     }
 
-    public async Task<bool> CreateRepositoryAsync(string accessToken, string repositoryName, bool isPrivate = true, string? description = null)
+    public async Task<bool> CreateRepositoryAsync(string accessToken, string repositoryName, bool isPrivate = true,
+        string? description = null)
     {
         try
         {
             var repository = new
             {
                 name = repositoryName,
-                description = description ?? $"Minecraft save repository managed by GitMC",
+                description = description ?? "Minecraft save repository managed by GitMC",
                 @private = isPrivate,
                 auto_init = true,
                 gitignore_template = "Global/Archives"
@@ -268,25 +266,24 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
 
             var response = await _httpClient.SendAsync(request);
 
-            if (response.IsSuccessStatusCode)
-            {
-                return true;
-            }
+            if (response.IsSuccessStatusCode) return true;
 
             // Handle specific HTTP error codes
-            string errorContent = await response.Content.ReadAsStringAsync();
-            string errorMessage = $"GitHub API error: {response.StatusCode}";
+            var errorContent = await response.Content.ReadAsStringAsync();
+            var errorMessage = $"GitHub API error: {response.StatusCode}";
 
             switch (response.StatusCode)
             {
-                case System.Net.HttpStatusCode.Unauthorized:
+                case HttpStatusCode.Unauthorized:
                     throw new UnauthorizedAccessException("GitHub access token is invalid or expired.");
-                case System.Net.HttpStatusCode.Forbidden:
-                    throw new UnauthorizedAccessException("Insufficient permissions to create repositories. Please check your GitHub account settings.");
-                case System.Net.HttpStatusCode.UnprocessableEntity:
+                case HttpStatusCode.Forbidden:
+                    throw new UnauthorizedAccessException(
+                        "Insufficient permissions to create repositories. Please check your GitHub account settings.");
+                case HttpStatusCode.UnprocessableEntity:
                     // Usually means repository name already exists or is invalid
-                    throw new InvalidOperationException($"Repository '{repositoryName}' already exists or the name is invalid.");
-                case System.Net.HttpStatusCode.TooManyRequests:
+                    throw new InvalidOperationException(
+                        $"Repository '{repositoryName}' already exists or the name is invalid.");
+                case HttpStatusCode.TooManyRequests:
                     throw new InvalidOperationException("GitHub API rate limit exceeded. Please try again later.");
                 default:
                     throw new HttpRequestException($"{errorMessage}. Response: {errorContent}");
@@ -315,7 +312,7 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
     }
 
     /// <summary>
-    /// Checks if a repository exists for the authenticated user
+    ///     Checks if a repository exists for the authenticated user
     /// </summary>
     public async Task<bool> CheckRepositoryExistsAsync(string accessToken, string repositoryName)
     {
@@ -323,36 +320,30 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
         {
             var user = await GetUserAsync(accessToken);
             if (user == null)
-            {
                 throw new UnauthorizedAccessException("Unable to get user information. Access token may be invalid.");
-            }
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"{GitHubConstants.ApiBaseUrl}/repos/{user.Login}/{repositoryName}");
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{GitHubConstants.ApiBaseUrl}/repos/{user.Login}/{repositoryName}");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             var response = await _httpClient.SendAsync(request);
 
-            if (response.IsSuccessStatusCode)
-            {
-                return true;
-            }
+            if (response.IsSuccessStatusCode) return true;
 
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                return false; // Repository doesn't exist, which is what we want to know
-            }
+            if (response.StatusCode ==
+                HttpStatusCode.NotFound) return false; // Repository doesn't exist, which is what we want to know
 
             // Handle other error codes
-            string errorContent = await response.Content.ReadAsStringAsync();
-            string errorMessage = $"GitHub API error: {response.StatusCode}";
+            var errorContent = await response.Content.ReadAsStringAsync();
+            var errorMessage = $"GitHub API error: {response.StatusCode}";
 
             switch (response.StatusCode)
             {
-                case System.Net.HttpStatusCode.Unauthorized:
+                case HttpStatusCode.Unauthorized:
                     throw new UnauthorizedAccessException("GitHub access token is invalid or expired.");
-                case System.Net.HttpStatusCode.Forbidden:
+                case HttpStatusCode.Forbidden:
                     throw new UnauthorizedAccessException("Insufficient permissions to access repository information.");
-                case System.Net.HttpStatusCode.TooManyRequests:
+                case HttpStatusCode.TooManyRequests:
                     throw new InvalidOperationException("GitHub API rate limit exceeded. Please try again later.");
                 default:
                     throw new HttpRequestException($"{errorMessage}. Response: {errorContent}");
@@ -381,7 +372,7 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
     }
 
     /// <summary>
-    /// Gets the authenticated user's repositories
+    ///     Gets the authenticated user's repositories
     /// </summary>
     public async Task<GitHubRepository[]> GetUserRepositoriesAsync(string accessToken, bool includePrivate = true)
     {
@@ -399,20 +390,21 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<GitHubRepository[]>(json, JsonOptions) ?? Array.Empty<GitHubRepository>();
+                return JsonSerializer.Deserialize<GitHubRepository[]>(json, JsonOptions) ??
+                       Array.Empty<GitHubRepository>();
             }
 
             // Handle specific HTTP error codes
-            string errorContent = await response.Content.ReadAsStringAsync();
-            string errorMessage = $"GitHub API error: {response.StatusCode}";
+            var errorContent = await response.Content.ReadAsStringAsync();
+            var errorMessage = $"GitHub API error: {response.StatusCode}";
 
             switch (response.StatusCode)
             {
-                case System.Net.HttpStatusCode.Unauthorized:
+                case HttpStatusCode.Unauthorized:
                     throw new UnauthorizedAccessException("GitHub access token is invalid or expired.");
-                case System.Net.HttpStatusCode.Forbidden:
+                case HttpStatusCode.Forbidden:
                     throw new UnauthorizedAccessException("Insufficient permissions to access repository information.");
-                case System.Net.HttpStatusCode.TooManyRequests:
+                case HttpStatusCode.TooManyRequests:
                     throw new InvalidOperationException("GitHub API rate limit exceeded. Please try again later.");
                 default:
                     throw new HttpRequestException($"{errorMessage}. Response: {errorContent}");
@@ -445,13 +437,14 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
     }
 
     /// <summary>
-    /// Gets detailed information about a repository
+    ///     Gets detailed information about a repository
     /// </summary>
     public async Task<GitHubRepository?> GetRepositoryInfoAsync(string accessToken, string owner, string repositoryName)
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"{GitHubConstants.ApiBaseUrl}/repos/{owner}/{repositoryName}");
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{GitHubConstants.ApiBaseUrl}/repos/{owner}/{repositoryName}");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             var response = await _httpClient.SendAsync(request);
@@ -468,7 +461,7 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
     }
 
     /// <summary>
-    /// Validates a repository name according to GitHub's rules
+    ///     Validates a repository name according to GitHub's rules
     /// </summary>
     public static (bool IsValid, string? ErrorMessage) ValidateRepositoryName(string repositoryName)
     {
@@ -488,19 +481,18 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
             return (false, "Repository name cannot contain consecutive periods");
 
         // GitHub repository names can contain alphanumeric characters, hyphens, periods, and underscores
-        if (!System.Text.RegularExpressions.Regex.IsMatch(repositoryName, @"^[a-zA-Z0-9._-]+$"))
+        if (!Regex.IsMatch(repositoryName, @"^[a-zA-Z0-9._-]+$"))
             return (false, "Repository name can only contain letters, numbers, hyphens, periods, and underscores");
 
         // Reserved names
-        var reservedNames = new[] { ".", "..", "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
+        var reservedNames = new[]
+        {
+            ".", "..", "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+            "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        };
         if (reservedNames.Contains(repositoryName.ToUpperInvariant()))
             return (false, $"'{repositoryName}' is a reserved name and cannot be used");
 
         return (true, null);
-    }
-
-    public void Dispose()
-    {
-        _httpClient?.Dispose();
     }
 }

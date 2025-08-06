@@ -41,14 +41,14 @@ public class NbtRoundTripTest
 
             // Save original NBT file
             var originalNbtFile = new NbtFile(originalCompound);
-            string originalPath = Path.GetTempFileName() + ".nbt";
+            var originalPath = Path.GetTempFileName() + ".nbt";
             originalNbtFile.SaveToFile(originalPath, NbtCompression.GZip);
 
             Console.WriteLine($@"Original NBT file saved to: {originalPath}");
 
             // Convert NBT to SNBT
-            string snbtContent = await _nbtService.ConvertNbtToSnbtAsync(originalPath);
-            string snbtPath = Path.GetTempFileName() + ".snbt";
+            var snbtContent = await _nbtService.ConvertNbtToSnbtAsync(originalPath);
+            var snbtPath = Path.GetTempFileName() + ".snbt";
             File.WriteAllText(snbtPath, snbtContent, Encoding.UTF8);
 
             Console.WriteLine($@"SNBT content saved to: {snbtPath}");
@@ -57,7 +57,7 @@ public class NbtRoundTripTest
             Console.WriteLine();
 
             // Convert SNBT back to NBT
-            string finalNbtPath = Path.GetTempFileName() + ".nbt";
+            var finalNbtPath = Path.GetTempFileName() + ".nbt";
             await _nbtService.ConvertSnbtToNbtAsync(snbtContent, finalNbtPath);
 
             Console.WriteLine($@"Final NBT file saved to: {finalNbtPath}");
@@ -67,7 +67,7 @@ public class NbtRoundTripTest
             finalNbtFile.LoadFromFile(finalNbtPath);
 
             // Basic validation
-            NbtCompound? finalRoot = finalNbtFile.RootTag;
+            var finalRoot = finalNbtFile.RootTag;
             if (finalRoot == null)
             {
                 Console.WriteLine(@"ERROR: Final root tag is not a compound");
@@ -79,9 +79,9 @@ public class NbtRoundTripTest
             Console.WriteLine($@"Final compound has {finalRoot.Count} tags");
 
             // Check some specific values
-            NbtString? stringTest = finalRoot.Get<NbtString>("StringTest");
-            NbtInt? intTest = finalRoot.Get<NbtInt>("IntTest");
-            NbtFloat? floatTest = finalRoot.Get<NbtFloat>("FloatTest");
+            var stringTest = finalRoot.Get<NbtString>("StringTest");
+            var intTest = finalRoot.Get<NbtInt>("IntTest");
+            var floatTest = finalRoot.Get<NbtFloat>("FloatTest");
 
             Console.WriteLine($@"StringTest: {stringTest?.Value} (Expected: Hello World)");
             Console.WriteLine($@"IntTest: {intTest?.Value} (Expected: 12345)");
@@ -113,7 +113,7 @@ public class TestRunner
         Console.WriteLine(@"==========================================");
 
         var test = new NbtRoundTripTest();
-        bool success = await test.TestRoundTripConversion();
+        var success = await test.TestRoundTripConversion();
 
         Console.WriteLine(@"==========================================");
         Console.WriteLine($@"Test Result: {(success ? "PASSED" : "FAILED")}");

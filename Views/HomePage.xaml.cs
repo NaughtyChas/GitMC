@@ -71,17 +71,17 @@ public sealed partial class HomePage : Page, INotifyPropertyChanged
         try
         {
             // Check for managed saves metadata files
-            string managedSavesPath = GetManagedSavesStoragePath();
+            var managedSavesPath = GetManagedSavesStoragePath();
             if (!Directory.Exists(managedSavesPath)) return 0;
 
             // Count JSON metadata files that represent managed saves
-            string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+            var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
             return jsonFiles.Length;
         }
         catch
         {
             // If there's any error accessing the filesystem, fall back to onboarding check
-            OnboardingStepStatus[] statuses = _onboardingService.StepStatuses;
+            var statuses = _onboardingService.StepStatuses;
             if (statuses.Length > 4 &&
                 statuses[4] == OnboardingStepStatus.Completed) return 1; // At least one save exists based on onboarding
             return 0;

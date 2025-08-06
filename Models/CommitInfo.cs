@@ -5,11 +5,11 @@ namespace GitMC.Models;
 
 public class CommitInfo : INotifyPropertyChanged
 {
-    private string _sha = string.Empty;
-    private string _message = string.Empty;
     private string _author = string.Empty;
-    private DateTime _timestamp;
+    private string _message = string.Empty;
+    private string _sha = string.Empty;
     private string _timeAgo = string.Empty;
+    private DateTime _timestamp;
 
     public string Sha
     {
@@ -62,6 +62,8 @@ public class CommitInfo : INotifyPropertyChanged
         }
     }
 
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     private void UpdateTimeAgo()
     {
         var timeDiff = DateTime.Now - Timestamp;
@@ -77,8 +79,6 @@ public class CommitInfo : INotifyPropertyChanged
         else
             TimeAgo = Timestamp.ToString("MMM dd");
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {

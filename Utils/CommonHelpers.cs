@@ -12,7 +12,7 @@ public static class CommonHelpers
     {
         if (bytes == 0) return "0 B";
         string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-        int order = 0;
+        var order = 0;
         double size = bytes;
         while (size >= 1024 && order < sizes.Length - 1)
         {
@@ -28,7 +28,7 @@ public static class CommonHelpers
     /// </summary>
     public static string FormatRelativeTime(DateTime dateTime)
     {
-        TimeSpan timeSpan = DateTime.Now - dateTime;
+        var timeSpan = DateTime.Now - dateTime;
         return timeSpan.TotalDays switch
         {
             < 1 when timeSpan.TotalHours < 1 => $"{(int)timeSpan.TotalMinutes}m ago",
@@ -60,7 +60,7 @@ public static class CommonHelpers
     /// </summary>
     public static string GetWelcomeMessage()
     {
-        int hour = DateTime.Now.Hour;
+        var hour = DateTime.Now.Hour;
         return hour switch
         {
             < 12 => "Good morning, Crafter! ☀️",
@@ -91,12 +91,12 @@ public static class CommonHelpers
     {
         if (pattern.IsEmpty) return 0;
 
-        int count = 0;
-        int index = 0;
+        var count = 0;
+        var index = 0;
 
         while (index <= text.Length - pattern.Length)
         {
-            int found = text[index..].IndexOf(pattern);
+            var found = text[index..].IndexOf(pattern);
             if (found == -1) break;
 
             count++;
@@ -112,27 +112,27 @@ public static class CommonHelpers
     /// </summary>
     public static Point2I ExtractRegionCoordinatesFromPath(string filePath)
     {
-        string fileName = Path.GetFileNameWithoutExtension(filePath);
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
         if (fileName.StartsWith("r."))
         {
             // Optimized: Parse region coordinates without Split to avoid allocations
-            ReadOnlySpan<char> nameSpan = fileName.AsSpan();
+            var nameSpan = fileName.AsSpan();
             if (nameSpan.Length > 2) // "r." + at least one char
             {
-                ReadOnlySpan<char> remaining = nameSpan[2..]; // Skip "r."
+                var remaining = nameSpan[2..]; // Skip "r."
 
                 // Find first dot
-                int firstDot = remaining.IndexOf('.');
+                var firstDot = remaining.IndexOf('.');
                 if (firstDot > 0)
                 {
-                    ReadOnlySpan<char> xSpan = remaining[..firstDot];
-                    ReadOnlySpan<char> afterFirstDot = remaining[(firstDot + 1)..];
+                    var xSpan = remaining[..firstDot];
+                    var afterFirstDot = remaining[(firstDot + 1)..];
 
                     // Find second dot (or end of string)
-                    int secondDot = afterFirstDot.IndexOf('.');
-                    ReadOnlySpan<char> zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
+                    var secondDot = afterFirstDot.IndexOf('.');
+                    var zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
 
-                    if (int.TryParse(xSpan, out int x) && int.TryParse(zSpan, out int z))
+                    if (int.TryParse(xSpan, out var x) && int.TryParse(zSpan, out var z))
                         return new Point2I(x, z);
                 }
             }
@@ -174,8 +174,8 @@ public static class CommonHelpers
             using var reader = new StreamReader(snbtPath);
 
             // Read first 10KB or entire file if smaller
-            char[] buffer = new char[10240];
-            int charsRead = await reader.ReadAsync(buffer, 0, buffer.Length);
+            var buffer = new char[10240];
+            var charsRead = await reader.ReadAsync(buffer, 0, buffer.Length);
             string content = new(buffer, 0, charsRead);
 
             // Check for MCA-specific indicators:

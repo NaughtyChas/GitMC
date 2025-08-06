@@ -29,7 +29,7 @@ public static class Snbt
     // convert a tag to its string form
     public static string ToSnbt(this NbtTag tag, SnbtOptions options, bool includeName = false)
     {
-        string name = includeName ? GetNameBeforeValue(tag, options) : string.Empty;
+        var name = includeName ? GetNameBeforeValue(tag, options) : string.Empty;
         if (tag is NbtByte b)
             return name + b.ToSnbt(options);
         if (tag is NbtShort s)
@@ -147,8 +147,8 @@ public static class Snbt
         {
             sb.Append(CompoundOpen);
             // Optimized: Use StringBuilder instead of String.Join to avoid creating intermediate arrays
-            bool first = true;
-            foreach (NbtTag childTag in tag)
+            var first = true;
+            foreach (var childTag in tag)
             {
                 if (!first)
                     sb.Append(ValueSeparator);
@@ -173,15 +173,15 @@ public static class Snbt
         if (!options.ArrayPrefixes)
             listPrefix = string.Empty;
         // spacing between values
-        string spacing = options.Minified ? string.Empty : ValueSpacing;
+        var spacing = options.Minified ? string.Empty : ValueSpacing;
         // spacing between list prefix and first value
-        string prefixSeparator =
+        var prefixSeparator =
             !options.Minified && listPrefix.Length > 0 && values.Any() ? ValueSpacing : string.Empty;
         var s = new StringBuilder(ListOpen + listPrefix + prefixSeparator);
 
         // Optimized: Use StringBuilder instead of String.Join to avoid creating intermediate arrays
-        bool first = true;
-        foreach (T value in values)
+        var first = true;
+        foreach (var value in values)
         {
             if (!first)
             {
@@ -229,7 +229,7 @@ public static class Snbt
             preferredQuote = '\'';
         else
             preferredQuote = placeholderQuote; // dummy value when we're not sure which quote type to use yet
-        foreach (char c in input)
+        foreach (var c in input)
         {
             if (c == StringEscape)
             {
@@ -258,7 +258,7 @@ public static class Snbt
 
     private static void AddIndents(StringBuilder sb, string indentString, int indentLevel)
     {
-        for (int i = 0; i < indentLevel; i++)
+        for (var i = 0; i < indentLevel; i++)
             sb.Append(indentString);
     }
 
@@ -291,8 +291,8 @@ public static class Snbt
         if (tag.Count > 0)
         {
             sb.Append(Environment.NewLine);
-            NbtTag[] tags = tag.ToArray();
-            for (int i = 0; i < tags.Length; i++)
+            var tags = tag.ToArray();
+            for (var i = 0; i < tags.Length; i++)
             {
                 AddSnbt(tags[i], options, sb, indentString, indentLevel + 1, true);
                 if (i < tags.Length - 1)
@@ -312,7 +312,7 @@ public static class Snbt
         AddIndents(sb, indentString, indentLevel);
         if (includeName)
             sb.Append(GetNameBeforeValue(tag, options));
-        bool compressed = ShouldCompressListOf(tag.ListType);
+        var compressed = ShouldCompressListOf(tag.ListType);
         if (compressed)
         {
             sb.Append(ListToString("", x => x.ToSnbt(options), tag, options));
@@ -323,7 +323,7 @@ public static class Snbt
             if (tag.Count > 0)
             {
                 sb.Append(Environment.NewLine);
-                for (int i = 0; i < tag.Count; i++)
+                for (var i = 0; i < tag.Count; i++)
                 {
                     AddSnbt(tag[i], options, sb, indentString, indentLevel + 1, false);
                     if (i < tag.Count - 1)
@@ -366,10 +366,10 @@ public static class Snbt
         }
 
         // Add array elements
-        string spacing = options.Minified ? string.Empty : ValueSpacing;
-        string suffix = options.NumberSuffixes ? ByteSuffix.ToString() : string.Empty;
+        var spacing = options.Minified ? string.Empty : ValueSpacing;
+        var suffix = options.NumberSuffixes ? ByteSuffix.ToString() : string.Empty;
 
-        for (int i = 0; i < array.Length; i++)
+        for (var i = 0; i < array.Length; i++)
         {
             if (i > 0)
             {
@@ -404,9 +404,9 @@ public static class Snbt
         }
 
         // Add array elements
-        string spacing = options.Minified ? string.Empty : ValueSpacing;
+        var spacing = options.Minified ? string.Empty : ValueSpacing;
 
-        for (int i = 0; i < array.Length; i++)
+        for (var i = 0; i < array.Length; i++)
         {
             if (i > 0)
             {
@@ -440,10 +440,10 @@ public static class Snbt
         }
 
         // Add array elements
-        string spacing = options.Minified ? string.Empty : ValueSpacing;
-        string suffix = options.NumberSuffixes ? LongSuffix.ToString() : string.Empty;
+        var spacing = options.Minified ? string.Empty : ValueSpacing;
+        var suffix = options.NumberSuffixes ? LongSuffix.ToString() : string.Empty;
 
-        for (int i = 0; i < array.Length; i++)
+        for (var i = 0; i < array.Length; i++)
         {
             if (i > 0)
             {

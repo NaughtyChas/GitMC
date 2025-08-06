@@ -18,27 +18,27 @@ public class McaRegionFile : IDisposable
         _stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
         // Extract region coordinates from file name
-        string fileName = Path.GetFileNameWithoutExtension(filePath);
+        var fileName = Path.GetFileNameWithoutExtension(filePath);
         if (fileName.StartsWith("r."))
         {
             // Optimized: Parse region coordinates without Split to avoid allocations
-            ReadOnlySpan<char> nameSpan = fileName.AsSpan();
+            var nameSpan = fileName.AsSpan();
             if (nameSpan.Length > 2) // "r." + at least one char
             {
-                ReadOnlySpan<char> remaining = nameSpan[2..]; // Skip "r."
+                var remaining = nameSpan[2..]; // Skip "r."
 
                 // Find first dot
-                int firstDot = remaining.IndexOf('.');
+                var firstDot = remaining.IndexOf('.');
                 if (firstDot > 0)
                 {
-                    ReadOnlySpan<char> xSpan = remaining[..firstDot];
-                    ReadOnlySpan<char> afterFirstDot = remaining[(firstDot + 1)..];
+                    var xSpan = remaining[..firstDot];
+                    var afterFirstDot = remaining[(firstDot + 1)..];
 
                     // Find second dot (or end of string)
-                    int secondDot = afterFirstDot.IndexOf('.');
-                    ReadOnlySpan<char> zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
+                    var secondDot = afterFirstDot.IndexOf('.');
+                    var zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
 
-                    if (int.TryParse(xSpan, out int x) && int.TryParse(zSpan, out int z))
+                    if (int.TryParse(xSpan, out var x) && int.TryParse(zSpan, out var z))
                         RegionCoordinates = new Point2I(x, z);
                 }
             }
@@ -100,12 +100,12 @@ public class McaRegionFile : IDisposable
     {
         if (!IsLoaded) await LoadAsync();
 
-        Point2I localCoords = chunkCoordinates.GetLocalCoordinates();
-        int chunkIndex = localCoords.ToChunkIndex();
+        var localCoords = chunkCoordinates.GetLocalCoordinates();
+        var chunkIndex = localCoords.ToChunkIndex();
 
         if (Header == null) return null;
 
-        ChunkInfo chunkInfo = Header.ChunkInfos[chunkIndex];
+        var chunkInfo = Header.ChunkInfos[chunkIndex];
         if (chunkInfo.SectorOffset == 0) return null; // Chunk does not exist
 
         return await ReadChunkDataAsync(chunkInfo);
@@ -121,7 +121,7 @@ public class McaRegionFile : IDisposable
         var chunks = new List<Point2I>();
         if (Header == null) return chunks;
 
-        for (int i = 0; i < 1024; i++)
+        for (var i = 0; i < 1024; i++)
             if (Header.ChunkInfos[i].SectorOffset != 0)
             {
                 var localCoords = Point2I.FromChunkIndex(i);
@@ -143,28 +143,28 @@ public class McaRegionFile : IDisposable
         if (chunkInfo.SectorOffset == 0) return null;
 
         // Locate chunk data position (each sector is 4096 bytes)
-        long offset = chunkInfo.SectorOffset * 4096L;
+        var offset = chunkInfo.SectorOffset * 4096L;
         _stream.Seek(offset, SeekOrigin.Begin);
 
         // Read chunk header (length + compression type)
-        byte[] headerBytes = await ReadExactAsync(_stream, 5);
+        var headerBytes = await ReadExactAsync(_stream, 5);
 
-        int dataLength = BitConverter.ToInt32(headerBytes, 0);
+        var dataLength = BitConverter.ToInt32(headerBytes, 0);
         if (BitConverter.IsLittleEndian) dataLength = BinaryPrimitives.ReverseEndianness(dataLength);
 
-        byte compressionTypeByte = headerBytes[4];
+        var compressionTypeByte = headerBytes[4];
         var compressionType = (CompressionType)(compressionTypeByte & 0x7F);
-        bool isExternal = (compressionTypeByte & 0x80) != 0;
+        var isExternal = (compressionTypeByte & 0x80) != 0;
 
         // If external file, need to read .mcc file
         if (isExternal) return await ReadExternalChunkAsync(compressionType);
 
         // Read compressed data
-        byte[] compressedData =
+        var compressedData =
             await ReadExactAsync(_stream, dataLength - 1); // -1 because compression type already read
 
         // Decompress and parse NBT
-        NbtCompound? nbtData = DecompressAndParseNbt(compressedData, compressionType);
+        var nbtData = DecompressAndParseNbt(compressedData, compressionType);
 
         return new ChunkData
         {
@@ -181,20 +181,20 @@ public class McaRegionFile : IDisposable
     /// </summary>
     private async Task<ChunkData?> ReadExternalChunkAsync(CompressionType compressionType)
     {
-        string mccPath = Path.ChangeExtension(FilePath, ".mcc");
+        var mccPath = Path.ChangeExtension(FilePath, ".mcc");
         if (!File.Exists(mccPath)) return null;
 
         using var mccStream = new FileStream(mccPath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
         // MCC file format: data length (4 bytes) + compressed data
-        byte[] lengthBytes = await ReadExactAsync(mccStream, 4);
+        var lengthBytes = await ReadExactAsync(mccStream, 4);
 
-        int dataLength = BitConverter.ToInt32(lengthBytes, 0);
+        var dataLength = BitConverter.ToInt32(lengthBytes, 0);
         if (BitConverter.IsLittleEndian) dataLength = BinaryPrimitives.ReverseEndianness(dataLength);
 
-        byte[] compressedData = await ReadExactAsync(mccStream, dataLength);
+        var compressedData = await ReadExactAsync(mccStream, dataLength);
 
-        NbtCompound? nbtData = DecompressAndParseNbt(compressedData, compressionType);
+        var nbtData = DecompressAndParseNbt(compressedData, compressionType);
 
         return new ChunkData
         {
@@ -213,7 +213,7 @@ public class McaRegionFile : IDisposable
         try
         {
             // Use CompressionHelper to decompress
-            byte[] decompressedData = CompressionHelper.Decompress(compressedData, compressionType);
+            var decompressedData = CompressionHelper.Decompress(compressedData, compressionType);
 
             // Use fNbt to parse NBT data
             using var memoryStream = new MemoryStream(decompressedData);
@@ -232,12 +232,12 @@ public class McaRegionFile : IDisposable
     /// </summary>
     internal static async Task<byte[]> ReadExactAsync(Stream stream, int count)
     {
-        byte[] buffer = new byte[count];
-        int totalRead = 0;
+        var buffer = new byte[count];
+        var totalRead = 0;
 
         while (totalRead < count)
         {
-            int read = await stream.ReadAsync(buffer, totalRead, count - totalRead);
+            var read = await stream.ReadAsync(buffer, totalRead, count - totalRead);
             if (read == 0)
                 throw new EndOfStreamException($"Unexpected end of stream. Expected {count} bytes, got {totalRead}");
             totalRead += read;
@@ -264,19 +264,19 @@ public class McaRegionFile : IDisposable
             }
 
             // Validate file size
-            int expectedMinSize = 8192; // 8KB header
+            var expectedMinSize = 8192; // 8KB header
             if (_stream.Length < expectedMinSize)
                 result.AddError($"File too small: {_stream.Length} bytes, expected at least {expectedMinSize}");
 
             // Validate each chunk
-            for (int i = 0; i < 1024; i++)
+            for (var i = 0; i < 1024; i++)
             {
-                ChunkInfo chunkInfo = Header.ChunkInfos[i];
+                var chunkInfo = Header.ChunkInfos[i];
                 if (chunkInfo.SectorOffset == 0) continue; // skip non-existent chunk
 
                 try
                 {
-                    ChunkData? chunkData = await ReadChunkDataAsync(chunkInfo);
+                    var chunkData = await ReadChunkDataAsync(chunkInfo);
                     if (chunkData?.NbtData == null) result.AddWarning($"Chunk {i} exists but NBT data is null");
                 }
                 catch (Exception ex)
@@ -302,7 +302,7 @@ public class McaRegionFile : IDisposable
     {
         try
         {
-            ChunkData? chunkData = await GetChunkAsync(chunkCoordinates);
+            var chunkData = await GetChunkAsync(chunkCoordinates);
             if (chunkData?.NbtData == null) return false;
 
             var nbtFile = new NbtFile(chunkData.NbtData);
@@ -330,24 +330,24 @@ public class McaHeader
         var header = new McaHeader();
 
         // Read chunk info table (4KB)
-        byte[] infoBuffer = await McaRegionFile.ReadExactAsync(stream, 4096);
+        var infoBuffer = await McaRegionFile.ReadExactAsync(stream, 4096);
 
-        for (int i = 0; i < 1024; i++)
+        for (var i = 0; i < 1024; i++)
         {
-            int offset = i * 4;
-            uint value = BitConverter.ToUInt32(infoBuffer, offset);
+            var offset = i * 4;
+            var value = BitConverter.ToUInt32(infoBuffer, offset);
             if (BitConverter.IsLittleEndian) value = BinaryPrimitives.ReverseEndianness(value);
 
             header.ChunkInfos[i] = new ChunkInfo { SectorOffset = (value >> 8) & 0xFFFFFF, SectorCount = value & 0xFF };
         }
 
         // Read timestamp table (4KB)
-        byte[] timestampBuffer = await McaRegionFile.ReadExactAsync(stream, 4096);
+        var timestampBuffer = await McaRegionFile.ReadExactAsync(stream, 4096);
 
-        for (int i = 0; i < 1024; i++)
+        for (var i = 0; i < 1024; i++)
         {
-            int offset = i * 4;
-            uint timestamp = BitConverter.ToUInt32(timestampBuffer, offset);
+            var offset = i * 4;
+            var timestamp = BitConverter.ToUInt32(timestampBuffer, offset);
             if (BitConverter.IsLittleEndian) timestamp = BinaryPrimitives.ReverseEndianness(timestamp);
             header.Timestamps[i] = timestamp;
             header.ChunkInfos[i].Timestamp = timestamp;

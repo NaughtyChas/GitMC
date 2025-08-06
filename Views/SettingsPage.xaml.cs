@@ -14,8 +14,8 @@ public sealed partial class SettingsPage : Page
         // Set initial language selection
         if (_localizationService != null)
         {
-            string currentLanguage = _localizationService.CurrentLanguage;
-            for (int i = 0; i < LanguageComboBox.Items.Count; i++)
+            var currentLanguage = _localizationService.CurrentLanguage;
+            for (var i = 0; i < LanguageComboBox.Items.Count; i++)
                 if (LanguageComboBox.Items[i] is ComboBoxItem item &&
                     item.Tag?.ToString() == currentLanguage)
                 {

@@ -59,7 +59,8 @@ public interface IGitHubAppsService
     /// <param name="accessToken">Access token to validate</param>
     /// <param name="tokenTimestamp">When the token was issued</param>
     /// <returns>Tuple containing validity status, expiration status, and error message</returns>
-    Task<(bool IsValid, bool IsExpired, string? ErrorMessage)> ValidateTokenStateAsync(string? accessToken, DateTime tokenTimestamp);
+    Task<(bool IsValid, bool IsExpired, string? ErrorMessage)> ValidateTokenStateAsync(string? accessToken,
+        DateTime tokenTimestamp);
 
     /// <summary>
     ///     Creates a new repository for the authenticated user
@@ -69,7 +70,8 @@ public interface IGitHubAppsService
     /// <param name="isPrivate">Whether the repository should be private</param>
     /// <param name="description">Repository description</param>
     /// <returns>True if repository was created successfully</returns>
-    Task<bool> CreateRepositoryAsync(string accessToken, string repositoryName, bool isPrivate = true, string? description = null);
+    Task<bool> CreateRepositoryAsync(string accessToken, string repositoryName, bool isPrivate = true,
+        string? description = null);
 
     /// <summary>
     ///     Checks if a repository exists for the authenticated user
