@@ -1020,6 +1020,176 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 
         // Update Remote Status
         UpdateRemoteStatus();
+        UpdateStatusDisplay();
+    }
+
+    /// <summary>
+    /// Updates the premium-styled status display with current save information
+    /// </summary>
+    private void UpdateStatusDisplay()
+    {
+        if (ViewModel.SaveInfo == null) return;
+
+        try
+        {
+            // Update Current Branch Display Text
+            if (FindName("CurrentBranchDisplayText") is TextBlock branchDisplayText)
+            {
+                branchDisplayText.Text = ViewModel.SaveInfo.Branch ?? "main";
+            }
+
+            // Update Sync Status Badge
+            UpdateSyncStatusBadge();
+
+            // Update Status InfoBar
+            UpdateStatusInfoBar();
+
+            // Update Sync Progress
+            UpdateSyncProgressDisplay();
+
+            // Update File Changes Summary
+            UpdateFileChangesSummary();
+
+            // Update Branch Tags Container
+            UpdateBranchTagsDisplay();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating premium status display: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Updates the sync status badge with appropriate colors and text
+    /// </summary>
+    private void UpdateSyncStatusBadge()
+    {
+        if (FindName("SyncStatusBadge") is Border syncStatusBadge &&
+            FindName("SyncStatusText") is TextBlock syncStatusText &&
+            ViewModel.SaveInfo != null)
+        {
+            var (statusText, backgroundColor, borderColor, textColor) = GetSyncStatusInfo(ViewModel.SaveInfo);
+
+            syncStatusText.Text = statusText;
+            syncStatusBadge.Background = new SolidColorBrush(backgroundColor);
+            syncStatusBadge.BorderBrush = new SolidColorBrush(borderColor);
+            syncStatusText.Foreground = new SolidColorBrush(textColor);
+        }
+    }
+
+    /// <summary>
+    /// Updates the main status InfoBar with current save status
+    /// </summary>
+    private void UpdateStatusInfoBar()
+    {
+        if (FindName("StatusInfoBar") is InfoBar statusInfoBar && ViewModel.SaveInfo != null)
+        {
+            statusInfoBar.Title = GetStatusTitle(ViewModel.SaveInfo);
+            statusInfoBar.Message = GetStatusDescription(ViewModel.SaveInfo);
+            statusInfoBar.Severity = GetStatusSeverity(ViewModel.SaveInfo);
+            statusInfoBar.IsOpen = true;
+        }
+    }
+
+    /// <summary>
+    /// Updates the sync progress bar and percentage text
+    /// </summary>
+    private void UpdateSyncProgressDisplay()
+    {
+        if (FindName("SyncProgressBar") is ProgressBar syncProgressBar &&
+            FindName("SyncProgressText") is TextBlock syncProgressText &&
+            ViewModel.SaveInfo != null)
+        {
+            var syncProgress = CalculateSyncProgress(ViewModel.SaveInfo);
+            syncProgressBar.Value = syncProgress;
+            syncProgressText.Text = $"{syncProgress:F0}%";
+        }
+    }
+
+    /// <summary>
+    /// Updates the file changes summary section with current statistics
+    /// </summary>
+    private void UpdateFileChangesSummary()
+    {
+        if (ViewModel.SaveInfo == null) return;
+
+        var fileBreakdown = CalculateFileBreakdown(ViewModel.SaveInfo);
+
+        // Update individual file type counts
+        if (FindName("RegionChunksCountText") is TextBlock regionChunksText)
+            regionChunksText.Text = fileBreakdown.RegionChunks.ToString();
+
+        if (FindName("WorldDataCountText") is TextBlock worldDataText)
+            worldDataText.Text = fileBreakdown.WorldData.ToString();
+
+        if (FindName("PlayerDataCountText") is TextBlock playerDataText)
+            playerDataText.Text = fileBreakdown.PlayerData.ToString();
+
+        if (FindName("EntityDataCountText") is TextBlock entityDataText)
+            entityDataText.Text = fileBreakdown.EntityData.ToString();
+
+        if (FindName("StructureDataCountText") is TextBlock structureDataText)
+            structureDataText.Text = fileBreakdown.StructureData.ToString();
+
+        // Update changes summary
+        if (FindName("AddedFilesText") is TextBlock addedText)
+            addedText.Text = fileBreakdown.AddedFiles > 0 ? $"+{fileBreakdown.AddedFiles}" : "0";
+
+        if (FindName("DeletedFilesText") is TextBlock deletedText)
+            deletedText.Text = fileBreakdown.DeletedFiles > 0 ? $"-{fileBreakdown.DeletedFiles}" : "0";
+
+        if (FindName("TotalFilesText") is TextBlock totalText)
+            totalText.Text = fileBreakdown.TotalFiles.ToString();
+    }
+
+    /// <summary>
+    /// Updates the branch tags display with available branches
+    /// </summary>
+    private void UpdateBranchTagsDisplay()
+    {
+        if (FindName("BranchTagsContainer") is StackPanel branchContainer && ViewModel.SaveInfo != null)
+        {
+            branchContainer.Children.Clear();
+            var branches = GetAvailableBranches(ViewModel.SaveInfo);
+
+            foreach (var branch in branches.Take(3)) // Show max 3 branches
+            {
+                var branchBorder = new Border
+                {
+                    Background = branch == ViewModel.SaveInfo.Branch
+                        ? new SolidColorBrush(Constants.ColorConstants.BadgeColors.InfoText) // Use InfoText blue for current branch
+                        : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 229, 231, 235)), // Light gray for other branches
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(6, 3, 6, 3)
+                };
+
+                var branchText = new TextBlock
+                {
+                    FontSize = 10,
+                    FontWeight = branch == ViewModel.SaveInfo.Branch ? Microsoft.UI.Text.FontWeights.Medium : Microsoft.UI.Text.FontWeights.Normal,
+                    Foreground = branch == ViewModel.SaveInfo.Branch
+                        ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)) // White text for current branch
+                        : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 75, 85, 99)), // Dark gray for other branches
+                    Text = branch
+                };
+
+                branchBorder.Child = branchText;
+                branchContainer.Children.Add(branchBorder);
+            }
+        }
+    }    /// <summary>
+         /// Refreshes all status displays with current save information
+         /// </summary>
+    public void RefreshStatusDisplays()
+    {
+        try
+        {
+            UpdateStatusDisplay();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error refreshing status displays: {ex.Message}");
+        }
     }
 
     private void UpdateCurrentStatus()
@@ -1036,9 +1206,122 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             statusInfoBar.IsOpen = true;
         }
 
-        // Update current branch display
+        // Update Current Branch Display (new main display)
+        if (FindName("CurrentBranchDisplayText") is TextBlock branchDisplayText)
+        {
+            branchDisplayText.Text = saveInfo.Branch ?? "main";
+        }
+
+        // Update legacy current branch display for compatibility
         if (FindName("CurrentBranchText") is TextBlock branchText)
             branchText.Text = saveInfo.Branch ?? "main";
+
+        // Update Sync Status
+        UpdateSyncStatus(saveInfo);
+
+        // Update File Changes Breakdown
+        UpdateFileChangesBreakdown(saveInfo);
+
+        // Update Branch Status
+        UpdateBranchStatus(saveInfo);
+    }
+
+    private void UpdateSyncStatus(ManagedSaveInfo saveInfo)
+    {
+        // Update Sync Progress
+        if (FindName("SyncProgressBar") is ProgressBar syncProgressBar &&
+            FindName("SyncProgressText") is TextBlock syncProgressText)
+        {
+            var syncProgress = CalculateSyncProgress(saveInfo);
+            syncProgressBar.Value = syncProgress;
+            syncProgressText.Text = $"{syncProgress:F0}%";
+        }
+
+        // Update Sync Status Badge
+        if (FindName("SyncStatusBadge") is Border syncStatusBadge &&
+            FindName("SyncStatusText") is TextBlock syncStatusText)
+        {
+            var (statusText, backgroundColor, borderColor, textColor) = GetSyncStatusInfo(saveInfo);
+            syncStatusText.Text = statusText;
+
+            // Apply colors using SolidColorBrush
+            syncStatusBadge.Background = new SolidColorBrush(backgroundColor);
+            syncStatusBadge.BorderBrush = new SolidColorBrush(borderColor);
+            syncStatusText.Foreground = new SolidColorBrush(textColor);
+        }
+
+        // Update Ahead/Behind Status
+        if (FindName("AheadCommitsText") is TextBlock aheadText)
+        {
+            var aheadCount = GetAheadCommitsCount(saveInfo);
+            aheadText.Text = aheadCount == 0 ? "0 commits" : $"{aheadCount} commit{(aheadCount == 1 ? "" : "s")}";
+        }
+
+        if (FindName("BehindCommitsText") is TextBlock behindText)
+        {
+            var behindCount = GetBehindCommitsCount(saveInfo);
+            behindText.Text = behindCount == 0 ? "0 commits" : $"{behindCount} commit{(behindCount == 1 ? "" : "s")}";
+        }
+    }
+
+    private void UpdateFileChangesBreakdown(ManagedSaveInfo saveInfo)
+    {
+        // Update individual file type counts
+        var fileBreakdown = CalculateFileBreakdown(saveInfo);
+
+        if (FindName("RegionChunksCountText") is TextBlock regionChunksText)
+            regionChunksText.Text = fileBreakdown.RegionChunks.ToString();
+
+        if (FindName("WorldDataCountText") is TextBlock worldDataText)
+            worldDataText.Text = fileBreakdown.WorldData.ToString();
+
+        if (FindName("PlayerDataCountText") is TextBlock playerDataText)
+            playerDataText.Text = fileBreakdown.PlayerData.ToString();
+
+        if (FindName("EntityDataCountText") is TextBlock entityDataText)
+            entityDataText.Text = fileBreakdown.EntityData.ToString();
+
+        if (FindName("StructureDataCountText") is TextBlock structureDataText)
+            structureDataText.Text = fileBreakdown.StructureData.ToString();
+
+        // Update changes summary
+        if (FindName("AddedFilesText") is TextBlock addedText)
+            addedText.Text = fileBreakdown.AddedFiles > 0 ? $"+{fileBreakdown.AddedFiles}" : "0";
+
+        if (FindName("DeletedFilesText") is TextBlock deletedText)
+            deletedText.Text = fileBreakdown.DeletedFiles > 0 ? $"-{fileBreakdown.DeletedFiles}" : "0";
+
+        if (FindName("TotalFilesText") is TextBlock totalText)
+            totalText.Text = fileBreakdown.TotalFiles.ToString();
+    }
+
+    private void UpdateBranchStatus(ManagedSaveInfo saveInfo)
+    {
+        // Update Available Branches
+        if (FindName("BranchTagsContainer") is StackPanel branchContainer)
+        {
+            branchContainer.Children.Clear();
+            var branches = GetAvailableBranches(saveInfo);
+
+            foreach (var branch in branches.Take(3)) // Show max 3 branches to avoid overflow
+            {
+                var branchBorder = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 243, 244, 246)),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(6, 2, 6, 2)
+                };
+
+                var branchText = new TextBlock
+                {
+                    FontSize = 11,
+                    Text = branch
+                };
+
+                branchBorder.Child = branchText;
+                branchContainer.Children.Add(branchBorder);
+            }
+        }
     }
 
     private InfoBarSeverity GetStatusSeverity(ManagedSaveInfo saveInfo)
@@ -1072,6 +1355,86 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             ManagedSaveInfo.SaveStatus.Conflict => "There are merge conflicts that need to be resolved",
             _ => "Unable to determine repository status"
         };
+    }
+
+    // Helper methods for new Current Status features
+    private double CalculateSyncProgress(ManagedSaveInfo saveInfo)
+    {
+        // Calculate sync progress based on git status
+        // For now, return 100% if working tree is clean, otherwise calculate based on staged/unstaged files
+        if (saveInfo.CurrentStatus == ManagedSaveInfo.SaveStatus.Clear)
+            return 100.0;
+
+        // Mock calculation - in real implementation, this would check git status
+        return 75.0;
+    }
+
+    private (string statusText, Windows.UI.Color backgroundColor, Windows.UI.Color borderColor, Windows.UI.Color textColor) GetSyncStatusInfo(ManagedSaveInfo saveInfo)
+    {
+        var aheadCount = GetAheadCommitsCount(saveInfo);
+        var behindCount = GetBehindCommitsCount(saveInfo);
+
+        if (aheadCount == 0 && behindCount == 0)
+        {
+            return ("Up to date",
+                   Windows.UI.Color.FromArgb(255, 230, 243, 255), // Light blue background
+                   Windows.UI.Color.FromArgb(255, 179, 217, 255), // Blue border
+                   Windows.UI.Color.FromArgb(255, 0, 102, 204));   // Dark blue text
+        }
+        else if (aheadCount > 0 && behindCount == 0)
+        {
+            return ($"{aheadCount} ahead",
+                   Windows.UI.Color.FromArgb(255, 220, 252, 231), // Light green background
+                   Windows.UI.Color.FromArgb(255, 187, 247, 208), // Green border
+                   Windows.UI.Color.FromArgb(255, 22, 163, 74));   // Dark green text
+        }
+        else if (aheadCount == 0 && behindCount > 0)
+        {
+            return ($"{behindCount} behind",
+                   Windows.UI.Color.FromArgb(255, 255, 248, 197), // Light yellow background
+                   Windows.UI.Color.FromArgb(255, 238, 216, 136), // Yellow border
+                   Windows.UI.Color.FromArgb(255, 211, 149, 0));   // Dark yellow text
+        }
+        else
+        {
+            return ($"{aheadCount} ahead, {behindCount} behind",
+                   Windows.UI.Color.FromArgb(255, 254, 226, 226), // Light red background
+                   Windows.UI.Color.FromArgb(255, 252, 165, 165), // Red border
+                   Windows.UI.Color.FromArgb(255, 220, 38, 38));   // Dark red text
+        }
+    }
+
+    private int GetAheadCommitsCount(ManagedSaveInfo saveInfo)
+    {
+        // Mock implementation - in real scenario, this would query git
+        return 0; // saveInfo.AheadCommits ?? 0;
+    }
+
+    private int GetBehindCommitsCount(ManagedSaveInfo saveInfo)
+    {
+        // Mock implementation - in real scenario, this would query git
+        return 0; // saveInfo.BehindCommits ?? 0;
+    }
+
+    private (int RegionChunks, int WorldData, int PlayerData, int EntityData, int StructureData, int AddedFiles, int DeletedFiles, int TotalFiles) CalculateFileBreakdown(ManagedSaveInfo saveInfo)
+    {
+        // Mock implementation - in real scenario, this would analyze the save files
+        return (
+            RegionChunks: 2,
+            WorldData: 1,
+            PlayerData: 1,
+            EntityData: 1,
+            StructureData: 1,
+            AddedFiles: 458,
+            DeletedFiles: 43,
+            TotalFiles: 6
+        );
+    }
+
+    private List<string> GetAvailableBranches(ManagedSaveInfo saveInfo)
+    {
+        // Mock implementation - in real scenario, this would query git branches
+        return new List<string> { "main", "feature/castle-wing", "hotfix/water-fix" };
     }
 
     private void UpdateWorldInformation()

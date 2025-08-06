@@ -448,6 +448,50 @@
                                         Text="Current Status" />
                                 </StackPanel>
 
+                                <!--  Branch Status Row  -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!--  Branch Icon and Name  -->
+                                    <StackPanel
+                                        Grid.Column="0"
+                                        Orientation="Horizontal"
+                                        Spacing="8"
+                                        VerticalAlignment="Center">
+                                        <ImageIcon
+                                            Height="16"
+                                            Source="../Assets/Icons/branch_grey.svg"
+                                            Width="16" />
+                                        <TextBlock
+                                            FontSize="16"
+                                            FontWeight="SemiBold"
+                                            Text="main"
+                                            x:Name="CurrentBranchDisplayText" />
+                                    </StackPanel>
+
+                                    <!--  Sync Status Badge  -->
+                                    <Border
+                                        Background="#E6F3FF"
+                                        BorderBrush="#B3D9FF"
+                                        BorderThickness="1"
+                                        CornerRadius="12"
+                                        Grid.Column="2"
+                                        Padding="8,4"
+                                        VerticalAlignment="Center"
+                                        x:Name="SyncStatusBadge">
+                                        <TextBlock
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Foreground="#0066CC"
+                                            Text="Up to date"
+                                            x:Name="SyncStatusText" />
+                                    </Border>
+                                </Grid>
+
                                 <!--  Status InfoBar  -->
                                 <InfoBar
                                     IsClosable="False"
@@ -457,23 +501,423 @@
                                     Title="Working tree clean"
                                     x:Name="StatusInfoBar" />
 
-                                <!--  Branch Information  -->
+                                <!--  Status Grid - Two Columns with Enhanced Layout  -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="20" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock
-                                        FontWeight="SemiBold"
+
+                                    <!--  Left Column: Sync & Branch Status - Enhanced with Border  -->
+                                    <Border
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
                                         Grid.Column="0"
-                                        Margin="0,0,12,0"
-                                        Text="Current branch:" />
-                                    <TextBlock
-                                        FontWeight="SemiBold"
-                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                        Grid.Column="1"
-                                        Text="main"
-                                        x:Name="CurrentBranchText" />
+                                        Padding="12">
+                                        <StackPanel Spacing="12">
+                                            <!--  Section Header  -->
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                    Glyph="&#xE895;" />
+                                                <TextBlock
+                                                    FontSize="13"
+                                                    FontWeight="SemiBold"
+                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                    Text="Sync &amp; Branch Status" />
+                                            </StackPanel>
+
+                                            <!--  Sync Progress Section  -->
+                                            <StackPanel Spacing="6">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    FontWeight="Medium"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="Sync Progress" />
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <ProgressBar
+                                                        Grid.Column="0"
+                                                        Height="6"
+                                                        Margin="0,0,8,0"
+                                                        Value="100"
+                                                        VerticalAlignment="Center"
+                                                        x:Name="SyncProgressBar" />
+
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        FontWeight="SemiBold"
+                                                        Grid.Column="1"
+                                                        Text="100%"
+                                                        VerticalAlignment="Center"
+                                                        x:Name="SyncProgressText" />
+                                                </Grid>
+                                            </StackPanel>
+
+                                            <!--  Separator  -->
+                                            <Border
+                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                Height="1"
+                                                Margin="0,2" />
+
+                                            <!--  Ahead/Behind Status Section  -->
+                                            <StackPanel Spacing="6">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    FontWeight="Medium"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="Commit Status" />
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!--  Ahead  -->
+                                                    <StackPanel
+                                                        Grid.Column="0"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4">
+                                                        <TextBlock FontSize="12" Text="Ahead" />
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Foreground="#22C55E"
+                                                            Text="0 commits"
+                                                            x:Name="AheadCommitsText" />
+                                                    </StackPanel>
+
+                                                    <!--  Behind  -->
+                                                    <StackPanel
+                                                        Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4">
+                                                        <TextBlock FontSize="12" Text="Behind" />
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Foreground="#EF4444"
+                                                            Text="0 commits"
+                                                            x:Name="BehindCommitsText" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </StackPanel>
+
+                                            <!--  Separator  -->
+                                            <Border
+                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                Height="1"
+                                                Margin="0,2" />
+
+                                            <!--  Available Branches Section  -->
+                                            <StackPanel Spacing="6">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    FontWeight="Medium"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="Available Branches" />
+                                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                                    <StackPanel
+                                                        Orientation="Horizontal"
+                                                        Spacing="4"
+                                                        x:Name="BranchTagsContainer">
+                                                        <Border
+                                                            Background="#E6F3FF"
+                                                            BorderBrush="#B3D9FF"
+                                                            CornerRadius="8"
+                                                            Padding="6,3">
+                                                            <TextBlock
+                                                                FontSize="10"
+                                                                FontWeight="Medium"
+                                                                Foreground="#0066CC"
+                                                                Text="main" />
+                                                        </Border>
+                                                        <Border
+                                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                            CornerRadius="8"
+                                                            Padding="6,3">
+                                                            <TextBlock FontSize="10" Text="feature/castle-wing" />
+                                                        </Border>
+                                                        <Border
+                                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                            CornerRadius="8"
+                                                            Padding="6,3">
+                                                            <TextBlock FontSize="10" Text="hotfix/water-fix" />
+                                                        </Border>
+                                                    </StackPanel>
+                                                </ScrollViewer>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!--  Right Column: File Changes Breakdown - Enhanced with Border  -->
+                                    <Border
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Grid.Column="2"
+                                        Padding="12">
+                                        <StackPanel Spacing="12">
+                                            <!--  Section Header  -->
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                    Glyph="&#xE8A7;" />
+                                                <TextBlock
+                                                    FontSize="13"
+                                                    FontWeight="SemiBold"
+                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                    Text="File Changes Breakdown" />
+                                            </StackPanel>
+
+                                            <!--  File Types Section  -->
+                                            <StackPanel Spacing="8">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    FontWeight="Medium"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="Minecraft Data Types" />
+
+                                                <!--  Region Chunks  -->
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Grid.Column="0"
+                                                        Text="Region Chunks"
+                                                        VerticalAlignment="Center" />
+
+                                                    <StackPanel
+                                                        Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4">
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Text="2"
+                                                            x:Name="RegionChunksCountText" />
+                                                        <Ellipse
+                                                            Fill="#3B82F6"
+                                                            Height="6"
+                                                            VerticalAlignment="Center"
+                                                            Width="6" />
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!--  World Data  -->
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Grid.Column="0"
+                                                        Text="World Data"
+                                                        VerticalAlignment="Center" />
+
+                                                    <StackPanel
+                                                        Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4">
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Text="1"
+                                                            x:Name="WorldDataCountText" />
+                                                        <Ellipse
+                                                            Fill="#3B82F6"
+                                                            Height="6"
+                                                            VerticalAlignment="Center"
+                                                            Width="6" />
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!--  Player Data  -->
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Grid.Column="0"
+                                                        Text="Player Data"
+                                                        VerticalAlignment="Center" />
+
+                                                    <StackPanel
+                                                        Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4">
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Text="1"
+                                                            x:Name="PlayerDataCountText" />
+                                                        <Ellipse
+                                                            Fill="#3B82F6"
+                                                            Height="6"
+                                                            VerticalAlignment="Center"
+                                                            Width="6" />
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!--  Entity Data  -->
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Grid.Column="0"
+                                                        Text="Entity Data"
+                                                        VerticalAlignment="Center" />
+
+                                                    <StackPanel
+                                                        Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4">
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Text="1"
+                                                            x:Name="EntityDataCountText" />
+                                                        <Ellipse
+                                                            Fill="#3B82F6"
+                                                            Height="6"
+                                                            VerticalAlignment="Center"
+                                                            Width="6" />
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!--  Structure Data  -->
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Grid.Column="0"
+                                                        Text="Structure Data"
+                                                        VerticalAlignment="Center" />
+
+                                                    <StackPanel
+                                                        Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        Spacing="4">
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Text="1"
+                                                            x:Name="StructureDataCountText" />
+                                                        <Ellipse
+                                                            Fill="#3B82F6"
+                                                            Height="6"
+                                                            VerticalAlignment="Center"
+                                                            Width="6" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </StackPanel>
+
+                                            <!--  Separator  -->
+                                            <Border
+                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                Height="1"
+                                                Margin="0,4" />
+
+                                            <!--  Changes Summary Section  -->
+                                            <StackPanel Spacing="6">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    FontWeight="Medium"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="Changes Summary" />
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!--  Added Files  -->
+                                                    <StackPanel
+                                                        Grid.Column="0"
+                                                        HorizontalAlignment="Center"
+                                                        Spacing="2">
+                                                        <TextBlock
+                                                            FontSize="14"
+                                                            FontWeight="Bold"
+                                                            Foreground="#22C55E"
+                                                            HorizontalAlignment="Center"
+                                                            Text="+458"
+                                                            x:Name="AddedFilesText" />
+                                                        <TextBlock
+                                                            FontSize="10"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            HorizontalAlignment="Center"
+                                                            Text="Added" />
+                                                    </StackPanel>
+
+                                                    <!--  Deleted Files  -->
+                                                    <StackPanel
+                                                        Grid.Column="1"
+                                                        HorizontalAlignment="Center"
+                                                        Spacing="2">
+                                                        <TextBlock
+                                                            FontSize="14"
+                                                            FontWeight="Bold"
+                                                            Foreground="#EF4444"
+                                                            HorizontalAlignment="Center"
+                                                            Text="-43"
+                                                            x:Name="DeletedFilesText" />
+                                                        <TextBlock
+                                                            FontSize="10"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            HorizontalAlignment="Center"
+                                                            Text="Deleted" />
+                                                    </StackPanel>
+
+                                                    <!--  Total Files  -->
+                                                    <StackPanel
+                                                        Grid.Column="2"
+                                                        HorizontalAlignment="Center"
+                                                        Spacing="2">
+                                                        <TextBlock
+                                                            FontSize="14"
+                                                            FontWeight="Bold"
+                                                            HorizontalAlignment="Center"
+                                                            Text="6"
+                                                            x:Name="TotalFilesText" />
+                                                        <TextBlock
+                                                            FontSize="10"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            HorizontalAlignment="Center"
+                                                            Text="Files" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -557,8 +1001,8 @@
                                                                 Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                                                 Text="•" />
                                                             <TextBlock
-                                                                FontSize="12"
                                                                 FontFamily="Consolas"
+                                                                FontSize="12"
                                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                                 Text="a3b4c5d" />
                                                         </StackPanel>
@@ -613,8 +1057,8 @@
                                                                 Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                                                 Text="•" />
                                                             <TextBlock
-                                                                FontSize="12"
                                                                 FontFamily="Consolas"
+                                                                FontSize="12"
                                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                                 Text="f8e9a2b" />
                                                         </StackPanel>
@@ -669,8 +1113,8 @@
                                                                 Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                                                 Text="•" />
                                                             <TextBlock
-                                                                FontSize="12"
                                                                 FontFamily="Consolas"
+                                                                FontSize="12"
                                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                                 Text="1a2b3c4" />
                                                         </StackPanel>
