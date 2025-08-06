@@ -486,89 +486,212 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <!--  Recent Commits Card  -->
+                            <!--  Recent Activity Card  -->
                             <Border
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="8"
                                 Grid.Column="0"
+                                MinHeight="450"
                                 Padding="20">
                                 <StackPanel Spacing="16">
-                                    <!--  Card Header  -->
-                                    <StackPanel Orientation="Horizontal" Spacing="12">
-                                        <FontIcon
-                                            FontSize="20"
-                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                            Glyph="&#xE81C;" />
-                                        <TextBlock
-                                            FontSize="18"
-                                            FontWeight="SemiBold"
-                                            Text="Recent Commits" />
-                                    </StackPanel>
+                                    <!--  Card Header with Button  -->
+                                    <Grid>
+                                        <StackPanel
+                                            Orientation="Horizontal"
+                                            Spacing="12"
+                                            VerticalAlignment="Center">
+                                            <FontIcon
+                                                FontSize="20"
+                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                Glyph="&#xE823;" />
+                                            <TextBlock
+                                                FontSize="18"
+                                                FontWeight="SemiBold"
+                                                Text="Recent Activity" />
+                                        </StackPanel>
 
-                                    <!--  Commits List  -->
-                                    <ListView
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        ItemsSource="{x:Bind ViewModel.RecentCommits, Mode=OneWay}"
-                                        MaxHeight="280"
-                                        SelectionMode="None"
-                                        x:Name="RecentCommitsList">
-                                        <ListView.ItemContainerStyle>
-                                            <Style TargetType="ListViewItem">
-                                                <Setter Property="Padding" Value="0,8" />
-                                                <Setter Property="Margin" Value="0" />
-                                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                            </Style>
-                                        </ListView.ItemContainerStyle>
-                                        <ListView.ItemTemplate>
-                                            <DataTemplate x:DataType="models:CommitInfo">
-                                                <Border
-                                                    Background="{ThemeResource SubtleFillColorTransparentBrush}"
-                                                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                                    BorderThickness="0,0,0,1"
-                                                    CornerRadius="4"
-                                                    Padding="12">
-                                                    <StackPanel Spacing="6">
-                                                        <TextBlock
-                                                            FontWeight="Medium"
-                                                            MaxLines="2"
-                                                            Text="{x:Bind Message}"
-                                                            TextTrimming="CharacterEllipsis" />
-                                                        <StackPanel Orientation="Horizontal" Spacing="16">
-                                                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                                                <FontIcon
-                                                                    FontSize="12"
-                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                    Glyph="&#xE77B;" />
-                                                                <TextBlock
-                                                                    FontSize="12"
-                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                    Text="{x:Bind Author}" />
-                                                            </StackPanel>
-                                                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                                                <FontIcon
-                                                                    FontSize="12"
-                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                    Glyph="&#xE917;" />
-                                                                <TextBlock
-                                                                    FontSize="12"
-                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                    Text="{x:Bind TimeAgo}" />
-                                                            </StackPanel>
+                                        <!--  View All Button - Top Right  -->
+                                        <Button
+                                            Click="ViewAllCommits_Click"
+                                            Content="View all commits"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <!--  Activity List with ScrollViewer  -->
+                                    <ScrollViewer MaxHeight="350" VerticalScrollBarVisibility="Auto">
+                                        <StackPanel Spacing="8" x:Name="RecentActivityContainer">
+                                            <!--  Sample Activity 1 - Commit  -->
+                                            <Border
+                                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="12">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Grid.Column="0" Spacing="4">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                                Glyph="&#xE73E;" />
+                                                            <TextBlock
+                                                                FontSize="14"
+                                                                FontWeight="SemiBold"
+                                                                Text="Built castle entrance and moat" />
+                                                        </StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="by Player1 • 2 hours ago" />
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                                Text="•" />
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                FontFamily="Consolas"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="a3b4c5d" />
                                                         </StackPanel>
                                                     </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ListView.ItemTemplate>
-                                    </ListView>
 
-                                    <!--  View All Link  -->
-                                    <HyperlinkButton
-                                        Click="ViewAllCommits_Click"
-                                        Content="View all commits"
-                                        HorizontalAlignment="Left" />
+                                                    <Border
+                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                        CornerRadius="12"
+                                                        Grid.Column="1"
+                                                        Padding="8,3"
+                                                        VerticalAlignment="Center">
+                                                        <TextBlock
+                                                            FontSize="11"
+                                                            FontWeight="SemiBold"
+                                                            Foreground="White"
+                                                            Text="8 files" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+
+                                            <!--  Sample Activity 2 - Commit  -->
+                                            <Border
+                                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="12">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Grid.Column="0" Spacing="4">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                                Glyph="&#xE73E;" />
+                                                            <TextBlock
+                                                                FontSize="14"
+                                                                FontWeight="SemiBold"
+                                                                Text="Added redstone contraption in basement" />
+                                                        </StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="by Player1 • 1 day ago" />
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                                Text="•" />
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                FontFamily="Consolas"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="f8e9a2b" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <Border
+                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                        CornerRadius="12"
+                                                        Grid.Column="1"
+                                                        Padding="8,3"
+                                                        VerticalAlignment="Center">
+                                                        <TextBlock
+                                                            FontSize="11"
+                                                            FontWeight="SemiBold"
+                                                            Foreground="White"
+                                                            Text="3 files" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+
+                                            <!--  Sample Activity 3 - Commit  -->
+                                            <Border
+                                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="12">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Grid.Column="0" Spacing="4">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                                Glyph="&#xE73E;" />
+                                                            <TextBlock
+                                                                FontSize="14"
+                                                                FontWeight="SemiBold"
+                                                                Text="Initial world setup and spawn area" />
+                                                        </StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="by Player1 • 3 days ago" />
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                                Text="•" />
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                FontFamily="Consolas"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="1a2b3c4" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <Border
+                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                        CornerRadius="12"
+                                                        Grid.Column="1"
+                                                        Padding="8,3"
+                                                        VerticalAlignment="Center">
+                                                        <TextBlock
+                                                            FontSize="11"
+                                                            FontWeight="SemiBold"
+                                                            Foreground="White"
+                                                            Text="15 files" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
+                                    </ScrollViewer>
                                 </StackPanel>
                             </Border>
 
@@ -579,19 +702,39 @@
                                 BorderThickness="1"
                                 CornerRadius="8"
                                 Grid.Column="2"
-                                Padding="20">
+                                MinHeight="450"
+                                Padding="20,20,20,16">
                                 <StackPanel Spacing="16">
-                                    <!--  Card Header  -->
-                                    <StackPanel Orientation="Horizontal" Spacing="12">
-                                        <FontIcon
-                                            FontSize="20"
-                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                            Glyph="&#xE968;" />
-                                        <TextBlock
-                                            FontSize="18"
-                                            FontWeight="SemiBold"
-                                            Text="Remote Repository" />
-                                    </StackPanel>
+                                    <!--  Card Header with Button  -->
+                                    <Grid>
+                                        <StackPanel
+                                            Orientation="Horizontal"
+                                            Spacing="12"
+                                            VerticalAlignment="Center">
+                                            <FontIcon
+                                                FontSize="20"
+                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                Glyph="&#xE968;" />
+                                            <TextBlock
+                                                FontSize="18"
+                                                FontWeight="SemiBold"
+                                                Text="Remote Repository" />
+                                        </StackPanel>
+
+                                        <!--  View on GitHub Button  -->
+                                        <Button
+                                            Click="ViewOnGitHub_Click"
+                                            HorizontalAlignment="Right"
+                                            Padding="12,6"
+                                            VerticalAlignment="Center"
+                                            Visibility="Visible"
+                                            x:Name="ViewOnGitHubButtonHeader">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon FontSize="14" Glyph="&#xE774;" />
+                                                <TextBlock FontSize="13" Text="View on GitHub" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
 
                                     <!--  Not logged in to GitHub  -->
                                     <StackPanel
@@ -615,7 +758,7 @@
 
                                     <!--  No repository linked  -->
                                     <StackPanel
-                                        Spacing="16"
+                                        Spacing="12"
                                         Visibility="Collapsed"
                                         x:Name="GitHubNoRepoPanel">
                                         <InfoBar
@@ -659,7 +802,7 @@
 
                                     <!--  Repository linked - New Design  -->
                                     <StackPanel
-                                        Spacing="16"
+                                        Spacing="12"
                                         Visibility="Collapsed"
                                         x:Name="GitHubRepoLinkedPanel">
                                         <!--  Success InfoBar - Only shown temporarily after linking  -->
@@ -672,7 +815,7 @@
                                             x:Name="GitHubLinkSuccessInfoBar" />
 
                                         <!--  Repository Header  -->
-                                        <StackPanel Spacing="12">
+                                        <StackPanel Spacing="4">
                                             <!--  Avatar and Repository Name Row  -->
                                             <StackPanel
                                                 Orientation="Horizontal"
@@ -734,10 +877,10 @@
                                                 Grid.Column="0"
                                                 Orientation="Horizontal"
                                                 Spacing="8">
-                                                <FontIcon
-                                                    FontSize="16"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Glyph="&#xE8A9;" />
+                                                <ImageIcon
+                                                    Height="16"
+                                                    Source="../Assets/Icons/pullRequest_grey.svg"
+                                                    Width="16" />
                                                 <TextBlock
                                                     FontSize="16"
                                                     FontWeight="SemiBold"
@@ -755,10 +898,10 @@
                                                 Grid.Column="2"
                                                 Orientation="Horizontal"
                                                 Spacing="8">
-                                                <FontIcon
-                                                    FontSize="16"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Glyph="&#xE7C4;" />
+                                                <ImageIcon
+                                                    Height="16"
+                                                    Source="../Assets/Icons/issue_grey.svg"
+                                                    Width="16" />
                                                 <TextBlock
                                                     FontSize="16"
                                                     FontWeight="SemiBold"
@@ -780,249 +923,235 @@
                                                 Text="Recent Pull Requests" />
 
                                             <!--  PR List with ScrollViewer  -->
-                                            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto">
+                                            <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
                                                 <StackPanel Spacing="8" x:Name="RecentPRsContainer">
-                                                <!--  Sample PR 1  -->
-                                                <Border
-                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="4"
-                                                    Padding="12">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
+                                                    <!--  Sample PR 1  -->
+                                                    <Border
+                                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        Padding="12">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
 
-                                                        <StackPanel Grid.Column="0" Spacing="4">
-                                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                                <FontIcon
-                                                                    FontSize="12"
-                                                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                                                    Glyph="&#xE8A9;" />
+                                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                    <FontIcon
+                                                                        FontSize="12"
+                                                                        Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                                                        Glyph="&#xE8A9;" />
+                                                                    <TextBlock
+                                                                        FontSize="14"
+                                                                        FontWeight="SemiBold"
+                                                                        Text="Add new castle wing design" />
+                                                                </StackPanel>
                                                                 <TextBlock
-                                                                    FontSize="14"
-                                                                    FontWeight="SemiBold"
-                                                                    Text="Add new castle wing design" />
-                                                            </StackPanel>
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                Text="by collaborator1 • 2 days ago" />
-                                                        </StackPanel>
-
-                                                        <Border
-                                                            Background="{ThemeResource SystemFillColorSuccessBrush}"
-                                                            CornerRadius="12"
-                                                            Grid.Column="1"
-                                                            VerticalAlignment="Center"
-                                                            Padding="8,3">
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                FontWeight="SemiBold"
-                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                                                Text="open" />
-                                                        </Border>
-                                                    </Grid>
-                                                </Border>
-
-                                                <!--  Sample PR 2 - Review needed  -->
-                                                <Border
-                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="4"
-                                                    Padding="12">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <StackPanel Grid.Column="0" Spacing="4">
-                                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                                <FontIcon
-                                                                    FontSize="12"
-                                                                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                                                    Glyph="&#xE8A9;" />
-                                                                <TextBlock
-                                                                    FontSize="14"
-                                                                    FontWeight="SemiBold"
-                                                                    Text="Fix lighting in dungeon area" />
-                                                            </StackPanel>
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                Text="by player1 • 1 week ago" />
-                                                        </StackPanel>
-
-                                                        <Border
-                                                            Background="{ThemeResource SystemFillColorCautionBrush}"
-                                                            CornerRadius="12"
-                                                            Grid.Column="1"
-                                                            VerticalAlignment="Center"
-                                                            Padding="8,3">
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                FontWeight="SemiBold"
-                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                                                Text="review" />
-                                                        </Border>
-                                                    </Grid>
-                                                </Border>
-
-                                                <!--  Sample PR 3 - Merged  -->
-                                                <Border
-                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="4"
-                                                    Padding="12">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <StackPanel Grid.Column="0" Spacing="4">
-                                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                                <FontIcon
-                                                                    FontSize="12"
-                                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                                    Glyph="&#xE73E;" />
-                                                                <TextBlock
-                                                                    FontSize="14"
-                                                                    FontWeight="SemiBold"
-                                                                    Text="Update spawn area design" />
-                                                            </StackPanel>
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                Text="by player1 • 3 days ago" />
-                                                        </StackPanel>
-
-                                                        <Border
-                                                            Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                            CornerRadius="12"
-                                                            Grid.Column="1"
-                                                            VerticalAlignment="Center"
-                                                            Padding="8,3">
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                FontWeight="SemiBold"
-                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                                                Text="merged" />
-                                                        </Border>
-                                                    </Grid>
-                                                </Border>
-
-                                                <!--  Sample PR 4 - Draft  -->
-                                                <Border
-                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="4"
-                                                    Padding="12">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <StackPanel Grid.Column="0" Spacing="4">
-                                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                                <FontIcon
                                                                     FontSize="12"
                                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                    Glyph="&#xE70F;" />
-                                                                <TextBlock
-                                                                    FontSize="14"
-                                                                    FontWeight="SemiBold"
-                                                                    Text="WIP: Redesign main hall" />
+                                                                    Text="by collaborator1 • 2 days ago" />
                                                             </StackPanel>
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                Text="by collaborator2 • 5 days ago" />
-                                                        </StackPanel>
 
-                                                        <Border
-                                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                                            CornerRadius="12"
-                                                            Grid.Column="1"
-                                                            VerticalAlignment="Center"
-                                                            Padding="8,3">
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                FontWeight="SemiBold"
-                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                Text="draft" />
-                                                        </Border>
-                                                    </Grid>
-                                                </Border>
-
-                                                <!--  Sample PR 5 - Closed  -->
-                                                <Border
-                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="4"
-                                                    Padding="12">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <StackPanel Grid.Column="0" Spacing="4">
-                                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                                <FontIcon
+                                                            <Border
+                                                                Background="{ThemeResource SystemFillColorSuccessBrush}"
+                                                                CornerRadius="12"
+                                                                Grid.Column="1"
+                                                                Padding="8,3"
+                                                                VerticalAlignment="Center">
+                                                                <TextBlock
                                                                     FontSize="12"
-                                                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                                                    Glyph="&#xE8A9;" />
-                                                                <TextBlock
-                                                                    FontSize="14"
                                                                     FontWeight="SemiBold"
-                                                                    Text="Fix inventory sorting bug" />
+                                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                    Text="open" />
+                                                            </Border>
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <!--  Sample PR 2 - Review needed  -->
+                                                    <Border
+                                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        Padding="12">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                    <FontIcon
+                                                                        FontSize="12"
+                                                                        Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                                                        Glyph="&#xE8A9;" />
+                                                                    <TextBlock
+                                                                        FontSize="14"
+                                                                        FontWeight="SemiBold"
+                                                                        Text="Fix lighting in dungeon area" />
+                                                                </StackPanel>
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Text="by player1 • 1 week ago" />
                                                             </StackPanel>
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                Text="by player1 • 2 weeks ago" />
-                                                        </StackPanel>
 
-                                                        <Border
-                                                            Background="{ThemeResource SystemFillColorCriticalBrush}"
-                                                            CornerRadius="12"
-                                                            Grid.Column="1"
-                                                            VerticalAlignment="Center"
-                                                            Padding="8,3">
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                FontWeight="SemiBold"
-                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                                                Text="closed" />
-                                                        </Border>
-                                                    </Grid>
-                                                </Border>
-                                            </StackPanel>
-                                        </ScrollViewer>
-                                        </StackPanel>
+                                                            <Border
+                                                                Background="{ThemeResource SystemFillColorCautionBrush}"
+                                                                CornerRadius="12"
+                                                                Grid.Column="1"
+                                                                Padding="8,3"
+                                                                VerticalAlignment="Center">
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                    Text="review" />
+                                                            </Border>
+                                                        </Grid>
+                                                    </Border>
 
-                                        <!--  View on GitHub Button  -->
-                                        <Button
-                                            Click="ViewOnGitHub_Click"
-                                            HorizontalAlignment="Center"
-                                            Padding="16,8"
-                                            x:Name="ViewOnGitHubButton">
-                                            <Button.Content>
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <FontIcon FontSize="16" Glyph="&#xE774;" />
-                                                    <TextBlock Text="View on GitHub" />
+                                                    <!--  Sample PR 3 - Merged  -->
+                                                    <Border
+                                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        Padding="12">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                    <FontIcon
+                                                                        FontSize="12"
+                                                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                                        Glyph="&#xE73E;" />
+                                                                    <TextBlock
+                                                                        FontSize="14"
+                                                                        FontWeight="SemiBold"
+                                                                        Text="Update spawn area design" />
+                                                                </StackPanel>
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Text="by player1 • 3 days ago" />
+                                                            </StackPanel>
+
+                                                            <Border
+                                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                                CornerRadius="12"
+                                                                Grid.Column="1"
+                                                                Padding="8,3"
+                                                                VerticalAlignment="Center">
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                    Text="merged" />
+                                                            </Border>
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <!--  Sample PR 4 - Draft  -->
+                                                    <Border
+                                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        Padding="12">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                    <FontIcon
+                                                                        FontSize="12"
+                                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                        Glyph="&#xE70F;" />
+                                                                    <TextBlock
+                                                                        FontSize="14"
+                                                                        FontWeight="SemiBold"
+                                                                        Text="WIP: Redesign main hall" />
+                                                                </StackPanel>
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Text="by collaborator2 • 5 days ago" />
+                                                            </StackPanel>
+
+                                                            <Border
+                                                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                                CornerRadius="12"
+                                                                Grid.Column="1"
+                                                                Padding="8,3"
+                                                                VerticalAlignment="Center">
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Text="draft" />
+                                                            </Border>
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <!--  Sample PR 5 - Closed  -->
+                                                    <Border
+                                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        Padding="12">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <StackPanel Grid.Column="0" Spacing="4">
+                                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                    <FontIcon
+                                                                        FontSize="12"
+                                                                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                                        Glyph="&#xE8A9;" />
+                                                                    <TextBlock
+                                                                        FontSize="14"
+                                                                        FontWeight="SemiBold"
+                                                                        Text="Fix inventory sorting bug" />
+                                                                </StackPanel>
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Text="by player1 • 2 weeks ago" />
+                                                            </StackPanel>
+
+                                                            <Border
+                                                                Background="{ThemeResource SystemFillColorCriticalBrush}"
+                                                                CornerRadius="12"
+                                                                Grid.Column="1"
+                                                                Padding="8,3"
+                                                                VerticalAlignment="Center">
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                    Text="closed" />
+                                                            </Border>
+                                                        </Grid>
+                                                    </Border>
                                                 </StackPanel>
-                                            </Button.Content>
-                                        </Button>
+                                            </ScrollViewer>
+                                        </StackPanel>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
