@@ -154,7 +154,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 
     private async Task LoadRemoteInfoAsync()
     {
-        // Changed: Switch UI based on GitHub token and repo state
+        // Changed: Switch UI based on GitHub token and save-specific repo state
         var notLoggedInPanel = FindName("GitHubNotLoggedInPanel") as StackPanel;
         var noRepoPanel = FindName("GitHubNoRepoPanel") as StackPanel;
         var linkedPanel = FindName("GitHubRepoLinkedPanel") as StackPanel;
@@ -189,9 +189,8 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             return;
         }
 
-        // Check if repo is linked
-        string repoName = _configurationService.GitHubRepository;
-        if (string.IsNullOrWhiteSpace(repoName))
+        // Check if this save has a linked repo (save-specific configuration)
+        if (ViewModel.SaveInfo == null || !ViewModel.SaveInfo.IsGitHubLinked || string.IsNullOrWhiteSpace(ViewModel.SaveInfo.GitHubRepositoryName))
         {
             noRepoPanel.Visibility = Visibility.Visible;
             return;
@@ -208,18 +207,18 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         // Repo link
         if (FindName("GitHubRepoLink") is HyperlinkButton repoLink)
         {
-            repoLink.Content = repoName;
-            repoLink.NavigateUri = new Uri($"https://github.com/{user?.Login}/{repoName}");
+            repoLink.Content = ViewModel.SaveInfo.GitHubRepositoryName;
+            repoLink.NavigateUri = new Uri($"https://github.com/{user?.Login}/{ViewModel.SaveInfo.GitHubRepositoryName}");
         }
         // Repo description, visibility, branch, remote URL
         if (FindName("GitHubRepoDescText") is TextBlock descText)
-            descText.Text = _configurationService.GetString("GitHubRepoDescription", "");
+            descText.Text = ViewModel.SaveInfo.GitHubRepositoryDescription;
         if (FindName("GitHubRepoVisibilityText") is TextBlock visText)
-            visText.Text = _configurationService.GitHubPrivateRepo ? "Private" : "Public";
+            visText.Text = ViewModel.SaveInfo.GitHubIsPrivateRepository ? "Private" : "Public";
         if (FindName("GitHubRepoBranchText") is TextBlock branchText)
-            branchText.Text = _configurationService.GetString("GitHubRepoDefaultBranch", "main");
+            branchText.Text = ViewModel.SaveInfo.GitHubDefaultBranch;
         if (FindName("GitHubRemoteUrlBox") is TextBox remoteBox)
-            remoteBox.Text = _configurationService.GetString("GitHubRemoteUrl", "");
+            remoteBox.Text = ViewModel.SaveInfo.GitHubRemoteUrl;
     }
     // GitHub sign-in button event
     private async void SignInGitHub_Click(object sender, RoutedEventArgs e)
@@ -266,19 +265,26 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             bool created = await _gitHubAppsService.CreateRepositoryAsync(token, repoName, isPrivate, desc);
             if (created)
             {
-                // Save binding info
-                _configurationService.GitHubRepository = repoName;
-                _configurationService.GitHubPrivateRepo = isPrivate;
-                _configurationService.SetString("GitHubRepoDescription", desc);
-                _configurationService.SetString("GitHubRepoDefaultBranch", "main");
-                string user = _configurationService.GitHubUsername;
-                string remoteUrl = $"https://github.com/{user}/{repoName}.git";
-                _configurationService.SetString("GitHubRemoteUrl", remoteUrl);
-                await _configurationService.SaveAsync();
-                // Add remote to local repo
-                if (ViewModel.SaveInfo?.IsGitInitialized == true && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
+                // Save binding info to the save-specific configuration
+                if (ViewModel.SaveInfo != null)
                 {
-                    await _gitService.AddRemoteAsync(ViewModel.SaveInfo.OriginalPath, "origin", remoteUrl);
+                    ViewModel.SaveInfo.GitHubRepositoryName = repoName;
+                    ViewModel.SaveInfo.GitHubIsPrivateRepository = isPrivate;
+                    ViewModel.SaveInfo.GitHubRepositoryDescription = desc;
+                    ViewModel.SaveInfo.GitHubDefaultBranch = "main";
+                    string user = _configurationService.GitHubUsername;
+                    string remoteUrl = $"https://github.com/{user}/{repoName}.git";
+                    ViewModel.SaveInfo.GitHubRemoteUrl = remoteUrl;
+                    ViewModel.SaveInfo.IsGitHubLinked = true;
+
+                    // Update the save info in storage
+                    await _managedSaveService.UpdateManagedSave(ViewModel.SaveInfo);
+
+                    // Add remote to local repo
+                    if (ViewModel.SaveInfo.IsGitInitialized && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
+                    {
+                        await _gitService.AddRemoteAsync(ViewModel.SaveInfo.OriginalPath, "origin", remoteUrl);
+                    }
                 }
                 await LoadRemoteInfoAsync();
             }
@@ -316,16 +322,25 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 await ShowInfoDialog("Repository name is required.");
                 return;
             }
-            string user = _configurationService.GitHubUsername;
-            string remoteUrl = $"https://github.com/{user}/{repoName}.git";
-            _configurationService.GitHubRepository = repoName;
-            _configurationService.SetString("GitHubRepoDefaultBranch", branch);
-            _configurationService.SetString("GitHubRemoteUrl", remoteUrl);
-            await _configurationService.SaveAsync();
-            // Add remote to local repo
-            if (ViewModel.SaveInfo?.IsGitInitialized == true && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
+
+            // Save to save-specific configuration
+            if (ViewModel.SaveInfo != null)
             {
-                await _gitService.AddRemoteAsync(ViewModel.SaveInfo.OriginalPath, "origin", remoteUrl);
+                string user = _configurationService.GitHubUsername;
+                string remoteUrl = $"https://github.com/{user}/{repoName}.git";
+                ViewModel.SaveInfo.GitHubRepositoryName = repoName;
+                ViewModel.SaveInfo.GitHubDefaultBranch = branch;
+                ViewModel.SaveInfo.GitHubRemoteUrl = remoteUrl;
+                ViewModel.SaveInfo.IsGitHubLinked = true;
+
+                // Update the save info in storage
+                await _managedSaveService.UpdateManagedSave(ViewModel.SaveInfo);
+
+                // Add remote to local repo
+                if (ViewModel.SaveInfo.IsGitInitialized && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
+                {
+                    await _gitService.AddRemoteAsync(ViewModel.SaveInfo.OriginalPath, "origin", remoteUrl);
+                }
             }
             await LoadRemoteInfoAsync();
         }
@@ -479,7 +494,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 
         if (FindName("RemoteUrlText") is TextBlock remoteUrlText)
         {
-            remoteUrlText.Text = ViewModel.RemoteUrl ?? "Not configured";
+            remoteUrlText.Text = saveInfo.GitHubRemoteUrl ?? "Not configured";
         }
     }
 

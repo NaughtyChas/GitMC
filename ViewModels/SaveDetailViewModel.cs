@@ -55,7 +55,7 @@ public class SaveDetailViewModel : INotifyPropertyChanged
 
     public string RemoteUrl
     {
-        get => _remoteUrl;
+        get => _saveInfo?.GitHubRemoteUrl ?? _remoteUrl;
         set
         {
             _remoteUrl = value;
