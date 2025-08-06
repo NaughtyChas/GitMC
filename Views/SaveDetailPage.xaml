@@ -7,8 +7,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:GitMC.Extensions"
-    xmlns:models="using:GitMC.Models"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:GitMC.Models"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Grid>
@@ -342,9 +342,7 @@
                     VerticalAlignment="Center">
 
                     <!--  Stash Button  -->
-                    <Button
-                        Click="StashButton_Click"
-                        x:Name="StashButton">
+                    <Button Click="StashButton_Click" x:Name="StashButton">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon FontSize="14" Glyph="&#xE7B8;" />
                             <TextBlock FontSize="13" Text="{local:Localize Key=SaveDetail_Stash}" />
@@ -352,9 +350,7 @@
                     </Button>
 
                     <!--  Scan Button  -->
-                    <Button
-                        Click="ScanButton_Click"
-                        x:Name="ScanButton">
+                    <Button Click="ScanButton_Click" x:Name="ScanButton">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon FontSize="14" Glyph="&#xE773;" />
                             <TextBlock FontSize="13" Text="{local:Localize Key=SaveDetail_Scan}" />
@@ -419,7 +415,10 @@
             <ScrollViewer Grid.Row="2" x:Name="ContentScrollViewer">
                 <Grid>
                     <!--  Overview Tab Content  -->
-                    <Grid x:Name="OverviewContent" Visibility="Visible" Margin="24">
+                    <Grid
+                        Margin="24"
+                        Visibility="Visible"
+                        x:Name="OverviewContent">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="20" />
@@ -430,33 +429,33 @@
 
                         <!--  Row 1: Current Status Card  -->
                         <Border
-                            Grid.Row="0"
                             Background="{ThemeResource LayerFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                             BorderThickness="1"
                             CornerRadius="8"
+                            Grid.Row="0"
                             Padding="20">
                             <StackPanel Spacing="16">
                                 <!--  Card Header  -->
                                 <StackPanel Orientation="Horizontal" Spacing="12">
                                     <FontIcon
-                                        Glyph="&#xE916;"
                                         FontSize="20"
-                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                        Glyph="&#xE916;" />
                                     <TextBlock
-                                        Text="Current Status"
                                         FontSize="18"
-                                        FontWeight="SemiBold" />
+                                        FontWeight="SemiBold"
+                                        Text="Current Status" />
                                 </StackPanel>
 
                                 <!--  Status InfoBar  -->
                                 <InfoBar
-                                    x:Name="StatusInfoBar"
-                                    Title="Working tree clean"
+                                    IsClosable="False"
+                                    IsOpen="True"
                                     Message="All changes are committed and synchronized"
                                     Severity="Success"
-                                    IsOpen="True"
-                                    IsClosable="False" />
+                                    Title="Working tree clean"
+                                    x:Name="StatusInfoBar" />
 
                                 <!--  Branch Information  -->
                                 <Grid>
@@ -465,16 +464,16 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock
-                                        Grid.Column="0"
-                                        Text="Current branch:"
                                         FontWeight="SemiBold"
-                                        Margin="0,0,12,0" />
+                                        Grid.Column="0"
+                                        Margin="0,0,12,0"
+                                        Text="Current branch:" />
                                     <TextBlock
-                                        Grid.Column="1"
-                                        x:Name="CurrentBranchText"
-                                        Text="main"
+                                        FontWeight="SemiBold"
                                         Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                        FontWeight="SemiBold" />
+                                        Grid.Column="1"
+                                        Text="main"
+                                        x:Name="CurrentBranchText" />
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -489,33 +488,33 @@
 
                             <!--  Recent Commits Card  -->
                             <Border
-                                Grid.Column="0"
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="8"
+                                Grid.Column="0"
                                 Padding="20">
                                 <StackPanel Spacing="16">
                                     <!--  Card Header  -->
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <FontIcon
-                                            Glyph="&#xE81C;"
                                             FontSize="20"
-                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                            Glyph="&#xE81C;" />
                                         <TextBlock
-                                            Text="Recent Commits"
                                             FontSize="18"
-                                            FontWeight="SemiBold" />
+                                            FontWeight="SemiBold"
+                                            Text="Recent Commits" />
                                     </StackPanel>
 
                                     <!--  Commits List  -->
                                     <ListView
+                                        Background="Transparent"
+                                        BorderThickness="0"
                                         ItemsSource="{x:Bind ViewModel.RecentCommits, Mode=OneWay}"
                                         MaxHeight="280"
                                         SelectionMode="None"
-                                        x:Name="RecentCommitsList"
-                                        Background="Transparent"
-                                        BorderThickness="0">
+                                        x:Name="RecentCommitsList">
                                         <ListView.ItemContainerStyle>
                                             <Style TargetType="ListViewItem">
                                                 <Setter Property="Padding" Value="0,8" />
@@ -529,34 +528,34 @@
                                                     Background="{ThemeResource SubtleFillColorTransparentBrush}"
                                                     BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                                                     BorderThickness="0,0,0,1"
-                                                    Padding="12"
-                                                    CornerRadius="4">
+                                                    CornerRadius="4"
+                                                    Padding="12">
                                                     <StackPanel Spacing="6">
                                                         <TextBlock
-                                                            Text="{x:Bind Message}"
                                                             FontWeight="Medium"
-                                                            TextTrimming="CharacterEllipsis"
-                                                            MaxLines="2" />
+                                                            MaxLines="2"
+                                                            Text="{x:Bind Message}"
+                                                            TextTrimming="CharacterEllipsis" />
                                                         <StackPanel Orientation="Horizontal" Spacing="16">
                                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                                 <FontIcon
-                                                                    Glyph="&#xE77B;"
                                                                     FontSize="12"
-                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Glyph="&#xE77B;" />
                                                                 <TextBlock
-                                                                    Text="{x:Bind Author}"
                                                                     FontSize="12"
-                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Text="{x:Bind Author}" />
                                                             </StackPanel>
                                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                                 <FontIcon
-                                                                    Glyph="&#xE917;"
                                                                     FontSize="12"
-                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Glyph="&#xE917;" />
                                                                 <TextBlock
-                                                                    Text="{x:Bind TimeAgo}"
                                                                     FontSize="12"
-                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Text="{x:Bind TimeAgo}" />
                                                             </StackPanel>
                                                         </StackPanel>
                                                     </StackPanel>
@@ -567,80 +566,463 @@
 
                                     <!--  View All Link  -->
                                     <HyperlinkButton
-                                        Content="View all commits"
                                         Click="ViewAllCommits_Click"
+                                        Content="View all commits"
                                         HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Border>
 
                             <!--  Remote Repository Card (Redesigned)  -->
                             <Border
-                                Grid.Column="2"
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="8"
+                                Grid.Column="2"
                                 Padding="20">
                                 <StackPanel Spacing="16">
                                     <!--  Card Header  -->
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <FontIcon
-                                            Glyph="&#xE968;"
                                             FontSize="20"
-                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                            Glyph="&#xE968;" />
                                         <TextBlock
-                                            Text="Remote Repository"
                                             FontSize="18"
-                                            FontWeight="SemiBold" />
+                                            FontWeight="SemiBold"
+                                            Text="Remote Repository" />
                                     </StackPanel>
 
-                                    <!--  Not logged in to GitHub -->
-                                    <StackPanel x:Name="GitHubNotLoggedInPanel" Spacing="12" Visibility="Collapsed">
-                                        <InfoBar Severity="Warning" IsOpen="True" Title="Not logged in to GitHub" IsClosable="False" Message="Sign in to GitHub to link or create a remote repository.">
+                                    <!--  Not logged in to GitHub  -->
+                                    <StackPanel
+                                        Spacing="12"
+                                        Visibility="Collapsed"
+                                        x:Name="GitHubNotLoggedInPanel">
+                                        <InfoBar
+                                            IsClosable="False"
+                                            IsOpen="True"
+                                            Message="Sign in to GitHub to link or create a remote repository."
+                                            Severity="Warning"
+                                            Title="Not logged in to GitHub">
                                             <InfoBar.ActionButton>
-                                                <Button Content="Sign in with GitHub"
+                                                <Button
                                                     Click="SignInGitHub_Click"
+                                                    Content="Sign in with GitHub"
                                                     HorizontalAlignment="Left" />
                                             </InfoBar.ActionButton>
                                         </InfoBar>
                                     </StackPanel>
 
-                                    <!--  No repository linked -->
-                                    <StackPanel x:Name="GitHubNoRepoPanel" Spacing="12" Visibility="Collapsed">
-                                        <InfoBar Severity="Informational" IsOpen="True" Title="No remote repository linked" Message="You can create a new GitHub repository for this save, or link an existing one." />
-                                        <TextBlock Text="Repository Name" FontWeight="SemiBold" />
-                                        <TextBox x:Name="GitHubRepoNameBox" PlaceholderText="e.g. my-mc-save" />
-                                        <TextBlock Text="Description (optional)" FontWeight="SemiBold" />
-                                        <TextBox x:Name="GitHubRepoDescBox" PlaceholderText="Describe your world..." />
-                                        <StackPanel Orientation="Horizontal" Spacing="12">
-                                            <CheckBox x:Name="GitHubRepoPrivateBox" Content="Private" IsChecked="True" />
-                                            <Button Content="Create and Link Repository" Click="CreateAndLinkRepo_Click" />
+                                    <!--  No repository linked  -->
+                                    <StackPanel
+                                        Spacing="16"
+                                        Visibility="Collapsed"
+                                        x:Name="GitHubNoRepoPanel">
+                                        <InfoBar
+                                            IsClosable="False"
+                                            IsOpen="True"
+                                            Message="You can create a new GitHub repository for this save, or link an existing one."
+                                            Severity="Informational"
+                                            Title="No remote repository linked" />
+
+                                        <!--  Repository Creation Form  -->
+                                        <StackPanel Spacing="12">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    FontWeight="SemiBold"
+                                                    Text="Repository Name" />
+                                                <TextBox PlaceholderText="e.g. my-mc-save" x:Name="GitHubRepoNameBox" />
+                                            </StackPanel>
+
+                                            <StackPanel Spacing="4">
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    FontWeight="SemiBold"
+                                                    Text="Description (optional)" />
+                                                <TextBox PlaceholderText="Describe your world..." x:Name="GitHubRepoDescBox" />
+                                            </StackPanel>
+
+                                            <CheckBox
+                                                Content="Private repository"
+                                                IsChecked="True"
+                                                Margin="0,4,0,8"
+                                                x:Name="GitHubRepoPrivateBox" />
                                         </StackPanel>
-                                        <Button Content="Link Existing Repository" Click="LinkExistingRepo_Click" />
+
+                                        <!--  Repository action buttons  -->
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <Button Click="CreateAndLinkRepo_Click" Content="Create and Link Repository" />
+                                            <Button Click="LinkExistingRepo_Click" Content="Link Existing Repository" />
+                                        </StackPanel>
                                     </StackPanel>
 
-                                    <!--  Repository linked -->
-                                    <StackPanel x:Name="GitHubRepoLinkedPanel" Spacing="12" Visibility="Collapsed">
-                                        <InfoBar Severity="Success" IsOpen="True" Title="Repository linked" Message="This save is linked to a GitHub repository." />
-                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                            <Image x:Name="GitHubAvatar" Width="32" Height="32" Stretch="UniformToFill" Margin="0,0,8,0" />
-                                            <TextBlock x:Name="GitHubUserNameText" FontWeight="SemiBold" />
-                                            <TextBlock Text="/" />
-                                            <HyperlinkButton x:Name="GitHubRepoLink" Content="repo" NavigateUri="https://github.com/" />
-                                        </StackPanel>
-                                        <TextBlock x:Name="GitHubRepoDescText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                                        <StackPanel Orientation="Horizontal" Spacing="16">
-                                            <StackPanel>
-                                                <TextBlock Text="Visibility" FontWeight="SemiBold" />
-                                                <TextBlock x:Name="GitHubRepoVisibilityText" />
+                                    <!--  Repository linked - New Design  -->
+                                    <StackPanel
+                                        Spacing="16"
+                                        Visibility="Collapsed"
+                                        x:Name="GitHubRepoLinkedPanel">
+                                        <!--  Success InfoBar - Only shown temporarily after linking  -->
+                                        <InfoBar
+                                            IsClosable="True"
+                                            IsOpen="False"
+                                            Message="This save is now linked to your GitHub repository."
+                                            Severity="Success"
+                                            Title="Repository linked successfully"
+                                            x:Name="GitHubLinkSuccessInfoBar" />
+
+                                        <!--  Repository Header  -->
+                                        <StackPanel Spacing="12">
+                                            <!--  Avatar and Repository Name Row  -->
+                                            <StackPanel
+                                                Orientation="Horizontal"
+                                                Spacing="12"
+                                                VerticalAlignment="Center">
+                                                <!--  GitHub Avatar  -->
+                                                <Border
+                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="20"
+                                                    Height="40"
+                                                    Width="40">
+                                                    <Image Stretch="UniformToFill" x:Name="GitHubAvatar" />
+                                                </Border>
+
+                                                <!--  Repository Name and Info  -->
+                                                <StackPanel Spacing="4" VerticalAlignment="Center">
+                                                    <!--  Repository Name  -->
+                                                    <TextBlock
+                                                        FontSize="20"
+                                                        FontWeight="SemiBold"
+                                                        Text="player1/creative-castle-build"
+                                                        x:Name="GitHubRepoFullNameText" />
+
+                                                    <!--  Platform and Visibility  -->
+                                                    <StackPanel
+                                                        Orientation="Horizontal"
+                                                        Spacing="8"
+                                                        VerticalAlignment="Center">
+                                                        <TextBlock
+                                                            FontSize="14"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Text="GitHub" />
+                                                        <TextBlock
+                                                            FontSize="14"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Text="•" />
+                                                        <TextBlock
+                                                            FontSize="14"
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Text="Public"
+                                                            x:Name="GitHubRepoVisibilityText" />
+                                                    </StackPanel>
+                                                </StackPanel>
                                             </StackPanel>
-                                            <StackPanel>
-                                                <TextBlock Text="Default Branch" FontWeight="SemiBold" />
-                                                <TextBlock x:Name="GitHubRepoBranchText" />
-                                            </StackPanel>
                                         </StackPanel>
-                                        <TextBlock Text="Remote URL" FontWeight="SemiBold" />
-                                        <TextBox x:Name="GitHubRemoteUrlBox" IsReadOnly="True" BorderThickness="0" Background="Transparent" />
+
+                                        <!--  Statistics Grid  -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="20" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!--  Open PRs  -->
+                                            <StackPanel
+                                                Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                Spacing="8">
+                                                <FontIcon
+                                                    FontSize="16"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Glyph="&#xE8A9;" />
+                                                <TextBlock
+                                                    FontSize="16"
+                                                    FontWeight="SemiBold"
+                                                    Text="2"
+                                                    x:Name="GitHubOpenPRsCountText" />
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="Open PRs"
+                                                    VerticalAlignment="Center" />
+                                            </StackPanel>
+
+                                            <!--  Open Issues  -->
+                                            <StackPanel
+                                                Grid.Column="2"
+                                                Orientation="Horizontal"
+                                                Spacing="8">
+                                                <FontIcon
+                                                    FontSize="16"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Glyph="&#xE7C4;" />
+                                                <TextBlock
+                                                    FontSize="16"
+                                                    FontWeight="SemiBold"
+                                                    Text="4"
+                                                    x:Name="GitHubOpenIssuesCountText" />
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="Open Issues"
+                                                    VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!--  Recent Pull Requests  -->
+                                        <StackPanel Spacing="12">
+                                            <TextBlock
+                                                FontSize="16"
+                                                FontWeight="SemiBold"
+                                                Text="Recent Pull Requests" />
+
+                                            <!--  PR List with ScrollViewer  -->
+                                            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto">
+                                                <StackPanel Spacing="8" x:Name="RecentPRsContainer">
+                                                <!--  Sample PR 1  -->
+                                                <Border
+                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="12">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <StackPanel Grid.Column="0" Spacing="4">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <FontIcon
+                                                                    FontSize="12"
+                                                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                                                    Glyph="&#xE8A9;" />
+                                                                <TextBlock
+                                                                    FontSize="14"
+                                                                    FontWeight="SemiBold"
+                                                                    Text="Add new castle wing design" />
+                                                            </StackPanel>
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="by collaborator1 • 2 days ago" />
+                                                        </StackPanel>
+
+                                                        <Border
+                                                            Background="{ThemeResource SystemFillColorSuccessBrush}"
+                                                            CornerRadius="12"
+                                                            Grid.Column="1"
+                                                            VerticalAlignment="Center"
+                                                            Padding="8,3">
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                FontWeight="SemiBold"
+                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                Text="open" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+
+                                                <!--  Sample PR 2 - Review needed  -->
+                                                <Border
+                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="12">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <StackPanel Grid.Column="0" Spacing="4">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <FontIcon
+                                                                    FontSize="12"
+                                                                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                                                    Glyph="&#xE8A9;" />
+                                                                <TextBlock
+                                                                    FontSize="14"
+                                                                    FontWeight="SemiBold"
+                                                                    Text="Fix lighting in dungeon area" />
+                                                            </StackPanel>
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="by player1 • 1 week ago" />
+                                                        </StackPanel>
+
+                                                        <Border
+                                                            Background="{ThemeResource SystemFillColorCautionBrush}"
+                                                            CornerRadius="12"
+                                                            Grid.Column="1"
+                                                            VerticalAlignment="Center"
+                                                            Padding="8,3">
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                FontWeight="SemiBold"
+                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                Text="review" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+
+                                                <!--  Sample PR 3 - Merged  -->
+                                                <Border
+                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="12">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <StackPanel Grid.Column="0" Spacing="4">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <FontIcon
+                                                                    FontSize="12"
+                                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                                    Glyph="&#xE73E;" />
+                                                                <TextBlock
+                                                                    FontSize="14"
+                                                                    FontWeight="SemiBold"
+                                                                    Text="Update spawn area design" />
+                                                            </StackPanel>
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="by player1 • 3 days ago" />
+                                                        </StackPanel>
+
+                                                        <Border
+                                                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                            CornerRadius="12"
+                                                            Grid.Column="1"
+                                                            VerticalAlignment="Center"
+                                                            Padding="8,3">
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                FontWeight="SemiBold"
+                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                Text="merged" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+
+                                                <!--  Sample PR 4 - Draft  -->
+                                                <Border
+                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="12">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <StackPanel Grid.Column="0" Spacing="4">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <FontIcon
+                                                                    FontSize="12"
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Glyph="&#xE70F;" />
+                                                                <TextBlock
+                                                                    FontSize="14"
+                                                                    FontWeight="SemiBold"
+                                                                    Text="WIP: Redesign main hall" />
+                                                            </StackPanel>
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="by collaborator2 • 5 days ago" />
+                                                        </StackPanel>
+
+                                                        <Border
+                                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                            CornerRadius="12"
+                                                            Grid.Column="1"
+                                                            VerticalAlignment="Center"
+                                                            Padding="8,3">
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                FontWeight="SemiBold"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="draft" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+
+                                                <!--  Sample PR 5 - Closed  -->
+                                                <Border
+                                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="12">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <StackPanel Grid.Column="0" Spacing="4">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <FontIcon
+                                                                    FontSize="12"
+                                                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                                    Glyph="&#xE8A9;" />
+                                                                <TextBlock
+                                                                    FontSize="14"
+                                                                    FontWeight="SemiBold"
+                                                                    Text="Fix inventory sorting bug" />
+                                                            </StackPanel>
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="by player1 • 2 weeks ago" />
+                                                        </StackPanel>
+
+                                                        <Border
+                                                            Background="{ThemeResource SystemFillColorCriticalBrush}"
+                                                            CornerRadius="12"
+                                                            Grid.Column="1"
+                                                            VerticalAlignment="Center"
+                                                            Padding="8,3">
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                FontWeight="SemiBold"
+                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                Text="closed" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                        </StackPanel>
+
+                                        <!--  View on GitHub Button  -->
+                                        <Button
+                                            Click="ViewOnGitHub_Click"
+                                            HorizontalAlignment="Center"
+                                            Padding="16,8"
+                                            x:Name="ViewOnGitHubButton">
+                                            <Button.Content>
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon FontSize="16" Glyph="&#xE774;" />
+                                                    <TextBlock Text="View on GitHub" />
+                                                </StackPanel>
+                                            </Button.Content>
+                                        </Button>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -656,80 +1038,92 @@
 
                             <!--  World Information Card  -->
                             <Border
-                                Grid.Column="0"
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="8"
+                                Grid.Column="0"
                                 Padding="20">
                                 <StackPanel Spacing="16">
                                     <!--  Card Header  -->
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <FontIcon
-                                            Glyph="&#xE7C3;"
                                             FontSize="20"
-                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                            Glyph="&#xE7C3;" />
                                         <TextBlock
-                                            Text="World Information"
                                             FontSize="18"
-                                            FontWeight="SemiBold" />
+                                            FontWeight="SemiBold"
+                                            Text="World Information" />
                                     </StackPanel>
 
                                     <!--  World Details  -->
                                     <StackPanel Spacing="16">
                                         <StackPanel Spacing="8">
-                                            <TextBlock Text="World Size" FontWeight="SemiBold" FontSize="14" />
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="World Size" />
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon
-                                                    Glyph="&#xE8B7;"
                                                     FontSize="14"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Glyph="&#xE8B7;" />
                                                 <TextBlock
-                                                    x:Name="WorldSizeText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="Unknown"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    x:Name="WorldSizeText" />
                                             </StackPanel>
                                         </StackPanel>
 
                                         <StackPanel Spacing="8">
-                                            <TextBlock Text="Game Version" FontWeight="SemiBold" FontSize="14" />
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Game Version" />
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon
-                                                    Glyph="&#xE945;"
                                                     FontSize="14"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Glyph="&#xE945;" />
                                                 <TextBlock
-                                                    x:Name="GameVersionText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="Unknown"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    x:Name="GameVersionText" />
                                             </StackPanel>
                                         </StackPanel>
 
                                         <StackPanel Spacing="8">
-                                            <TextBlock Text="Last Modified" FontWeight="SemiBold" FontSize="14" />
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Last Modified" />
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon
-                                                    Glyph="&#xE917;"
                                                     FontSize="14"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Glyph="&#xE917;" />
                                                 <TextBlock
-                                                    x:Name="WorldLastModifiedText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="Unknown"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    x:Name="WorldLastModifiedText" />
                                             </StackPanel>
                                         </StackPanel>
 
                                         <StackPanel Spacing="8">
-                                            <TextBlock Text="Added to GitMC" FontWeight="SemiBold" FontSize="14" />
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Added to GitMC" />
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon
-                                                    Glyph="&#xE8FA;"
                                                     FontSize="14"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Glyph="&#xE8FA;" />
                                                 <TextBlock
-                                                    x:Name="AddedDateText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="Unknown"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    x:Name="AddedDateText" />
                                             </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
@@ -738,80 +1132,92 @@
 
                             <!--  Statistics Card  -->
                             <Border
-                                Grid.Column="2"
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="8"
+                                Grid.Column="2"
                                 Padding="20">
                                 <StackPanel Spacing="16">
                                     <!--  Card Header  -->
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <FontIcon
-                                            Glyph="&#xE9D9;"
                                             FontSize="20"
-                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                            Glyph="&#xE9D9;" />
                                         <TextBlock
-                                            Text="Repository Statistics"
                                             FontSize="18"
-                                            FontWeight="SemiBold" />
+                                            FontWeight="SemiBold"
+                                            Text="Repository Statistics" />
                                     </StackPanel>
 
                                     <!--  Statistics Details  -->
                                     <StackPanel Spacing="16">
                                         <StackPanel Spacing="8">
-                                            <TextBlock Text="Total Commits" FontWeight="SemiBold" FontSize="14" />
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Total Commits" />
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon
-                                                    Glyph="&#xE81C;"
                                                     FontSize="14"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Glyph="&#xE81C;" />
                                                 <TextBlock
-                                                    x:Name="TotalCommitsText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="0"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    x:Name="TotalCommitsText" />
                                             </StackPanel>
                                         </StackPanel>
 
                                         <StackPanel Spacing="8">
-                                            <TextBlock Text="Branches" FontWeight="SemiBold" FontSize="14" />
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Branches" />
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon
-                                                    Glyph="&#xE8AD;"
                                                     FontSize="14"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Glyph="&#xE8AD;" />
                                                 <TextBlock
-                                                    x:Name="BranchesCountText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="1"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    x:Name="BranchesCountText" />
                                             </StackPanel>
                                         </StackPanel>
 
                                         <StackPanel Spacing="8">
-                                            <TextBlock Text="Repository Age" FontWeight="SemiBold" FontSize="14" />
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Repository Age" />
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon
-                                                    Glyph="&#xE823;"
                                                     FontSize="14"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Glyph="&#xE823;" />
                                                 <TextBlock
-                                                    x:Name="RepositoryAgeText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="Unknown"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    x:Name="RepositoryAgeText" />
                                             </StackPanel>
                                         </StackPanel>
 
                                         <StackPanel Spacing="8">
-                                            <TextBlock Text="Working Tree" FontWeight="SemiBold" FontSize="14" />
+                                            <TextBlock
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Working Tree" />
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon
-                                                    Glyph="&#xE8AC;"
                                                     FontSize="14"
-                                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                                    Glyph="&#xE8AC;" />
                                                 <TextBlock
-                                                    x:Name="WorkingTreeStatusText"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="Clean"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    x:Name="WorkingTreeStatusText" />
                                             </StackPanel>
                                         </StackPanel>
                                     </StackPanel>

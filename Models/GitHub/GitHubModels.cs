@@ -93,6 +93,54 @@ public class GitHubUser
 }
 
 /// <summary>
+///     GitHub repository information model
+/// </summary>
+public class GitHubRepository
+{
+    [JsonPropertyName("id")]
+    public long Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("full_name")]
+    public string FullName { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("private")]
+    public bool IsPrivate { get; set; }
+
+    [JsonPropertyName("html_url")]
+    public string HtmlUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("clone_url")]
+    public string CloneUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("ssh_url")]
+    public string SshUrl { get; set; } = string.Empty;
+
+    [JsonPropertyName("default_branch")]
+    public string DefaultBranch { get; set; } = "main";
+
+    [JsonPropertyName("updated_at")]
+    public DateTime UpdatedAt { get; set; }
+
+    [JsonPropertyName("created_at")]
+    public DateTime CreatedAt { get; set; }
+
+    [JsonPropertyName("owner")]
+    public GitHubUser Owner { get; set; } = new();
+
+    [JsonPropertyName("empty")]
+    public bool IsEmpty { get; set; }
+
+    [JsonPropertyName("size")]
+    public long Size { get; set; }
+}
+
+/// <summary>
 ///     Device Flow authentication result
 /// </summary>
 public class GitHubAuthResult

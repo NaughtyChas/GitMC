@@ -267,12 +267,236 @@ public class GitHubAppsService : IGitHubAppsService, IDisposable
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             var response = await _httpClient.SendAsync(request);
-            return response.IsSuccessStatusCode;
+
+            if (response.IsSuccessStatusCode)
+            {
+                return true;
+            }
+
+            // Handle specific HTTP error codes
+            string errorContent = await response.Content.ReadAsStringAsync();
+            string errorMessage = $"GitHub API error: {response.StatusCode}";
+
+            switch (response.StatusCode)
+            {
+                case System.Net.HttpStatusCode.Unauthorized:
+                    throw new UnauthorizedAccessException("GitHub access token is invalid or expired.");
+                case System.Net.HttpStatusCode.Forbidden:
+                    throw new UnauthorizedAccessException("Insufficient permissions to create repositories. Please check your GitHub account settings.");
+                case System.Net.HttpStatusCode.UnprocessableEntity:
+                    // Usually means repository name already exists or is invalid
+                    throw new InvalidOperationException($"Repository '{repositoryName}' already exists or the name is invalid.");
+                case System.Net.HttpStatusCode.TooManyRequests:
+                    throw new InvalidOperationException("GitHub API rate limit exceeded. Please try again later.");
+                default:
+                    throw new HttpRequestException($"{errorMessage}. Response: {errorContent}");
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            throw new TaskCanceledException("Repository creation request timed out.");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions
+        }
+        catch (UnauthorizedAccessException)
+        {
+            throw; // Re-throw authorization exceptions
+        }
+        catch (InvalidOperationException)
+        {
+            throw; // Re-throw validation exceptions
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Unexpected error creating repository: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Checks if a repository exists for the authenticated user
+    /// </summary>
+    public async Task<bool> CheckRepositoryExistsAsync(string accessToken, string repositoryName)
+    {
+        try
+        {
+            var user = await GetUserAsync(accessToken);
+            if (user == null)
+            {
+                throw new UnauthorizedAccessException("Unable to get user information. Access token may be invalid.");
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{GitHubConstants.ApiBaseUrl}/repos/{user.Login}/{repositoryName}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var response = await _httpClient.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return true;
+            }
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return false; // Repository doesn't exist, which is what we want to know
+            }
+
+            // Handle other error codes
+            string errorContent = await response.Content.ReadAsStringAsync();
+            string errorMessage = $"GitHub API error: {response.StatusCode}";
+
+            switch (response.StatusCode)
+            {
+                case System.Net.HttpStatusCode.Unauthorized:
+                    throw new UnauthorizedAccessException("GitHub access token is invalid or expired.");
+                case System.Net.HttpStatusCode.Forbidden:
+                    throw new UnauthorizedAccessException("Insufficient permissions to access repository information.");
+                case System.Net.HttpStatusCode.TooManyRequests:
+                    throw new InvalidOperationException("GitHub API rate limit exceeded. Please try again later.");
+                default:
+                    throw new HttpRequestException($"{errorMessage}. Response: {errorContent}");
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            throw new TaskCanceledException("Repository check request timed out.");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions
+        }
+        catch (UnauthorizedAccessException)
+        {
+            throw; // Re-throw authorization exceptions
+        }
+        catch (InvalidOperationException)
+        {
+            throw; // Re-throw validation exceptions
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Unexpected error checking repository: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Gets the authenticated user's repositories
+    /// </summary>
+    public async Task<GitHubRepository[]> GetUserRepositoriesAsync(string accessToken, bool includePrivate = true)
+    {
+        try
+        {
+            var url = $"{GitHubConstants.ApiBaseUrl}/user/repos?sort=updated&direction=desc&per_page=100";
+            if (!includePrivate)
+                url += "&visibility=public";
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var response = await _httpClient.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<GitHubRepository[]>(json, JsonOptions) ?? Array.Empty<GitHubRepository>();
+            }
+
+            // Handle specific HTTP error codes
+            string errorContent = await response.Content.ReadAsStringAsync();
+            string errorMessage = $"GitHub API error: {response.StatusCode}";
+
+            switch (response.StatusCode)
+            {
+                case System.Net.HttpStatusCode.Unauthorized:
+                    throw new UnauthorizedAccessException("GitHub access token is invalid or expired.");
+                case System.Net.HttpStatusCode.Forbidden:
+                    throw new UnauthorizedAccessException("Insufficient permissions to access repository information.");
+                case System.Net.HttpStatusCode.TooManyRequests:
+                    throw new InvalidOperationException("GitHub API rate limit exceeded. Please try again later.");
+                default:
+                    throw new HttpRequestException($"{errorMessage}. Response: {errorContent}");
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            throw new TaskCanceledException("Repository list request timed out.");
+        }
+        catch (HttpRequestException)
+        {
+            throw; // Re-throw HTTP exceptions
+        }
+        catch (UnauthorizedAccessException)
+        {
+            throw; // Re-throw authorization exceptions
+        }
+        catch (InvalidOperationException)
+        {
+            throw; // Re-throw validation exceptions
+        }
+        catch (JsonException jsonEx)
+        {
+            throw new InvalidOperationException($"Error parsing GitHub API response: {jsonEx.Message}", jsonEx);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Unexpected error fetching repositories: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Gets detailed information about a repository
+    /// </summary>
+    public async Task<GitHubRepository?> GetRepositoryInfoAsync(string accessToken, string owner, string repositoryName)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{GitHubConstants.ApiBaseUrl}/repos/{owner}/{repositoryName}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var response = await _httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<GitHubRepository>(json, JsonOptions);
         }
         catch
         {
-            return false;
+            return null;
         }
+    }
+
+    /// <summary>
+    /// Validates a repository name according to GitHub's rules
+    /// </summary>
+    public static (bool IsValid, string? ErrorMessage) ValidateRepositoryName(string repositoryName)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryName))
+            return (false, "Repository name cannot be empty");
+
+        if (repositoryName.Length > 100)
+            return (false, "Repository name cannot exceed 100 characters");
+
+        if (repositoryName.StartsWith(".") || repositoryName.EndsWith("."))
+            return (false, "Repository name cannot start or end with a period");
+
+        if (repositoryName.StartsWith("-") || repositoryName.EndsWith("-"))
+            return (false, "Repository name cannot start or end with a hyphen");
+
+        if (repositoryName.Contains(".."))
+            return (false, "Repository name cannot contain consecutive periods");
+
+        // GitHub repository names can contain alphanumeric characters, hyphens, periods, and underscores
+        if (!System.Text.RegularExpressions.Regex.IsMatch(repositoryName, @"^[a-zA-Z0-9._-]+$"))
+            return (false, "Repository name can only contain letters, numbers, hyphens, periods, and underscores");
+
+        // Reserved names
+        var reservedNames = new[] { ".", "..", "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
+        if (reservedNames.Contains(repositoryName.ToUpperInvariant()))
+            return (false, $"'{repositoryName}' is a reserved name and cannot be used");
+
+        return (true, null);
     }
 
     public void Dispose()

@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using CommunityToolkit.WinUI;
 using GitMC.Extensions;
 using GitMC.Models;
+using GitMC.Models.GitHub;
 using GitMC.Services;
 using GitMC.ViewModels;
 using Microsoft.UI.Xaml;
@@ -240,32 +241,118 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             {
                 Title = "GitHub Sign-in Failed",
                 Content = result.ErrorMessage ?? "Unknown error",
-                CloseButtonText = "OK"
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
             };
             await dialog.ShowAsync();
         }
     }
 
-    // Create and link repository
+    // Create and link repository (pseudo-action for testing)
     private async void CreateAndLinkRepo_Click(object sender, RoutedEventArgs e)
     {
-        if (FindName("GitHubRepoNameBox") is TextBox nameBox &&
-            FindName("GitHubRepoDescBox") is TextBox descBox &&
-            FindName("GitHubRepoPrivateBox") is CheckBox privateBox)
+        // Prevent multiple clicks
+        if (sender is Button repoCreateButton)
         {
+            repoCreateButton.IsEnabled = false;
+        }
+
+        ContentDialog? progressDialog = null;
+
+        try
+        {
+            // Validate UI elements
+            if (FindName("GitHubRepoNameBox") is not TextBox nameBox ||
+                FindName("GitHubRepoDescBox") is not TextBox descBox ||
+                FindName("GitHubRepoPrivateBox") is not CheckBox privateBox)
+            {
+                await ShowErrorDialogSafe("UI Error", "Unable to access form controls. Please try again.");
+                return;
+            }
+
             string repoName = nameBox.Text.Trim();
             string desc = descBox.Text.Trim();
             bool isPrivate = privateBox.IsChecked ?? true;
-            if (string.IsNullOrWhiteSpace(repoName))
+
+            // Validate repository name
+            try
             {
-                await ShowInfoDialog("Repository name is required.");
+                var (isValidName, nameError) = GitHubAppsService.ValidateRepositoryName(repoName);
+                if (!isValidName)
+                {
+                    await ShowErrorDialogSafe("Invalid Repository Name", nameError ?? "Repository name is invalid.");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Repository name validation failed: {ex.Message}");
+                await ShowErrorDialogSafe("Validation Error", "Unable to validate repository name. Please check the name and try again.");
                 return;
             }
+
+            // Get and validate access token
             string token = _configurationService.GitHubAccessToken;
-            bool created = await _gitHubAppsService.CreateRepositoryAsync(token, repoName, isPrivate, desc);
-            if (created)
+            DateTime tokenTime = _configurationService.GitHubAccessTokenTimestamp;
+
+            if (string.IsNullOrEmpty(token))
             {
-                // Save binding info to the save-specific configuration
+                await ShowErrorDialogSafe("Authentication Required", "Please sign in to GitHub first.");
+                return;
+            }
+
+            // Validate token state
+            try
+            {
+                var (isTokenValid, isExpired, tokenError) = await _gitHubAppsService.ValidateTokenStateAsync(token, tokenTime);
+                if (!isTokenValid)
+                {
+                    string errorMsg = isExpired
+                        ? "Your GitHub access token has expired. Please sign in again."
+                        : tokenError ?? "GitHub access token is invalid.";
+                    await ShowErrorDialogSafe("Authentication Error", errorMsg);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Token validation failed: {ex.Message}");
+                await ShowErrorDialogSafe("Authentication Error",
+                    "Unable to validate GitHub authentication. Please check your connection and try signing in again.");
+                return;
+            }
+
+            // Create and show progress dialog
+            progressDialog = new ContentDialog
+            {
+                Title = "Processing Repository",
+                Content = new StackPanel
+                {
+                    Children =
+                    {
+                        new ProgressRing { IsActive = true, Margin = new Thickness(0, 0, 0, 16) },
+                        new TextBlock
+                        {
+                            Text = "Setting up repository configuration...",
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            TextWrapping = TextWrapping.Wrap
+                        }
+                    }
+                },
+                IsPrimaryButtonEnabled = false,
+                IsSecondaryButtonEnabled = false,
+                XamlRoot = this.XamlRoot
+            };
+
+            // Show progress dialog without await to prevent blocking
+            _ = progressDialog.ShowAsync();
+
+            // Simulate repository creation delay
+            await Task.Delay(1500);
+
+            // PSEUDO-ACTION: Save configuration without actually creating repository
+            try
+            {
                 if (ViewModel.SaveInfo != null)
                 {
                     ViewModel.SaveInfo.GitHubRepositoryName = repoName;
@@ -280,81 +367,642 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                     // Update the save info in storage
                     await _managedSaveService.UpdateManagedSave(ViewModel.SaveInfo);
 
-                    // Add remote to local repo
+                    // Simulate adding remote to local repo if git is initialized
                     if (ViewModel.SaveInfo.IsGitInitialized && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
                     {
-                        await _gitService.AddRemoteAsync(ViewModel.SaveInfo.OriginalPath, "origin", remoteUrl);
+                        try
+                        {
+                            // In actual implementation, this would add the remote
+                            // For now, we just simulate it being successful
+                            Debug.WriteLine($"Would add remote 'origin' with URL: {remoteUrl}");
+                        }
+                        catch (Exception gitEx)
+                        {
+                            Debug.WriteLine($"Error simulating git remote addition: {gitEx.Message}");
+                        }
                     }
                 }
+
+                // Clear input fields
+                nameBox.Text = string.Empty;
+                descBox.Text = string.Empty;
+
                 await LoadRemoteInfoAsync();
+
+                // Show temporary success InfoBar
+                await ShowTemporarySuccessInfoBar();
+
+                // Show success message with pseudo-action indication
+                await ShowSuccessDialogSafe("Repository Configuration Saved",
+                    $"Repository configuration for '{repoName}' has been saved successfully!\n\n" +
+                    "Note: This is a pseudo-action. The actual GitHub repository creation will be implemented in the future.");
             }
-            else
+            catch (Exception configEx)
             {
-                await ShowInfoDialog("Failed to create repository on GitHub.");
+                Debug.WriteLine($"Error saving configuration: {configEx.Message}");
+                await ShowErrorDialogSafe("Configuration Error",
+                    $"Failed to save repository configuration: {configEx.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Unexpected error in CreateAndLinkRepo_Click: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            await ShowErrorDialogSafe("Unexpected Error",
+                $"An unexpected error occurred: {ex.Message}. Please try again or contact support if the problem persists.");
+        }
+        finally
+        {
+            // Ensure progress dialog is closed and button is re-enabled
+            try
+            {
+                progressDialog?.Hide();
+            }
+            catch (Exception hideEx)
+            {
+                Debug.WriteLine($"Error hiding progress dialog: {hideEx.Message}");
+            }
+
+            if (sender is Button repoButton)
+            {
+                repoButton.IsEnabled = true;
             }
         }
     }
 
-    // Link existing repository (input dialog)
+    // Generate pseudo repository data for testing
+    private GitHubRepository[] GeneratePseudoRepositories()
+    {
+        var pseudoRepos = new List<GitHubRepository>
+        {
+            new()
+            {
+                Id = 1,
+                Name = "my-minecraft-world",
+                FullName = "TestUser/my-minecraft-world",
+                Description = "My awesome Minecraft survival world",
+                IsPrivate = false,
+                HtmlUrl = "https://github.com/TestUser/my-minecraft-world",
+                CloneUrl = "https://github.com/TestUser/my-minecraft-world.git",
+                SshUrl = "git@github.com:TestUser/my-minecraft-world.git",
+                DefaultBranch = "main",
+                IsEmpty = false,
+                Size = 512000,
+                UpdatedAt = DateTime.Now.AddHours(-2),
+                CreatedAt = DateTime.Now.AddDays(-30),
+                Owner = new GitHubUser
+                {
+                    Login = "TestUser",
+                    Id = 12345,
+                    Name = "Test User",
+                    AvatarUrl = "https://github.com/identicons/testuser.png"
+                }
+            },
+            new()
+            {
+                Id = 2,
+                Name = "creative-builds",
+                FullName = "TestUser/creative-builds",
+                Description = "Collection of my creative mode buildings and redstone contraptions",
+                IsPrivate = true,
+                HtmlUrl = "https://github.com/TestUser/creative-builds",
+                CloneUrl = "https://github.com/TestUser/creative-builds.git",
+                SshUrl = "git@github.com:TestUser/creative-builds.git",
+                DefaultBranch = "main",
+                IsEmpty = false,
+                Size = 256000,
+                UpdatedAt = DateTime.Now.AddDays(-1),
+                CreatedAt = DateTime.Now.AddDays(-60),
+                Owner = new GitHubUser
+                {
+                    Login = "TestUser",
+                    Id = 12345,
+                    Name = "Test User",
+                    AvatarUrl = "https://github.com/identicons/testuser.png"
+                }
+            },
+            new()
+            {
+                Id = 3,
+                Name = "modded-adventures",
+                FullName = "TestUser/modded-adventures",
+                Description = "Modded Minecraft gameplay saves and configurations",
+                IsPrivate = false,
+                HtmlUrl = "https://github.com/TestUser/modded-adventures",
+                CloneUrl = "https://github.com/TestUser/modded-adventures.git",
+                SshUrl = "git@github.com:TestUser/modded-adventures.git",
+                DefaultBranch = "main",
+                IsEmpty = true,
+                Size = 0,
+                UpdatedAt = DateTime.Now.AddDays(-7),
+                CreatedAt = DateTime.Now.AddDays(-7),
+                Owner = new GitHubUser
+                {
+                    Login = "TestUser",
+                    Id = 12345,
+                    Name = "Test User",
+                    AvatarUrl = "https://github.com/identicons/testuser.png"
+                }
+            },
+            new()
+            {
+                Id = 4,
+                Name = "server-maps",
+                FullName = "TestUser/server-maps",
+                Description = "Backup of multiplayer server worlds",
+                IsPrivate = true,
+                HtmlUrl = "https://github.com/TestUser/server-maps",
+                CloneUrl = "https://github.com/TestUser/server-maps.git",
+                SshUrl = "git@github.com:TestUser/server-maps.git",
+                DefaultBranch = "master",
+                IsEmpty = false,
+                Size = 1024000,
+                UpdatedAt = DateTime.Now.AddHours(-6),
+                CreatedAt = DateTime.Now.AddDays(-90),
+                Owner = new GitHubUser
+                {
+                    Login = "TestUser",
+                    Id = 12345,
+                    Name = "Test User",
+                    AvatarUrl = "https://github.com/identicons/testuser.png"
+                }
+            },
+            new()
+            {
+                Id = 5,
+                Name = "empty-repo",
+                FullName = "TestUser/empty-repo",
+                Description = "A new empty repository for testing",
+                IsPrivate = false,
+                HtmlUrl = "https://github.com/TestUser/empty-repo",
+                CloneUrl = "https://github.com/TestUser/empty-repo.git",
+                SshUrl = "git@github.com:TestUser/empty-repo.git",
+                DefaultBranch = "main",
+                IsEmpty = true,
+                Size = 0,
+                UpdatedAt = DateTime.Now.AddMinutes(-30),
+                CreatedAt = DateTime.Now.AddMinutes(-30),
+                Owner = new GitHubUser
+                {
+                    Login = "TestUser",
+                    Id = 12345,
+                    Name = "Test User",
+                    AvatarUrl = "https://github.com/identicons/testuser.png"
+                }
+            }
+        };
+
+        return pseudoRepos.ToArray();
+    }
+
+    // Link existing repository (with pseudo repository selector)
     private async void LinkExistingRepo_Click(object sender, RoutedEventArgs e)
     {
-        ContentDialog dialog = new()
+        // Prevent multiple clicks
+        if (sender is Button linkButton)
         {
-            Title = "Link Existing GitHub Repository",
-            PrimaryButtonText = "Link",
-            CloseButtonText = "Cancel"
-        };
-        StackPanel panel = new() { Spacing = 8 };
-        TextBox repoBox = new() { PlaceholderText = "Repository name (e.g. my-mc-save)" };
-        TextBox branchBox = new() { PlaceholderText = "Default branch (e.g. main)", Text = "main" };
-        panel.Children.Add(new TextBlock { Text = "Repository Name" });
-        panel.Children.Add(repoBox);
-        panel.Children.Add(new TextBlock { Text = "Default Branch" });
-        panel.Children.Add(branchBox);
-        dialog.Content = panel;
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary)
+            linkButton.IsEnabled = false;
+        }
+
+        ContentDialog? loadingDialog = null;
+
+        try
         {
-            string repoName = repoBox.Text.Trim();
-            string branch = branchBox.Text.Trim();
-            if (string.IsNullOrWhiteSpace(repoName))
+            // Get and validate access token
+            string token = _configurationService.GitHubAccessToken;
+            DateTime tokenTime = _configurationService.GitHubAccessTokenTimestamp;
+
+            if (string.IsNullOrEmpty(token))
             {
-                await ShowInfoDialog("Repository name is required.");
+                await ShowErrorDialogSafe("Authentication Required", "Please sign in to GitHub first.");
                 return;
             }
 
-            // Save to save-specific configuration
-            if (ViewModel.SaveInfo != null)
+            // Validate token state
+            try
             {
-                string user = _configurationService.GitHubUsername;
-                string remoteUrl = $"https://github.com/{user}/{repoName}.git";
-                ViewModel.SaveInfo.GitHubRepositoryName = repoName;
-                ViewModel.SaveInfo.GitHubDefaultBranch = branch;
-                ViewModel.SaveInfo.GitHubRemoteUrl = remoteUrl;
-                ViewModel.SaveInfo.IsGitHubLinked = true;
-
-                // Update the save info in storage
-                await _managedSaveService.UpdateManagedSave(ViewModel.SaveInfo);
-
-                // Add remote to local repo
-                if (ViewModel.SaveInfo.IsGitInitialized && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
+                var (isTokenValid, isExpired, tokenError) = await _gitHubAppsService.ValidateTokenStateAsync(token, tokenTime);
+                if (!isTokenValid)
                 {
-                    await _gitService.AddRemoteAsync(ViewModel.SaveInfo.OriginalPath, "origin", remoteUrl);
+                    string errorMsg = isExpired
+                        ? "Your GitHub access token has expired. Please sign in again."
+                        : tokenError ?? "GitHub access token is invalid.";
+                    await ShowErrorDialogSafe("Authentication Error", errorMsg);
+                    return;
                 }
             }
-            await LoadRemoteInfoAsync();
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Token validation failed: {ex.Message}");
+                await ShowErrorDialogSafe("Authentication Error",
+                    "Unable to validate GitHub authentication. Please check your connection and try signing in again.");
+                return;
+            }
+
+            // Create progress dialog
+            loadingDialog = new ContentDialog
+            {
+                Title = "Loading Repositories",
+                Content = new StackPanel
+                {
+                    Children =
+                    {
+                        new ProgressRing { IsActive = true, Margin = new Thickness(0, 0, 0, 16) },
+                        new TextBlock
+                        {
+                            Text = "Fetching your repositories...",
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            TextWrapping = TextWrapping.Wrap
+                        }
+                    }
+                },
+                IsPrimaryButtonEnabled = false,
+                IsSecondaryButtonEnabled = false,
+                XamlRoot = this.XamlRoot
+            };
+
+            // Show loading dialog without await to prevent blocking
+            _ = loadingDialog.ShowAsync();
+
+            // Simulate loading delay
+            await Task.Delay(1000);
+
+            // PSEUDO-ACTION: Use generated pseudo repository data instead of API call
+            GitHubRepository[] repositories;
+            try
+            {
+                repositories = GeneratePseudoRepositories();
+                Debug.WriteLine($"Generated {repositories.Length} pseudo repositories for testing");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error generating pseudo repositories: {ex.Message}");
+                await ShowErrorDialogSafe("Data Error",
+                    $"Unable to generate test repository data: {ex.Message}. Please try again later.");
+                return;
+            }
+
+            if (repositories.Length == 0)
+            {
+                await ShowInfoDialogSafe("No Repositories Found",
+                    "No test repositories available. Create a new repository first.\n\n" +
+                    "Note: This is using pseudo data for testing purposes.");
+                return;
+            }
+
+            // Filter out repositories that are already linked or too large
+            var availableRepos = repositories
+                .Where(repo => repo.IsEmpty || repo.Size < 1024 * 1024) // Less than 1GB
+                .ToList();
+
+            if (availableRepos.Count == 0)
+            {
+                await ShowInfoDialogSafe("No Available Repositories",
+                    "All test repositories are either too large or already in use. Consider creating a new repository.\n\n" +
+                    "Note: This is using pseudo data for testing purposes.");
+                return;
+            }
+
+            // Hide loading dialog before showing selection dialog
+            try
+            {
+                loadingDialog?.Hide();
+                loadingDialog = null;
+            }
+            catch (Exception hideEx)
+            {
+                Debug.WriteLine($"Error hiding loading dialog: {hideEx.Message}");
+            }
+
+            // Create repository selection dialog
+            ContentDialog repoSelectionDialog = new()
+            {
+                Title = "Select Repository (Test Data)",
+                PrimaryButtonText = "Link",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var panel = new StackPanel { Spacing = 12 };
+
+            // Add info about pseudo data
+            var infoBar = new InfoBar
+            {
+                Severity = InfoBarSeverity.Informational,
+                IsOpen = true,
+                Title = "Test Mode",
+                Message = "This is using pseudo data for testing purposes. Actual GitHub API integration will be implemented in the future."
+            };
+            panel.Children.Add(infoBar);
+
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Select an existing repository to link to this save:",
+                Margin = new Thickness(0, 8, 0, 8),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var repoComboBox = new ComboBox
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                PlaceholderText = "Choose a repository..."
+            };
+
+            foreach (var repo in availableRepos)
+            {
+                var statusEmoji = repo.IsPrivate ? "🔒" : "🌐";
+                var sizeInfo = repo.IsEmpty ? "Empty" : $"{repo.Size / 1024}KB";
+                var item = new ComboBoxItem
+                {
+                    Content = $"{repo.Name} {statusEmoji} - {repo.Description ?? "No description"} ({sizeInfo})",
+                    Tag = repo
+                };
+                repoComboBox.Items.Add(item);
+            }
+
+            panel.Children.Add(repoComboBox);
+
+            var branchBox = new TextBox
+            {
+                PlaceholderText = "Default branch (e.g., main)",
+                Text = "main",
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            panel.Children.Add(new TextBlock { Text = "Default Branch:", Margin = new Thickness(0, 8, 0, 4) });
+            panel.Children.Add(branchBox);
+
+            repoSelectionDialog.Content = panel;
+
+            var result = await repoSelectionDialog.ShowAsync();
+            if (result == ContentDialogResult.Primary && repoComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is GitHubRepository selectedRepo)
+            {
+                string branch = branchBox.Text.Trim();
+                if (string.IsNullOrWhiteSpace(branch))
+                    branch = selectedRepo.DefaultBranch;
+
+                // Save to save-specific configuration
+                try
+                {
+                    if (ViewModel.SaveInfo != null)
+                    {
+                        ViewModel.SaveInfo.GitHubRepositoryName = selectedRepo.Name;
+                        ViewModel.SaveInfo.GitHubRepositoryDescription = selectedRepo.Description ?? "";
+                        ViewModel.SaveInfo.GitHubIsPrivateRepository = selectedRepo.IsPrivate;
+                        ViewModel.SaveInfo.GitHubDefaultBranch = branch;
+                        ViewModel.SaveInfo.GitHubRemoteUrl = selectedRepo.CloneUrl;
+                        ViewModel.SaveInfo.IsGitHubLinked = true;
+
+                        // Update the save info in storage
+                        await _managedSaveService.UpdateManagedSave(ViewModel.SaveInfo);
+
+                        // Simulate adding remote to local repo if git is initialized
+                        if (ViewModel.SaveInfo.IsGitInitialized && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
+                        {
+                            try
+                            {
+                                // In actual implementation, this would add the remote
+                                // For now, we just simulate it being successful
+                                Debug.WriteLine($"Would add remote 'origin' with URL: {selectedRepo.CloneUrl}");
+                            }
+                            catch (Exception gitEx)
+                            {
+                                Debug.WriteLine($"Error simulating git remote addition: {gitEx.Message}");
+                            }
+                        }
+                    }
+
+                    await LoadRemoteInfoAsync();
+
+                    // Show temporary success InfoBar
+                    await ShowTemporarySuccessInfoBar();
+
+                    // Show success message with pseudo-action indication
+                    await ShowSuccessDialogSafe("Repository Linked",
+                        $"Repository '{selectedRepo.Name}' has been linked to this save successfully!\n\n" +
+                        "Note: This used pseudo data. Actual GitHub integration will be implemented in the future.");
+                }
+                catch (Exception configEx)
+                {
+                    Debug.WriteLine($"Error saving configuration: {configEx.Message}");
+                    await ShowErrorDialogSafe("Configuration Error",
+                        $"Failed to save repository configuration: {configEx.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Unexpected error in LinkExistingRepo_Click: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            await ShowErrorDialogSafe("Unexpected Error",
+                $"An unexpected error occurred: {ex.Message}. Please try again or contact support if the problem persists.");
+        }
+        finally
+        {
+            // Ensure loading dialog is closed and button is re-enabled
+            try
+            {
+                loadingDialog?.Hide();
+            }
+            catch (Exception hideEx)
+            {
+                Debug.WriteLine($"Error hiding loading dialog: {hideEx.Message}");
+            }
+
+            if (sender is Button linkRepoButton)
+            {
+                linkRepoButton.IsEnabled = true;
+            }
         }
     }
 
     private async Task ShowInfoDialog(string message)
     {
-        ContentDialog dialog = new()
+        await ShowInfoDialogSafe("Info", message);
+    }
+
+    private async Task ShowInfoDialog(string title, string message)
+    {
+        await ShowInfoDialogSafe(title, message);
+    }
+
+    private async Task ShowInfoDialogSafe(string title, string message)
+    {
+        try
         {
-            Title = "Info",
-            Content = message,
-            CloseButtonText = "OK"
-        };
-        await dialog.ShowAsync();
+            ContentDialog dialog = new()
+            {
+                Title = title,
+                Content = new TextBlock
+                {
+                    Text = message,
+                    TextWrapping = TextWrapping.Wrap
+                },
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error showing info dialog: {ex.Message}");
+            // Fallback to debug output if dialog fails
+            Debug.WriteLine($"Info Dialog - {title}: {message}");
+        }
+    }
+
+    private async Task ShowErrorDialog(string title, string message)
+    {
+        await ShowErrorDialogSafe(title, message);
+    }
+
+    private async Task ShowErrorDialogSafe(string title, string message)
+    {
+        try
+        {
+            ContentDialog dialog = new()
+            {
+                Title = title,
+                Content = new StackPanel
+                {
+                    Children =
+                    {
+                        new FontIcon
+                        {
+                            Glyph = "\uE783", // Error icon
+                            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 196, 43, 28)),
+                            FontSize = 20,
+                            Margin = new Thickness(0, 0, 0, 8),
+                            HorizontalAlignment = HorizontalAlignment.Center
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap,
+                            HorizontalAlignment = HorizontalAlignment.Center
+                        }
+                    }
+                },
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error showing error dialog: {ex.Message}");
+            // Fallback to debug output if dialog fails
+            Debug.WriteLine($"Error Dialog - {title}: {message}");
+        }
+    }
+
+    private async Task ShowSuccessDialog(string title, string message)
+    {
+        await ShowSuccessDialogSafe(title, message);
+    }
+
+    private async Task ShowSuccessDialogSafe(string title, string message)
+    {
+        try
+        {
+            ContentDialog dialog = new()
+            {
+                Title = title,
+                Content = new StackPanel
+                {
+                    Children =
+                    {
+                        new FontIcon
+                        {
+                            Glyph = "\uE73E", // CheckMark icon
+                            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 16, 124, 16)),
+                            FontSize = 20,
+                            Margin = new Thickness(0, 0, 0, 8),
+                            HorizontalAlignment = HorizontalAlignment.Center
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap,
+                            HorizontalAlignment = HorizontalAlignment.Center
+                        }
+                    }
+                },
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error showing success dialog: {ex.Message}");
+            // Fallback to debug output if dialog fails
+            Debug.WriteLine($"Success Dialog - {title}: {message}");
+        }
+    }
+
+    private async Task ShowWarningDialog(string title, string message)
+    {
+        await ShowWarningDialogSafe(title, message);
+    }
+
+    private async Task ShowWarningDialogSafe(string title, string message)
+    {
+        try
+        {
+            ContentDialog dialog = new()
+            {
+                Title = title,
+                Content = new StackPanel
+                {
+                    Children =
+                    {
+                        new FontIcon
+                        {
+                            Glyph = "\uE7BA", // Warning icon
+                            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 185, 0)),
+                            FontSize = 20,
+                            Margin = new Thickness(0, 0, 0, 8),
+                            HorizontalAlignment = HorizontalAlignment.Center
+                        },
+                        new TextBlock
+                        {
+                            Text = message,
+                            TextWrapping = TextWrapping.Wrap,
+                            HorizontalAlignment = HorizontalAlignment.Center
+                        }
+                    }
+                },
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error showing warning dialog: {ex.Message}");
+            // Fallback to debug output if dialog fails
+            Debug.WriteLine($"Warning Dialog - {title}: {message}");
+        }
+    }
+
+    private async Task ShowTemporarySuccessInfoBar()
+    {
+        try
+        {
+            if (FindName("GitHubLinkSuccessInfoBar") is InfoBar successInfoBar)
+            {
+                successInfoBar.IsOpen = true;
+
+                // Auto-hide after 5 seconds
+                await Task.Delay(5000);
+                successInfoBar.IsOpen = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error showing temporary success InfoBar: {ex.Message}");
+        }
     }
 
     private void UpdateOverviewUI()
@@ -1061,6 +1709,29 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         catch (Exception ex)
         {
             Debug.WriteLine($"Error loading branches: {ex.Message}");
+        }
+    }
+
+    private async void ViewOnGitHub_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (ViewModel.SaveInfo?.IsGitHubLinked == true &&
+                !string.IsNullOrWhiteSpace(ViewModel.SaveInfo.GitHubRepositoryName))
+            {
+                var repoName = ViewModel.SaveInfo.GitHubRepositoryName;
+                var user = await _gitHubAppsService.GetUserAsync(_configurationService.GitHubAccessToken);
+                if (user?.Login != null)
+                {
+                    var githubUrl = $"https://github.com/{user.Login}/{repoName}";
+                    await Launcher.LaunchUriAsync(new Uri(githubUrl));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error opening GitHub repository: {ex.Message}");
+            await ShowErrorDialogSafe("Error", "Unable to open the GitHub repository. Please check your internet connection and try again.");
         }
     }
 

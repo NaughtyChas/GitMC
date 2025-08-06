@@ -70,4 +70,29 @@ public interface IGitHubAppsService
     /// <param name="description">Repository description</param>
     /// <returns>True if repository was created successfully</returns>
     Task<bool> CreateRepositoryAsync(string accessToken, string repositoryName, bool isPrivate = true, string? description = null);
+
+    /// <summary>
+    ///     Checks if a repository exists for the authenticated user
+    /// </summary>
+    /// <param name="accessToken">GitHub access token</param>
+    /// <param name="repositoryName">Name of the repository to check</param>
+    /// <returns>True if repository exists</returns>
+    Task<bool> CheckRepositoryExistsAsync(string accessToken, string repositoryName);
+
+    /// <summary>
+    ///     Gets the authenticated user's repositories
+    /// </summary>
+    /// <param name="accessToken">GitHub access token</param>
+    /// <param name="includePrivate">Whether to include private repositories</param>
+    /// <returns>Array of user repositories</returns>
+    Task<GitHubRepository[]> GetUserRepositoriesAsync(string accessToken, bool includePrivate = true);
+
+    /// <summary>
+    ///     Gets detailed information about a repository
+    /// </summary>
+    /// <param name="accessToken">GitHub access token</param>
+    /// <param name="owner">Repository owner</param>
+    /// <param name="repositoryName">Repository name</param>
+    /// <returns>Repository information or null if not found</returns>
+    Task<GitHubRepository?> GetRepositoryInfoAsync(string accessToken, string owner, string repositoryName);
 }
