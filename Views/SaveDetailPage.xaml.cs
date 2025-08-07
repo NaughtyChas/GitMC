@@ -1,9 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using Windows.Foundation;
-using Windows.Storage;
-using Windows.System;
-using Windows.UI;
+using System.Threading;
 using GitMC.Constants;
 using GitMC.Extensions;
 using GitMC.Models;
@@ -15,6 +12,10 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Foundation;
+using Windows.Storage;
+using Windows.System;
+using Windows.UI;
 
 namespace GitMC.Views;
 
@@ -36,7 +37,9 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     private readonly ManagedSaveService _managedSaveService;
     private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
     private readonly NbtService _nbtService;
+    private readonly ISaveInitializationService _saveInitializationService;
     private string? _saveId;
+    private Timer? _changeDetectionTimer;
 
     public SaveDetailPage()
     {
@@ -48,6 +51,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         _configurationService = services.Configuration;
         _gitService = services.Git;
         _dataStorageService = services.DataStorage;
+        _saveInitializationService = services.SaveInitialization;
         _minecraftAnalyzerService = ServiceFactory.MinecraftAnalyzer;
         _managedSaveService = new ManagedSaveService(_dataStorageService);
         _gitHubAppsService = ServiceFactory.GitHubApps;
@@ -87,6 +91,9 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 
             // Navigate to the default tab (Overview)
             NavigateToTab("Overview");
+
+            // Start periodic change detection updates
+            StartChangeDetectionUpdates();
         }
         catch (Exception ex)
         {
@@ -1088,11 +1095,11 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
     /// <summary>
     ///     Updates the file changes summary section with current statistics
     /// </summary>
-    private void UpdateFileChangesSummary()
+    private async void UpdateFileChangesSummary()
     {
         if (ViewModel.SaveInfo == null) return;
 
-        var fileBreakdown = CalculateFileBreakdown(ViewModel.SaveInfo);
+        var fileBreakdown = await CalculateFileBreakdownAsync(ViewModel.SaveInfo);
 
         // Update individual file type counts
         if (FindName("RegionChunksCountText") is TextBlock regionChunksText)
@@ -1258,20 +1265,72 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         return 0; // saveInfo.BehindCommits ?? 0;
     }
 
-    private (int RegionChunks, int WorldData, int PlayerData, int EntityData, int StructureData, int AddedFiles, int
-        DeletedFiles, int TotalFiles) CalculateFileBreakdown(ManagedSaveInfo saveInfo)
+    private async Task<(int RegionChunks, int WorldData, int PlayerData, int EntityData, int StructureData, int AddedFiles, int
+        DeletedFiles, int TotalFiles)> CalculateFileBreakdownAsync(ManagedSaveInfo saveInfo)
     {
-        // Mock implementation - in real scenario, this would analyze the save files
-        return (
-            RegionChunks: 2,
-            WorldData: 1,
-            PlayerData: 1,
-            EntityData: 1,
-            StructureData: 1,
-            AddedFiles: 458,
-            DeletedFiles: 43,
-            TotalFiles: 6
-        );
+        try
+        {
+            if (string.IsNullOrEmpty(saveInfo.Path) || !Directory.Exists(saveInfo.Path))
+            {
+                return (0, 0, 0, 0, 0, 0, 0, 0);
+            }
+
+            // Use the change detection from SaveInitializationService
+            var changedChunks = await _saveInitializationService.DetectChangedChunksAsync(saveInfo.Path);
+            var regionChunks = changedChunks.Count;
+
+            // Get Git status for other file types
+            var gitStatus = await _gitService.GetStatusAsync(saveInfo.Path);
+            var modifiedFiles = gitStatus.ModifiedFiles;
+            var addedFiles = gitStatus.UntrackedFiles.Length;
+            var totalFiles = modifiedFiles.Length + addedFiles;
+
+            // Categorize files by type
+            var worldDataFiles = modifiedFiles.Count(f =>
+                f.EndsWith("level.dat", StringComparison.OrdinalIgnoreCase) ||
+                f.EndsWith("level.dat_old", StringComparison.OrdinalIgnoreCase) ||
+                f.Contains("/data/", StringComparison.OrdinalIgnoreCase));
+
+            var playerDataFiles = modifiedFiles.Count(f =>
+                f.Contains("/playerdata/", StringComparison.OrdinalIgnoreCase) ||
+                f.Contains("/stats/", StringComparison.OrdinalIgnoreCase));
+
+            var entityDataFiles = modifiedFiles.Count(f =>
+                f.Contains("/entities/", StringComparison.OrdinalIgnoreCase));
+
+            var structureDataFiles = modifiedFiles.Count(f =>
+                f.Contains("/structures/", StringComparison.OrdinalIgnoreCase) ||
+                f.Contains("/generated/", StringComparison.OrdinalIgnoreCase));
+
+            // For deleted files, we'd need to check git log or use more advanced git commands
+            var deletedFiles = 0; // Placeholder - would need more complex git analysis
+
+            return (
+                RegionChunks: regionChunks,
+                WorldData: worldDataFiles,
+                PlayerData: playerDataFiles,
+                EntityData: entityDataFiles,
+                StructureData: structureDataFiles,
+                AddedFiles: addedFiles,
+                DeletedFiles: deletedFiles,
+                TotalFiles: totalFiles
+            );
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error calculating file breakdown: {ex.Message}");
+            // Return mock data as fallback
+            return (
+                RegionChunks: 0,
+                WorldData: 1,
+                PlayerData: 1,
+                EntityData: 1,
+                StructureData: 1,
+                AddedFiles: 0,
+                DeletedFiles: 0,
+                TotalFiles: 0
+            );
+        }
     }
 
     private List<string> GetAvailableBranches(ManagedSaveInfo saveInfo)
@@ -1513,18 +1572,73 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         {
             if (!string.IsNullOrEmpty(ViewModel.SaveInfo?.Path))
             {
-                // TODO: Implement git commit functionality
-                // For now, just show a placeholder
-                Debug.WriteLine("Committing changes...");
+                // Show progress dialog
+                var progressDialog = new ContentDialog()
+                {
+                    Title = "Committing Changes",
+                    Content = new StackPanel
+                    {
+                        Children =
+                        {
+                            new ProgressRing { IsActive = true, Margin = new Thickness(0, 0, 0, 16) },
+                            new TextBlock
+                            {
+                                Text = "Processing changes using partial storage...",
+                                HorizontalAlignment = HorizontalAlignment.Center,
+                                TextWrapping = TextWrapping.Wrap
+                            }
+                        }
+                    },
+                    IsPrimaryButtonEnabled = false,
+                    IsSecondaryButtonEnabled = false,
+                    XamlRoot = XamlRoot
+                };
 
-                // Refresh save info
-                await LoadSaveDetailAsync();
+                // Show dialog without blocking
+                var dialogTask = progressDialog.ShowAsync();
+
+                // Perform the commit using ongoing commits functionality
+                var commitMessage = $"Save update - {DateTime.Now:yyyy-MM-dd HH:mm}";
+                var progress = new Progress<SaveInitStep>(step =>
+                {
+                    // Update progress dialog content
+                    if (progressDialog.Content is StackPanel panel &&
+                        panel.Children.LastOrDefault() is TextBlock statusText)
+                    {
+                        statusText.Text = step.Message;
+                    }
+                });
+
+                Debug.WriteLine("Starting ongoing commit process...");
+                var success = await _saveInitializationService.CommitOngoingChangesAsync(
+                    ViewModel.SaveInfo.Path,
+                    commitMessage,
+                    progress);
+
+                // Close progress dialog
+                progressDialog.Hide();
+
+                if (success)
+                {
+                    await ShowSuccessDialogSafe("Changes Committed",
+                        "Your changes have been successfully committed using partial storage.");
+
+                    // Refresh the page data
+                    await LoadSaveDetailAsync();
+                    await UpdateChangeDetectionDataAsync();
+                }
+                else
+                {
+                    await ShowErrorDialogSafe("Commit Failed",
+                        "There was an error committing your changes. Please check the logs for more details.");
+                }
             }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error committing changes: {ex.Message}");
-            // TODO: Show error message to user
+            await ShowErrorDialogSafe("Error",
+                $"An unexpected error occurred while committing changes: {ex.Message}");
         }
     }
 
@@ -1722,21 +1836,52 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
     {
-        try
+        if (sender is Button scanButton)
         {
-            if (!string.IsNullOrEmpty(ViewModel.SaveInfo?.Path))
-            {
-                // TODO: Implement file scanning functionality
-                Debug.WriteLine("Scanning save files...");
+            var originalContent = scanButton.Content;
+            scanButton.Content = "Scanning...";
+            scanButton.IsEnabled = false;
 
-                // Refresh save info
-                await LoadSaveDetailAsync();
+            try
+            {
+                if (!string.IsNullOrEmpty(ViewModel.SaveInfo?.Path))
+                {
+                    Debug.WriteLine("Scanning save files for changes...");
+
+                    // Use our change detection system
+                    var changedChunks = await _saveInitializationService.DetectChangedChunksAsync(ViewModel.SaveInfo.Path);
+                    Debug.WriteLine($"Detected {changedChunks.Count} changed chunks");
+
+                    // Update all change detection data immediately
+                    await UpdateChangeDetectionDataAsync();
+
+                    // Show results to user
+                    if (changedChunks.Count > 0)
+                    {
+                        await ShowInfoDialogSafe("Scan Complete",
+                            $"Scan complete! Found {changedChunks.Count} changed chunks that can be committed.");
+                    }
+                    else
+                    {
+                        await ShowInfoDialogSafe("Scan Complete",
+                            "Scan complete! No changes detected since last commit.");
+                    }
+
+                    // Refresh save info
+                    await LoadSaveDetailAsync();
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error scanning save: {ex.Message}");
-            // TODO: Show error message to user
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error scanning save: {ex.Message}");
+                await ShowErrorDialogSafe("Scan Error",
+                    $"An error occurred while scanning for changes: {ex.Message}");
+            }
+            finally
+            {
+                scanButton.Content = originalContent;
+                scanButton.IsEnabled = true;
+            }
         }
     }
 
@@ -1856,6 +2001,133 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             await ShowErrorDialogSafe("Error",
                 "Unable to open the GitHub repository. Please check your internet connection and try again.");
         }
+    }
+
+    #region Change Detection Updates
+
+    /// <summary>
+    /// Start periodic updates for change detection (every 30 seconds)
+    /// </summary>
+    private void StartChangeDetectionUpdates()
+    {
+        // Stop any existing timer
+        StopChangeDetectionUpdates();
+
+        // Create a timer that updates every 30 seconds
+        _changeDetectionTimer = new Timer(_ =>
+        {
+            try
+            {
+                // Update on the UI thread
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    await UpdateChangeDetectionDataAsync();
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in change detection timer: {ex.Message}");
+            }
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+    }
+
+    /// <summary>
+    /// Stop periodic change detection updates
+    /// </summary>
+    private void StopChangeDetectionUpdates()
+    {
+        _changeDetectionTimer?.Dispose();
+        _changeDetectionTimer = null;
+    }
+
+    /// <summary>
+    /// Update all change detection data
+    /// </summary>
+    private async Task UpdateChangeDetectionDataAsync()
+    {
+        if (ViewModel.SaveInfo == null) return;
+
+        try
+        {
+            // Update file changes summary with real data
+            UpdateFileChangesSummary();
+
+            // Update sync progress and status
+            await UpdateSyncProgressAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating change detection data: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Update sync progress with real git status
+    /// </summary>
+    private async Task UpdateSyncProgressAsync()
+    {
+        if (ViewModel.SaveInfo == null || string.IsNullOrEmpty(ViewModel.SaveInfo.Path)) return;
+
+        try
+        {
+            var gitStatus = await _gitService.GetStatusAsync(ViewModel.SaveInfo.Path);
+            var totalChangedFiles = gitStatus.ModifiedFiles.Length + gitStatus.UntrackedFiles.Length;
+
+            // Update ManagedSaveInfo with real data
+            ViewModel.SaveInfo.HasPendingChanges = totalChangedFiles > 0;
+
+            // Update current status based on changes
+            if (totalChangedFiles > 0)
+            {
+                ViewModel.SaveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Modified;
+            }
+            else
+            {
+                ViewModel.SaveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Clear;
+            }
+
+            // Update UI displays
+            UpdateSyncStatusBadge();
+            UpdateStatusInfoBar();
+            UpdateSyncProgressDisplay();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating sync progress: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Manual refresh button for immediate update
+    /// </summary>
+    private async void RefreshChangeDetection_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button refreshButton)
+        {
+            var originalContent = refreshButton.Content;
+            refreshButton.Content = "Refreshing...";
+            refreshButton.IsEnabled = false;
+
+            try
+            {
+                await UpdateChangeDetectionDataAsync();
+            }
+            finally
+            {
+                refreshButton.Content = originalContent;
+                refreshButton.IsEnabled = true;
+            }
+        }
+    }
+
+    #endregion
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+
+        // Clean up timer when leaving the page
+        StopChangeDetectionUpdates();
     }
 
     private void OnPropertyChanged(string propertyName = "")

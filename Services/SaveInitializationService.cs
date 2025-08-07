@@ -972,37 +972,371 @@ public class SaveInitializationService : ISaveInitializationService
     }
 
     /// <summary>
-    /// Recursively remove empty directories, but preserve the main structure
+    /// Recursively remove empty directories, but preserve the main structure for performance
+    /// Since Git doesn't track empty folders, keeping them helps avoid recreating them for each commit
     /// </summary>
     private void CleanupEmptyDirectories(string directoryPath)
     {
         if (!Directory.Exists(directoryPath))
             return;
 
-        // Get all subdirectories
-        var subdirectories = Directory.GetDirectories(directoryPath);
+        // Don't delete any directories - preserve folder structure for performance
+        // This keeps the region folder hierarchy intact so we don't need to recreate
+        // folders for each new commit, which improves performance
 
-        // Recursively clean subdirectories first
-        foreach (var subdirectory in subdirectories)
+        // Note: We only delete SNBT files, not directories
+        // This approach is better for ongoing commits as the folder structure remains ready
+    }
+
+    #region Ongoing Commits - Partial Storage System
+
+    /// <summary>
+    /// Commit ongoing changes to the save using partial storage
+    /// </summary>
+    /// <param name="savePath">Path to the save directory</param>
+    /// <param name="commitMessage">Message describing the changes</param>
+    /// <param name="progress">Progress callback for step updates</param>
+    /// <returns>True if commit was successful</returns>
+    public async Task<bool> CommitOngoingChangesAsync(string savePath, string commitMessage, IProgress<SaveInitStep>? progress = null)
+    {
+        var step = new SaveInitStep { Name = "Committing Changes", Description = "Processing changes using partial storage" };
+        var totalOperations = 7; // Detect, Export, Update manifest, Stage, Commit, Update manifest, Cleanup
+        var currentOperation = 0;
+
+        try
         {
-            CleanupEmptyDirectories(subdirectory);
+            var gitMcPath = Path.Combine(savePath, "GitMC");
+
+            // Step 1: Detect changed chunks
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.TotalProgress = totalOperations;
+            step.Message = "Detecting changed chunks...";
+            progress?.Report(step);
+
+            var changedChunks = await DetectChangedChunksAsync(savePath);
+            if (changedChunks.Count == 0)
+            {
+                step.Message = "No changes detected - commit skipped";
+                progress?.Report(step);
+                return true; // No changes is considered success
+            }
+
+            // Step 2: Export only changed chunks to SNBT
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = $"Exporting {changedChunks.Count} changed chunks to SNBT...";
+            progress?.Report(step);
+
+            await ExportChangedChunksToSnbt(savePath, changedChunks, step, progress);
+
+            // Step 3: Update manifest with pending entries
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Updating manifest with pending entries...";
+            progress?.Report(step);
+
+            await _manifestService.UpdateManifestForChangesAsync(gitMcPath, changedChunks.Where(c => c != null).ToList());
+
+            // Step 4: Stage changed SNBT files and manifest
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Staging changed files...";
+            progress?.Report(step);
+
+            await StageChangedFiles(gitMcPath, changedChunks);
+
+            // Step 5: Commit
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Creating commit...";
+            progress?.Report(step);
+
+            var commitResult = await _gitService.CommitAsync(commitMessage, gitMcPath);
+            if (!commitResult.Success)
+                throw new InvalidOperationException($"Failed to commit changes: {commitResult.ErrorMessage}");
+
+            // Get the actual commit hash
+            var commitHash = await _gitService.GetCurrentCommitHashAsync(gitMcPath);
+            if (string.IsNullOrEmpty(commitHash))
+                throw new InvalidOperationException("Failed to retrieve commit hash after successful commit");
+
+            // Step 6: Update manifest with actual commit hash
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Updating manifest with commit hash...";
+            progress?.Report(step);
+
+            await _manifestService.UpdatePendingEntriesAsync(gitMcPath, commitHash);
+
+            // Step 7: Cleanup working directory (remove committed SNBT files)
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Cleaning up working directory...";
+            progress?.Report(step);
+
+            await CleanupCommittedSnbtFiles(gitMcPath, changedChunks, step, progress);
+
+            step.CurrentProgress = totalOperations;
+            step.Message = $"Successfully committed {changedChunks.Count} changes";
+            progress?.Report(step);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            step.Message = $"Failed to commit changes: {ex.Message}";
+            progress?.Report(step);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Detect changed chunks compared to the last committed state
+    /// </summary>
+    /// <param name="savePath">Path to the save directory</param>
+    /// <returns>List of changed chunk file paths</returns>
+    public async Task<List<string>> DetectChangedChunksAsync(string savePath)
+    {
+        var changedChunks = new List<string>();
+
+        try
+        {
+            // Get Git status to find modified .mca files
+            var gitStatus = await _gitService.GetStatusAsync(savePath);
+            var modifiedMcaFiles = gitStatus.ModifiedFiles
+                .Where(f => f.EndsWith(".mca", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var mcaFile in modifiedMcaFiles)
+            {
+                var fullMcaPath = Path.Combine(savePath, mcaFile);
+
+                // Use file hash comparison to determine if the .mca file actually changed
+                if (await IsFileActuallyChanged(savePath, mcaFile))
+                {
+                    // Get all chunks from this .mca file that need to be exported
+                    var chunksInMca = await GetChunksFromMcaFile(fullMcaPath);
+                    changedChunks.AddRange(chunksInMca);
+                }
+            }
+
+            return changedChunks;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error detecting changed chunks: {ex.Message}");
+            return new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Check if a file has actually changed by comparing content hashes
+    /// This is needed because Git may mark files as modified even when just loaded in game
+    /// </summary>
+    private async Task<bool> IsFileActuallyChanged(string savePath, string relativePath)
+    {
+        try
+        {
+            // Get the current file hash
+            var currentFilePath = Path.Combine(savePath, relativePath);
+            var currentHash = await ComputeFileHash(currentFilePath);
+
+            // Get the hash from the last commit using git show command
+            var gitResult = await _gitService.ExecuteCommandAsync($"git show HEAD:{relativePath}", savePath);
+            if (!gitResult.Success || gitResult.OutputLines.Length == 0)
+                return true; // File is new or couldn't get last commit version
+
+            var lastCommittedContent = Encoding.UTF8.GetBytes(string.Join("\n", gitResult.OutputLines));
+            var lastCommittedHash = ComputeContentHash(lastCommittedContent);
+
+            return currentHash != lastCommittedHash;
+        }
+        catch
+        {
+            // If we can't determine, assume it changed
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Get list of chunks that should be exported from an MCA file
+    /// For simplicity, we export all chunks from a changed MCA file
+    /// </summary>
+    private Task<List<string>> GetChunksFromMcaFile(string mcaFilePath)
+    {
+        var chunks = new List<string>();
+
+        try
+        {
+            // Extract the region coordinates from the MCA filename
+            var fileName = Path.GetFileNameWithoutExtension(mcaFilePath);
+            var parts = fileName.Split('.');
+
+            if (parts.Length >= 3 && parts[0] == "r" &&
+                int.TryParse(parts[1], out var regionX) &&
+                int.TryParse(parts[2], out var regionZ))
+            {
+                // For now, we'll export all possible chunks in this region
+                // In a more sophisticated implementation, we would only export chunks that actually exist
+                for (int chunkX = regionX * 32; chunkX < (regionX + 1) * 32; chunkX++)
+                {
+                    for (int chunkZ = regionZ * 32; chunkZ < (regionZ + 1) * 32; chunkZ++)
+                    {
+                        chunks.Add($"chunk_{chunkX}_{chunkZ}.snbt");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error getting chunks from MCA file {mcaFilePath}: {ex.Message}");
         }
 
-        // Check if directory is empty (no files and no subdirectories)
-        var isEmpty = !Directory.GetFiles(directoryPath).Any() &&
-                     !Directory.GetDirectories(directoryPath).Any();
+        return Task.FromResult(chunks);
+    }
 
-        // Don't delete the main region directory, only subdirectories
-        if (isEmpty && !directoryPath.EndsWith("region", StringComparison.OrdinalIgnoreCase))
+    /// <summary>
+    /// Export only changed chunks to SNBT format
+    /// </summary>
+    private async Task ExportChangedChunksToSnbt(string savePath, List<string> changedChunks, SaveInitStep step, IProgress<SaveInitStep>? progress)
+    {
+        var gitMcPath = Path.Combine(savePath, "GitMC");
+        var regionPath = Path.Combine(gitMcPath, "region");
+
+        var totalChunks = changedChunks.Count;
+        var processedChunks = 0;
+
+        foreach (var chunkFileName in changedChunks)
         {
             try
             {
-                Directory.Delete(directoryPath);
+                // Parse chunk coordinates from filename
+                var match = System.Text.RegularExpressions.Regex.Match(chunkFileName, @"chunk_(-?\d+)_(-?\d+)\.snbt");
+                if (match.Success &&
+                    int.TryParse(match.Groups[1].Value, out var chunkX) &&
+                    int.TryParse(match.Groups[2].Value, out var chunkZ))
+                {
+                    // Determine which MCA file this chunk belongs to
+                    var regionX = chunkX >> 5; // Divide by 32
+                    var regionZ = chunkZ >> 5;
+                    var mcaFileName = $"r.{regionX}.{regionZ}.mca";
+                    var mcaFilePath = Path.Combine(savePath, "region", mcaFileName);
+
+                    if (File.Exists(mcaFilePath))
+                    {
+                        // Create output directory structure
+                        var outputDir = Path.Combine(regionPath, $"r.{regionX}.{regionZ}.mca");
+                        Directory.CreateDirectory(outputDir);
+
+                        // Extract this specific chunk to SNBT
+                        var snbtContent = await _nbtService.ExtractChunkDataAsync(mcaFilePath, chunkX, chunkZ);
+                        var outputPath = Path.Combine(outputDir, chunkFileName);
+                        await File.WriteAllTextAsync(outputPath, snbtContent);
+                    }
+                }
+
+                processedChunks++;
+                step.Message = $"Exported {processedChunks}/{totalChunks} chunks to SNBT...";
+                progress?.Report(step);
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore deletion errors - directory might be in use
+                System.Diagnostics.Debug.WriteLine($"Failed to export chunk {chunkFileName}: {ex.Message}");
+                // Continue with other chunks
             }
         }
     }
+
+    /// <summary>
+    /// Stage changed SNBT files and manifest
+    /// </summary>
+    private async Task StageChangedFiles(string gitMcPath, List<string> changedChunks)
+    {
+        // Stage the manifest file
+        var manifestPath = Path.Combine(gitMcPath, "manifest.json");
+        await _gitService.StageFileAsync(manifestPath, gitMcPath);
+
+        // Stage each changed SNBT file
+        foreach (var chunkFileName in changedChunks)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(chunkFileName, @"chunk_(-?\d+)_(-?\d+)\.snbt");
+            if (match.Success &&
+                int.TryParse(match.Groups[1].Value, out var chunkX) &&
+                int.TryParse(match.Groups[2].Value, out var chunkZ))
+            {
+                var regionX = chunkX >> 5;
+                var regionZ = chunkZ >> 5;
+                var snbtPath = Path.Combine(gitMcPath, "region", $"r.{regionX}.{regionZ}.mca", chunkFileName);
+
+                if (File.Exists(snbtPath))
+                {
+                    await _gitService.StageFileAsync(snbtPath, gitMcPath);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Clean up committed SNBT files from working directory while preserving folder structure
+    /// </summary>
+    private Task CleanupCommittedSnbtFiles(string gitMcPath, List<string> committedChunks, SaveInitStep step, IProgress<SaveInitStep>? progress)
+    {
+        var deletedCount = 0;
+
+        foreach (var chunkFileName in committedChunks)
+        {
+            try
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(chunkFileName, @"chunk_(-?\d+)_(-?\d+)\.snbt");
+                if (match.Success &&
+                    int.TryParse(match.Groups[1].Value, out var chunkX) &&
+                    int.TryParse(match.Groups[2].Value, out var chunkZ))
+                {
+                    var regionX = chunkX >> 5;
+                    var regionZ = chunkZ >> 5;
+                    var snbtPath = Path.Combine(gitMcPath, "region", $"r.{regionX}.{regionZ}.mca", chunkFileName);
+
+                    if (File.Exists(snbtPath))
+                    {
+                        File.Delete(snbtPath);
+                        deletedCount++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to delete SNBT file {chunkFileName}: {ex.Message}");
+            }
+        }
+
+        step.Message = $"Cleaned up {deletedCount} committed SNBT files";
+        progress?.Report(step);
+
+        // Note: We don't delete directories to preserve folder structure for performance
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Compute SHA-256 hash of a file
+    /// </summary>
+    private async Task<string> ComputeFileHash(string filePath)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        using var stream = File.OpenRead(filePath);
+        var hashBytes = await sha256.ComputeHashAsync(stream);
+        return Convert.ToBase64String(hashBytes);
+    }
+
+    /// <summary>
+    /// Compute SHA-256 hash of content
+    /// </summary>
+    private string ComputeContentHash(byte[] content)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var hashBytes = sha256.ComputeHash(content);
+        return Convert.ToBase64String(hashBytes);
+    }
+
+    #endregion
 }
