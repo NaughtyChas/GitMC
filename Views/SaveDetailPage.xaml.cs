@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading;
@@ -1465,13 +1466,13 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
         try
         {
             // Hide all tab contents
-            if (FindName("OverviewContent") is Grid overviewContent)
-                overviewContent.Visibility = Visibility.Collapsed;
+            if (FindName("OverviewScrollViewer") is ScrollViewer overviewScrollViewer)
+                overviewScrollViewer.Visibility = Visibility.Collapsed;
             if (FindName("FilesContent") is TextBlock filesContent)
                 filesContent.Visibility = Visibility.Collapsed;
             if (FindName("HistoryContent") is TextBlock historyContent)
                 historyContent.Visibility = Visibility.Collapsed;
-            if (FindName("ChangesContent") is TextBlock changesContent)
+            if (FindName("ChangesContent") is Grid changesContent)
                 changesContent.Visibility = Visibility.Collapsed;
             if (FindName("AnalyticsContent") is TextBlock analyticsContent)
                 analyticsContent.Visibility = Visibility.Collapsed;
@@ -1480,7 +1481,7 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
             switch (tabName)
             {
                 case "Overview":
-                    if (FindName("OverviewContent") is Grid overview)
+                    if (FindName("OverviewScrollViewer") is ScrollViewer overview)
                     {
                         overview.Visibility = Visibility.Visible;
                         _ = LoadOverviewDataAsync();
@@ -1496,8 +1497,11 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                         history.Visibility = Visibility.Visible;
                     break;
                 case "Changes":
-                    if (FindName("ChangesContent") is TextBlock changes)
+                    if (FindName("ChangesContent") is Grid changes)
+                    {
                         changes.Visibility = Visibility.Visible;
+                        _ = LoadChangedFilesDataAsync();
+                    }
                     break;
                 case "Analytics":
                     if (FindName("AnalyticsContent") is TextBlock analytics)
@@ -2117,6 +2121,482 @@ public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
                 refreshButton.Content = originalContent;
                 refreshButton.IsEnabled = true;
             }
+        }
+    }
+
+    #endregion
+
+    #region Changes Tab Methods
+
+    /// <summary>
+    /// Load changed files data for the Changes tab
+    /// </summary>
+    private async Task LoadChangedFilesDataAsync()
+    {
+        if (ViewModel.SaveInfo?.Path == null) return;
+
+        try
+        {
+            // Get changed chunks using our detection service
+            var changedChunks = await _saveInitializationService.DetectChangedChunksAsync(ViewModel.SaveInfo.Path);
+            var gitStatus = await _gitService.GetStatusAsync(ViewModel.SaveInfo.Path);
+
+            // Group and categorize files
+            var fileGroups = new Dictionary<FileCategory, ChangedFileGroup>();
+
+            // Process .mca files (region files)
+            var regionFiles = gitStatus.ModifiedFiles
+                .Where(f => f.EndsWith(".mca", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (regionFiles.Any())
+            {
+                var regionGroup = GetOrCreateGroup(fileGroups, FileCategory.Region, "Region Files", "\uE8B7");
+
+                foreach (var regionFile in regionFiles)
+                {
+                    var fullPath = Path.Combine(ViewModel.SaveInfo.Path, regionFile);
+                    var fileInfo = new FileInfo(fullPath);
+
+                    var changedFile = new ChangedFile
+                    {
+                        FileName = Path.GetFileName(regionFile),
+                        RelativePath = regionFile,
+                        FullPath = fullPath,
+                        Status = ChangeStatus.Modified,
+                        Category = FileCategory.Region,
+                        FileSizeBytes = fileInfo.Exists ? fileInfo.Length : 0,
+                        LastModified = fileInfo.Exists ? fileInfo.LastWriteTime : DateTime.Now,
+                        DisplaySize = FormatFileSize(fileInfo.Exists ? fileInfo.Length : 0),
+                        StatusText = "Modified",
+                        CategoryText = "Region",
+                        IconGlyph = "\uE8B7",
+                        StatusColor = "#FF9800",
+                        ChunkCount = changedChunks.Count(c => c.Contains(Path.GetFileNameWithoutExtension(regionFile)))
+                    };
+
+                    regionGroup.Files.Add(changedFile);
+                }
+            }
+
+            // Process other modified files
+            var otherFiles = gitStatus.ModifiedFiles
+                .Where(f => !f.EndsWith(".mca", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var file in otherFiles)
+            {
+                var category = CategorizeFile(file);
+                var group = GetOrCreateGroup(fileGroups, category.Category, category.Name, category.Icon);
+
+                var fullPath = Path.Combine(ViewModel.SaveInfo.Path, file);
+                var fileInfo = new FileInfo(fullPath);
+
+                var changedFile = new ChangedFile
+                {
+                    FileName = Path.GetFileName(file),
+                    RelativePath = file,
+                    FullPath = fullPath,
+                    Status = ChangeStatus.Modified,
+                    Category = category.Category,
+                    FileSizeBytes = fileInfo.Exists ? fileInfo.Length : 0,
+                    LastModified = fileInfo.Exists ? fileInfo.LastWriteTime : DateTime.Now,
+                    DisplaySize = FormatFileSize(fileInfo.Exists ? fileInfo.Length : 0),
+                    StatusText = "Modified",
+                    CategoryText = category.Name,
+                    IconGlyph = category.Icon,
+                    StatusColor = "#FF9800"
+                };
+
+                group.Files.Add(changedFile);
+            }
+
+            // Process untracked files
+            foreach (var file in gitStatus.UntrackedFiles)
+            {
+                var category = CategorizeFile(file);
+                var group = GetOrCreateGroup(fileGroups, category.Category, category.Name, category.Icon);
+
+                var fullPath = Path.Combine(ViewModel.SaveInfo.Path, file);
+                var fileInfo = new FileInfo(fullPath);
+
+                var changedFile = new ChangedFile
+                {
+                    FileName = Path.GetFileName(file),
+                    RelativePath = file,
+                    FullPath = fullPath,
+                    Status = ChangeStatus.Added,
+                    Category = category.Category,
+                    FileSizeBytes = fileInfo.Exists ? fileInfo.Length : 0,
+                    LastModified = fileInfo.Exists ? fileInfo.LastWriteTime : DateTime.Now,
+                    DisplaySize = FormatFileSize(fileInfo.Exists ? fileInfo.Length : 0),
+                    StatusText = "Added",
+                    CategoryText = category.Name,
+                    IconGlyph = category.Icon,
+                    StatusColor = "#4CAF50"
+                };
+
+                group.Files.Add(changedFile);
+            }
+
+            // Update counts and sizes for each group
+            foreach (var group in fileGroups.Values)
+            {
+                group.FileCount = group.Files.Count;
+                group.TotalSizeBytes = group.Files.Sum(f => f.FileSizeBytes);
+                group.DisplaySize = FormatFileSize(group.TotalSizeBytes);
+            }
+
+            // Update ViewModel
+            ViewModel.ChangedFileGroups.Clear();
+            foreach (var group in fileGroups.Values.OrderBy(g => g.Category))
+            {
+                ViewModel.ChangedFileGroups.Add(group);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading changed files: {ex.Message}");
+        }
+    }
+
+    private ChangedFileGroup GetOrCreateGroup(Dictionary<FileCategory, ChangedFileGroup> groups, FileCategory category, string name, string icon)
+    {
+        if (!groups.TryGetValue(category, out var group))
+        {
+            group = new ChangedFileGroup
+            {
+                Category = category,
+                CategoryName = name,
+                CategoryIcon = icon,
+                Files = new ObservableCollection<ChangedFile>()
+            };
+            groups[category] = group;
+        }
+        return group;
+    }
+
+    private (FileCategory Category, string Name, string Icon) CategorizeFile(string filePath)
+    {
+        var fileName = Path.GetFileName(filePath).ToLowerInvariant();
+        var directory = Path.GetDirectoryName(filePath)?.ToLowerInvariant() ?? "";
+
+        // Region files
+        if (fileName.EndsWith(".mca") || fileName.EndsWith(".mcc"))
+            return (FileCategory.Region, "Region Files", "\uE8B7");
+
+        // Data files
+        if (fileName.Contains("level.dat") || directory.Contains("data"))
+            return (FileCategory.Data, "Data Files", "\uE8A5");
+
+        // Entity files
+        if (directory.Contains("entities") || directory.Contains("playerdata"))
+            return (FileCategory.Entity, "Entity Files", "\uE77B");
+
+        // Mod files
+        if (directory.Contains("mods") || fileName.EndsWith(".jar") || fileName.EndsWith(".cfg"))
+            return (FileCategory.Mod, "Mod Files", "\uE8B9");
+
+        // Default to other
+        return (FileCategory.Other, "Other Files", "\uE8A5");
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes == 0) return "0 B";
+
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        var order = 0;
+        double size = bytes;
+
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size = size / 1024;
+        }
+
+        return $"{size:0.##} {sizes[order]}";
+    }
+
+    /// <summary>
+    /// Refresh changes button click handler
+    /// </summary>
+    private async void RefreshChanges_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button refreshButton)
+        {
+            var originalContent = refreshButton.Content;
+            refreshButton.IsEnabled = false;
+
+            // Show loading state
+            refreshButton.Content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                Children =
+                {
+                    new ProgressRing { Width = 14, Height = 14, IsActive = true },
+                    new TextBlock { Text = "Refreshing...", VerticalAlignment = VerticalAlignment.Center }
+                }
+            };
+
+            try
+            {
+                await LoadChangedFilesDataAsync();
+            }
+            finally
+            {
+                refreshButton.Content = originalContent;
+                refreshButton.IsEnabled = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handle file selection in the changed files list
+    /// </summary>
+    private void ChangedFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ListView listView && listView.SelectedItem is ChangedFile selectedFile)
+        {
+            ViewModel.SelectedChangedFile = selectedFile;
+        }
+    }
+
+    /// <summary>
+    /// Commit changes button click handler
+    /// </summary>
+    private async void CommitChanges_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SaveInfo?.Path == null || string.IsNullOrWhiteSpace(ViewModel.CommitMessage))
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Commit Error",
+                Content = "Please enter a commit message before committing changes.",
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+            return;
+        }
+
+        ViewModel.IsCommitInProgress = true;
+
+        try
+        {
+            var progress = new Progress<SaveInitStep>(step =>
+            {
+                // Could show progress in UI if needed
+                Debug.WriteLine($"Commit progress: {step.Message}");
+            });
+
+            var commitMessage = ViewModel.CommitMessage;
+            if (!string.IsNullOrWhiteSpace(ViewModel.CommitDescription))
+            {
+                commitMessage += "\n\n" + ViewModel.CommitDescription;
+            }
+
+            var success = await _saveInitializationService.CommitOngoingChangesAsync(
+                ViewModel.SaveInfo.Path,
+                commitMessage,
+                progress);
+
+            if (success)
+            {
+                // Clear commit form
+                ViewModel.CommitMessage = "";
+                ViewModel.CommitDescription = "";
+
+                // Refresh changed files
+                await LoadChangedFilesDataAsync();
+
+                // Show success message
+                var successDialog = new ContentDialog
+                {
+                    Title = "Commit Successful",
+                    Content = "Your changes have been committed successfully.",
+                    CloseButtonText = "OK",
+                    XamlRoot = this.XamlRoot
+                };
+                await successDialog.ShowAsync();
+            }
+            else
+            {
+                var errorDialog = new ContentDialog
+                {
+                    Title = "Commit Failed",
+                    Content = "Failed to commit changes. Please check the logs for more details.",
+                    CloseButtonText = "OK",
+                    XamlRoot = this.XamlRoot
+                };
+                await errorDialog.ShowAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error committing changes: {ex.Message}");
+
+            var errorDialog = new ContentDialog
+            {
+                Title = "Commit Error",
+                Content = $"An error occurred while committing: {ex.Message}",
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await errorDialog.ShowAsync();
+        }
+        finally
+        {
+            ViewModel.IsCommitInProgress = false;
+        }
+    }
+
+    /// <summary>
+    /// Commit and Push changes button click handler
+    /// </summary>
+    private async void CommitAndPushChanges_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SaveInfo?.Path == null || string.IsNullOrWhiteSpace(ViewModel.CommitMessage))
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Commit Error",
+                Content = "Please enter a commit message before committing changes.",
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await dialog.ShowAsync();
+            return;
+        }
+
+        ViewModel.IsCommitInProgress = true;
+
+        try
+        {
+            var progress = new Progress<SaveInitStep>(step =>
+            {
+                // Could show progress in UI if needed
+                Debug.WriteLine($"Commit & Push progress: {step.Message}");
+            });
+
+            var commitMessage = ViewModel.CommitMessage;
+            if (!string.IsNullOrWhiteSpace(ViewModel.CommitDescription))
+            {
+                commitMessage += "\n\n" + ViewModel.CommitDescription;
+            }
+
+            // First commit the changes
+            var commitSuccess = await _saveInitializationService.CommitOngoingChangesAsync(
+                ViewModel.SaveInfo.Path,
+                commitMessage,
+                progress);
+
+            if (commitSuccess)
+            {
+                // Clear commit form after successful commit
+                ViewModel.CommitMessage = "";
+                ViewModel.CommitDescription = "";
+
+                // Then try to push
+                var gitMcPath = Path.Combine(ViewModel.SaveInfo.Path, "GitMC");
+                var pushSuccess = await _gitService.PushAsync(null, null, gitMcPath);
+
+                if (pushSuccess)
+                {
+                    // Refresh changed files
+                    await LoadChangedFilesDataAsync();
+
+                    // Show success message
+                    var successDialog = new ContentDialog
+                    {
+                        Title = "Commit & Push Successful",
+                        Content = "Your changes have been committed and pushed successfully.",
+                        CloseButtonText = "OK",
+                        XamlRoot = this.XamlRoot
+                    };
+                    await successDialog.ShowAsync();
+                }
+                else
+                {
+                    // Refresh changed files even if push failed
+                    await LoadChangedFilesDataAsync();
+
+                    // Show warning - commit succeeded but push failed
+                    var warningDialog = new ContentDialog
+                    {
+                        Title = "Commit Successful, Push Failed",
+                        Content = "Your changes were committed successfully, but failed to push to the remote repository. You can try pushing manually later.",
+                        CloseButtonText = "OK",
+                        XamlRoot = this.XamlRoot
+                    };
+                    await warningDialog.ShowAsync();
+                }
+            }
+            else
+            {
+                var errorDialog = new ContentDialog
+                {
+                    Title = "Commit Failed",
+                    Content = "Failed to commit changes. Please check the logs for more details.",
+                    CloseButtonText = "OK",
+                    XamlRoot = this.XamlRoot
+                };
+                await errorDialog.ShowAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error committing and pushing changes: {ex.Message}");
+
+            var errorDialog = new ContentDialog
+            {
+                Title = "Commit & Push Error",
+                Content = $"An error occurred while committing and pushing: {ex.Message}",
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await errorDialog.ShowAsync();
+        }
+        finally
+        {
+            ViewModel.IsCommitInProgress = false;
+        }
+    }
+
+    /// <summary>
+    /// Open side panel button click handler (placeholder)
+    /// </summary>
+    private void OpenSidePanel_Click(object sender, RoutedEventArgs e)
+    {
+        // TODO: Implement side panel opening logic
+        Debug.WriteLine("Side panel opening - to be implemented");
+    }
+
+    /// <summary>
+    /// Toggle commit section collapse/expand
+    /// </summary>
+    private void ToggleCommitSection_Click(object sender, RoutedEventArgs e)
+    {
+        var isCollapsed = CommitFormContent.Visibility == Visibility.Collapsed;
+
+        if (isCollapsed)
+        {
+            // Expand the commit section
+            CommitFormContent.Visibility = Visibility.Visible;
+            CommitActionsContent.Visibility = Visibility.Visible;
+
+            // Rotate the icon to point up (expanded state)
+            CommitSectionCollapseIconTransform.Angle = 180;
+        }
+        else
+        {
+            // Collapse the commit section
+            CommitFormContent.Visibility = Visibility.Collapsed;
+            CommitActionsContent.Visibility = Visibility.Collapsed;
+
+            // Rotate the icon to point down (collapsed state)
+            CommitSectionCollapseIconTransform.Angle = 0;
         }
     }
 

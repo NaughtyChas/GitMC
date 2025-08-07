@@ -19,6 +19,9 @@
             <!--  Converters  -->
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+            <converters:IntToVisibilityConverter x:Key="IntToVisibilityConverter" />
+            <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+            <converters:BoolNegationConverter x:Key="BoolNegationConverter" />
 
             <Color x:Key="Primary">#512BD4</Color>
 

@@ -12,6 +12,11 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private ObservableCollection<CommitInfo> _recentCommits = new();
     private string _remoteUrl = string.Empty;
     private ManagedSaveInfo? _saveInfo;
+    private ObservableCollection<ChangedFileGroup> _changedFileGroups = new();
+    private ChangedFile? _selectedChangedFile;
+    private string _commitMessage = string.Empty;
+    private string _commitDescription = string.Empty;
+    private bool _isCommitInProgress;
 
     public ManagedSaveInfo? SaveInfo
     {
@@ -49,6 +54,56 @@ public class SaveDetailViewModel : INotifyPropertyChanged
         set
         {
             _recentCommits = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public ObservableCollection<ChangedFileGroup> ChangedFileGroups
+    {
+        get => _changedFileGroups;
+        set
+        {
+            _changedFileGroups = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public ChangedFile? SelectedChangedFile
+    {
+        get => _selectedChangedFile;
+        set
+        {
+            _selectedChangedFile = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string CommitMessage
+    {
+        get => _commitMessage;
+        set
+        {
+            _commitMessage = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string CommitDescription
+    {
+        get => _commitDescription;
+        set
+        {
+            _commitDescription = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsCommitInProgress
+    {
+        get => _isCommitInProgress;
+        set
+        {
+            _isCommitInProgress = value;
             OnPropertyChanged();
         }
     }

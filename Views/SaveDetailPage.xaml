@@ -8,6 +8,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:GitMC.Extensions"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:GitMC.Models"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Grid>
@@ -368,10 +369,11 @@
         </Border>
 
         <!--  Navigation Tabs and Content Area  -->
-        <Grid Grid.Row="2" Margin="24,0,24,0">
+        <Grid Grid.Row="2" Margin="24,0,24,24">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="16" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="8" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -410,14 +412,22 @@
                 </SelectorBarItem>
             </SelectorBar>
 
-            <!--  Content Area  -->
-            <ScrollViewer Grid.Row="2" x:Name="ContentScrollViewer">
-                <Grid>
-                    <!--  Overview Tab Content  -->
-                    <Grid
-                        Margin="24"
-                        Visibility="Visible"
-                        x:Name="OverviewContent">
+            <!--  Separator Line  -->
+            <Border
+                Background="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                Grid.Row="1"
+                Height="1"
+                Margin="0,8,0,0" />
+
+            <!--  Content Area (No ScrollViewer - content manages its own scrolling)  -->
+            <Grid Grid.Row="3">
+                <!--  Overview Tab Content  -->
+                <ScrollViewer
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    Visibility="Visible"
+                    x:Name="OverviewScrollViewer">
+                    <Grid x:Name="OverviewContent">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="20" />
@@ -1599,40 +1609,534 @@
                                 </StackPanel>
                             </Border>
                         </Grid>
+                    </Grid>
+                </ScrollViewer>
 
+                <!--  Other Tab Contents (Hidden by default)  -->
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Text="Files tab content - Coming soon"
+                    VerticalAlignment="Center"
+                    Visibility="Collapsed"
+                    x:Name="FilesContent" />
 
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Text="History tab content - Coming soon"
+                    VerticalAlignment="Center"
+                    Visibility="Collapsed"
+                    x:Name="HistoryContent" />
+
+                <!--  Changes Tab Content  -->
+                <Grid Visibility="Collapsed" x:Name="ChangesContent">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="360" />
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  Left Panel: Changed Files and Commit Panel  -->
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" x:Name="ChangedFilesRowDefinition" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="Auto" x:Name="CommitSectionRowDefinition" />
+                        </Grid.RowDefinitions>
+                        <!--  Changed Files List with Flexible Height  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Grid.Row="0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <!--  Header  -->
+                                <Border
+                                    Background="#F8F9FA"
+                                    CornerRadius="8,8,0,0"
+                                    Grid.Row="0"
+                                    Padding="16,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Grid.Column="0"
+                                            Text="Changed Files"
+                                            VerticalAlignment="Center" />
+                                        <Button
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Click="RefreshChanges_Click"
+                                            Grid.Column="1"
+                                            x:Name="RefreshChangesButton">
+                                            <FontIcon FontSize="16" Glyph="&#xE72C;" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+
+                                <!--  File Groups List with Scrolling  -->
+                                <ScrollViewer
+                                    Grid.Row="1"
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    Padding="8"
+                                    VerticalScrollBarVisibility="Auto"
+                                    x:Name="ChangedFilesScrollViewer">
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.ChangedFileGroups}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:ChangedFileGroup">
+                                                <Expander
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+                                                    Margin="0,4">
+                                                    <Expander.Header>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="8" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <FontIcon
+                                                                FontSize="16"
+                                                                Foreground="#666666"
+                                                                Glyph="{x:Bind CategoryIcon}"
+                                                                Grid.Column="0"
+                                                                VerticalAlignment="Center" />
+                                                            <TextBlock
+                                                                FontWeight="SemiBold"
+                                                                Grid.Column="2"
+                                                                Text="{x:Bind CategoryName}"
+                                                                VerticalAlignment="Center" />
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Foreground="#666666"
+                                                                Grid.Column="3"
+                                                                Text="{x:Bind FileCount}"
+                                                                VerticalAlignment="Center" />
+                                                        </Grid>
+                                                    </Expander.Header>
+                                                    <ListView
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch"
+                                                        ItemsSource="{x:Bind Files}"
+                                                        SelectionChanged="ChangedFiles_SelectionChanged"
+                                                        SelectionMode="Single"
+                                                        x:Name="ChangedFilesList">
+                                                        <ListView.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:ChangedFile">
+                                                                <Grid
+                                                                    Background="Transparent"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    Margin="0,2"
+                                                                    Padding="8">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="8" />
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <FontIcon
+                                                                        FontSize="14"
+                                                                        Foreground="{x:Bind StatusColor}"
+                                                                        Glyph="{x:Bind IconGlyph}"
+                                                                        Grid.Column="0"
+                                                                        VerticalAlignment="Center" />
+                                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                                        <TextBlock
+                                                                            FontSize="13"
+                                                                            Text="{x:Bind FileName}"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                                        <TextBlock
+                                                                            FontSize="11"
+                                                                            Foreground="#666666"
+                                                                            Text="{x:Bind DisplaySize}"
+                                                                            Visibility="{x:Bind ChunkCount, Converter={StaticResource IntToVisibilityConverter}}" />
+                                                                    </StackPanel>
+                                                                    <Border
+                                                                        Background="{x:Bind StatusColor}"
+                                                                        CornerRadius="8"
+                                                                        Grid.Column="3"
+                                                                        Padding="6,2">
+                                                                        <TextBlock
+                                                                            FontSize="10"
+                                                                            FontWeight="SemiBold"
+                                                                            Foreground="White"
+                                                                            Text="{x:Bind StatusText}" />
+                                                                    </Border>
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ListView.ItemTemplate>
+                                                    </ListView>
+                                                </Expander>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+
+                        <!--  Commit Panel  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Grid.Row="2"
+                            x:Name="CommitSectionBorder">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" x:Name="CommitContentRowDefinition" />
+                                    <RowDefinition Height="Auto" x:Name="CommitActionsRowDefinition" />
+                                </Grid.RowDefinitions>
+
+                                <!--  Commit Header with Collapse Button  -->
+                                <Border
+                                    Background="#F8F9FA"
+                                    CornerRadius="8,8,0,0"
+                                    Grid.Row="0"
+                                    Padding="16,8">
+                                    <Button
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="ToggleCommitSection_Click"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Padding="0"
+                                        x:Name="CommitSectionToggleButton">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                FontSize="12"
+                                                FontWeight="SemiBold"
+                                                Grid.Column="0"
+                                                HorizontalAlignment="Left"
+                                                Text="Commit Changes"
+                                                VerticalAlignment="Center" />
+                                            <FontIcon
+                                                FontSize="14"
+                                                Glyph="&#xE70D;"
+                                                Grid.Column="1"
+                                                RenderTransformOrigin="0.5,0.5"
+                                                VerticalAlignment="Center"
+                                                x:Name="CommitSectionCollapseIcon">
+                                                <FontIcon.RenderTransform>
+                                                    <RotateTransform x:Name="CommitSectionCollapseIconTransform" />
+                                                </FontIcon.RenderTransform>
+                                            </FontIcon>
+                                        </Grid>
+                                    </Button>
+                                </Border>
+
+                                <!--  Commit Form (Collapsible Content)  -->
+                                <StackPanel
+                                    Grid.Row="1"
+                                    Margin="16"
+                                    Spacing="12"
+                                    Visibility="Visible"
+                                    x:Name="CommitFormContent">
+                                    <TextBox
+                                        PlaceholderText="Summary (required)"
+                                        Text="{x:Bind ViewModel.CommitMessage, Mode=TwoWay}"
+                                        x:Name="CommitMessageTextBox" />
+                                    <TextBox
+                                        AcceptsReturn="True"
+                                        Height="80"
+                                        PlaceholderText="Description"
+                                        ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                        Text="{x:Bind ViewModel.CommitDescription, Mode=TwoWay}"
+                                        TextWrapping="Wrap"
+                                        x:Name="CommitDescriptionTextBox" />
+                                </StackPanel>
+
+                                <!--  Commit Actions  -->
+                                <Border
+                                    BorderBrush="#E1E1E1"
+                                    BorderThickness="0,1,0,0"
+                                    Grid.Row="2"
+                                    Padding="16,12"
+                                    Visibility="Visible"
+                                    x:Name="CommitActionsContent">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Button
+                                            Click="CommitChanges_Click"
+                                            Grid.Column="0"
+                                            HorizontalAlignment="Stretch"
+                                            IsEnabled="{x:Bind ViewModel.IsCommitInProgress, Converter={StaticResource BoolNegationConverter}}"
+                                            Style="{StaticResource AccentButtonStyle}"
+                                            x:Name="CommitButton">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon FontSize="16" Glyph="&#xE74E;" />
+                                                <TextBlock Text="Commit" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button
+                                            Click="CommitAndPushChanges_Click"
+                                            Grid.Column="2"
+                                            HorizontalAlignment="Stretch"
+                                            IsEnabled="{x:Bind ViewModel.IsCommitInProgress, Converter={StaticResource BoolNegationConverter}}"
+                                            x:Name="CommitAndPushButton">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon FontSize="16" Glyph="&#xE898;" />
+                                                <TextBlock Text="Commit &amp; Push" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
                     </Grid>
 
-                    <!--  Other Tab Contents (Hidden by default)  -->
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        Text="Files tab content - Coming soon"
-                        VerticalAlignment="Center"
-                        Visibility="Collapsed"
-                        x:Name="FilesContent" />
+                    <!--  Splitter  -->
+                    <Border
+                        Background="#E1E1E1"
+                        Grid.Column="1"
+                        Width="1" />
 
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        Text="History tab content - Coming soon"
-                        VerticalAlignment="Center"
-                        Visibility="Collapsed"
-                        x:Name="HistoryContent" />
+                    <!--  Right Panel: File Content Viewer  -->
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        Text="Changes tab content - Coming soon"
-                        VerticalAlignment="Center"
-                        Visibility="Collapsed"
-                        x:Name="ChangesContent" />
+                        <!--  File Viewer Header  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1"
+                            CornerRadius="8,8,0,0"
+                            Grid.Row="0"
+                            Padding="16,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    FontSize="16"
+                                    FontWeight="SemiBold"
+                                    Grid.Column="0"
+                                    Text="{x:Bind ViewModel.SelectedChangedFile.FileName, Mode=OneWay, FallbackValue='Select a file to view details'}"
+                                    VerticalAlignment="Center" />
+                                <Button
+                                    Click="OpenSidePanel_Click"
+                                    Grid.Column="1"
+                                    x:Name="OpenSidePanelButton">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon FontSize="14" Glyph="&#xE76F;" />
+                                        <TextBlock Text="Edit Panel" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
 
-                    <TextBlock
-                        HorizontalAlignment="Center"
-                        Text="Analytics tab content - Coming soon"
-                        VerticalAlignment="Center"
-                        Visibility="Collapsed"
-                        x:Name="AnalyticsContent" />
+                        <!--  File Content Area  -->
+                        <Border
+                            Background="White"
+                            BorderBrush="#E1E1E1"
+                            BorderThickness="1,0,1,1"
+                            CornerRadius="0,0,8,8"
+                            Grid.Row="1">
+                            <Grid>
+                                <!--  Default State: No File Selected  -->
+                                <StackPanel
+                                    HorizontalAlignment="Center"
+                                    Spacing="16"
+                                    VerticalAlignment="Center"
+                                    Visibility="{x:Bind ViewModel.SelectedChangedFile, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}"
+                                    x:Name="NoFileSelectedPanel">
+                                    <FontIcon
+                                        FontSize="48"
+                                        Foreground="#CCCCCC"
+                                        Glyph="&#xE8A5;" />
+                                    <TextBlock
+                                        FontSize="18"
+                                        Foreground="#666666"
+                                        HorizontalAlignment="Center"
+                                        Text="Select a changed file to view details" />
+                                    <TextBlock
+                                        FontSize="14"
+                                        Foreground="#999999"
+                                        HorizontalAlignment="Center"
+                                        Text="Choose from the list on the left to see file changes and editing options" />
+                                </StackPanel>
+
+                                <!--  File Content Placeholder  -->
+                                <ScrollViewer
+                                    Padding="16"
+                                    Visibility="{x:Bind ViewModel.SelectedChangedFile, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}"
+                                    x:Name="FileContentViewer">
+                                    <StackPanel Spacing="16">
+                                        <!--  File Info Section  -->
+                                        <Border
+                                            Background="#F8F9FA"
+                                            CornerRadius="8"
+                                            Padding="16">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="8" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="8" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <TextBlock
+                                                    FontSize="16"
+                                                    FontWeight="SemiBold"
+                                                    Grid.ColumnSpan="2"
+                                                    Grid.Row="0"
+                                                    Text="File Information" />
+
+                                                <StackPanel
+                                                    Grid.Column="0"
+                                                    Grid.Row="2"
+                                                    Spacing="4">
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Foreground="#666666"
+                                                        Text="Path" />
+                                                    <TextBlock
+                                                        FontSize="13"
+                                                        Text="{x:Bind ViewModel.SelectedChangedFile.RelativePath, Mode=OneWay}"
+                                                        TextWrapping="Wrap" />
+                                                </StackPanel>
+
+                                                <StackPanel
+                                                    Grid.Column="1"
+                                                    Grid.Row="2"
+                                                    Spacing="4">
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Foreground="#666666"
+                                                        Text="Status" />
+                                                    <Border
+                                                        Background="{x:Bind ViewModel.SelectedChangedFile.StatusColor, Mode=OneWay}"
+                                                        CornerRadius="4"
+                                                        HorizontalAlignment="Left"
+                                                        Padding="8,4">
+                                                        <TextBlock
+                                                            FontSize="12"
+                                                            FontWeight="SemiBold"
+                                                            Foreground="White"
+                                                            Text="{x:Bind ViewModel.SelectedChangedFile.StatusText, Mode=OneWay}" />
+                                                    </Border>
+                                                </StackPanel>
+
+                                                <StackPanel
+                                                    Grid.Column="0"
+                                                    Grid.Row="4"
+                                                    Spacing="4">
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Foreground="#666666"
+                                                        Text="Size" />
+                                                    <TextBlock FontSize="13" Text="{x:Bind ViewModel.SelectedChangedFile.DisplaySize, Mode=OneWay}" />
+                                                </StackPanel>
+
+                                                <StackPanel
+                                                    Grid.Column="1"
+                                                    Grid.Row="4"
+                                                    Spacing="4"
+                                                    Visibility="{x:Bind ViewModel.SelectedChangedFile.ChunkCount, Mode=OneWay, Converter={StaticResource IntToVisibilityConverter}}">
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Foreground="#666666"
+                                                        Text="Chunks" />
+                                                    <TextBlock FontSize="13" Text="{x:Bind ViewModel.SelectedChangedFile.ChunkCount, Mode=OneWay}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+
+                                        <!--  Content Preview Placeholder  -->
+                                        <Border
+                                            Background="#F8F9FA"
+                                            BorderBrush="#E1E1E1"
+                                            BorderThickness="2"
+                                            CornerRadius="8"
+                                            MinHeight="300"
+                                            Padding="24">
+                                            <StackPanel
+                                                HorizontalAlignment="Center"
+                                                Spacing="16"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    FontSize="32"
+                                                    Foreground="#CCCCCC"
+                                                    Glyph="&#xE8B7;" />
+                                                <TextBlock
+                                                    FontSize="16"
+                                                    FontWeight="SemiBold"
+                                                    HorizontalAlignment="Center"
+                                                    Text="Content Preview Coming Soon" />
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    Foreground="#666666"
+                                                    HorizontalAlignment="Center"
+                                                    Text="This area will display:" />
+                                                <StackPanel HorizontalAlignment="Center" Spacing="8">
+                                                    <TextBlock
+                                                        FontSize="13"
+                                                        Foreground="#666666"
+                                                        Text="• 3D Chunk View (for .mca files)"
+                                                        TextAlignment="Left" />
+                                                    <TextBlock
+                                                        FontSize="13"
+                                                        Foreground="#666666"
+                                                        Text="• SNBT Tree Editor"
+                                                        TextAlignment="Left" />
+                                                    <TextBlock
+                                                        FontSize="13"
+                                                        Foreground="#666666"
+                                                        Text="• Plain Text Editor"
+                                                        TextAlignment="Left" />
+                                                    <TextBlock
+                                                        FontSize="13"
+                                                        Foreground="#666666"
+                                                        Text="• Diff Viewer"
+                                                        TextAlignment="Left" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
-            </ScrollViewer>
+
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Text="Analytics tab content - Coming soon"
+                    VerticalAlignment="Center"
+                    Visibility="Collapsed"
+                    x:Name="AnalyticsContent" />
+            </Grid>
         </Grid>
     </Grid>
 </Page>
