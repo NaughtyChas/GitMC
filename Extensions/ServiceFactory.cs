@@ -16,6 +16,9 @@ public static class ServiceFactory
     private static readonly Lazy<IGitHubAppsService> _gitHubAppsService =
         new(() => new GitHubAppsService());
 
+    private static readonly Lazy<IManifestService> _manifestService =
+        new(() => new ManifestService(Services.Git));
+
     /// <summary>
     ///     Gets the singleton service aggregator instance
     /// </summary>
@@ -31,6 +34,11 @@ public static class ServiceFactory
     /// </summary>
     public static IGitHubAppsService GitHubApps => _gitHubAppsService.Value;
 
+    /// <summary>
+    ///     Gets the Manifest service
+    /// </summary>
+    public static IManifestService Manifest => _manifestService.Value;
+
     private static IServiceAggregator CreateServiceAggregator()
     {
         // Create core services
@@ -39,8 +47,9 @@ public static class ServiceFactory
         var dataStorageService = new DataStorageService();
         var localizationService = new LocalizationService();
         var nbtService = new NbtService();
+        var manifestService = new ManifestService(gitService);
         var onboardingService = new OnboardingService(gitService, configurationService);
-        var saveInitializationService = new SaveInitializationService(gitService, nbtService, dataStorageService);
+        var saveInitializationService = new SaveInitializationService(gitService, nbtService, dataStorageService, manifestService);
 
         // Create service aggregator
         return new ServiceAggregator(

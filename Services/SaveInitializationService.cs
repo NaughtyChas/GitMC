@@ -13,15 +13,18 @@ public class SaveInitializationService : ISaveInitializationService
     private readonly IDataStorageService _dataStorageService;
     private readonly IGitService _gitService;
     private readonly INbtService _nbtService;
+    private readonly IManifestService _manifestService;
 
     public SaveInitializationService(
         IGitService gitService,
         INbtService nbtService,
-        IDataStorageService dataStorageService)
+        IDataStorageService dataStorageService,
+        IManifestService manifestService)
     {
         _gitService = gitService;
         _nbtService = nbtService;
         _dataStorageService = dataStorageService;
+        _manifestService = manifestService;
     }
 
     public ObservableCollection<SaveInitStep> GetInitializationSteps()
@@ -140,7 +143,7 @@ public class SaveInitializationService : ISaveInitializationService
             await ExecuteStepAsync(steps[6], progressWrapper, async () =>
             {
                 // Set up progress tracking for commit operations
-                var totalOperations = 6; // GitMC: scan, stage, commit; Save: stage, status check, commit (if needed)
+                var totalOperations = 8; // GitMC: scan, stage, commit, update manifest, cleanup; Save: stage, status check, commit (if needed)
                 var currentOperation = 0;
 
                 steps[6].CurrentProgress = currentOperation;
@@ -187,6 +190,29 @@ public class SaveInitializationService : ISaveInitializationService
                 if (!gitMcCommitResult.Success)
                     throw new InvalidOperationException(
                         $"Failed to commit in GitMC directory: {gitMcCommitResult.ErrorMessage}");
+
+                // Get the actual commit hash after successful commit
+                var commitHash = await _gitService.GetCurrentCommitHashAsync(gitMcPath);
+                if (string.IsNullOrEmpty(commitHash))
+                    throw new InvalidOperationException("Failed to retrieve commit hash after successful commit");
+
+                // Update manifest with actual commit hash
+                currentOperation++;
+                steps[6].CurrentProgress = currentOperation;
+                steps[6].Message = "Updating manifest with commit information...";
+                progressWrapper.Report(steps[6]);
+                await Task.Delay(100); // Brief pause for UI update
+
+                await _manifestService.UpdatePendingEntriesAsync(gitMcPath, commitHash);
+
+                // Clean up SNBT files from working directory after successful commit
+                currentOperation++;
+                steps[6].CurrentProgress = currentOperation;
+                steps[6].Message = "Cleaning up SNBT files from working directory...";
+                progressWrapper.Report(steps[6]);
+                await Task.Delay(100); // Brief pause for UI update
+
+                await CleanupSnbtFiles(gitMcPath, steps[6], progressWrapper);
 
                 // Then, create initial commit in save directory (excluding GitMC due to .gitignore)
                 currentOperation++;
@@ -335,17 +361,10 @@ public class SaveInitializationService : ISaveInitializationService
 
     private async Task CreateManifestFile(string savePath)
     {
-        var manifest = new
-        {
-            version = "1.0",
-            created = DateTime.UtcNow.ToString("O"),
-            description = "GitMC save manifest",
-            chunks = Array.Empty<object>()
-        };
+        var gitMcPath = Path.Combine(savePath, "GitMC");
 
-        var manifestPath = Path.Combine(savePath, "GitMC", "manifest.json");
-        var manifestJson = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(manifestPath, manifestJson);
+        // Create proper manifest using ManifestService
+        await _manifestService.CreateInitialManifestAsync(gitMcPath);
     }
 
     private async Task CopyAllFiles(string savePath, SaveInitStep step, IProgress<SaveInitStep>? progress)
@@ -861,6 +880,129 @@ public class SaveInitializationService : ISaveInitializationService
 
             // Return false values but don't prevent the process from continuing
             return (false, 0);
+        }
+    }
+
+    /// <summary>
+    /// Clean up SNBT files from the working directory after successful commit.
+    /// This keeps only the manifest file while removing all SNBT files to improve performance.
+    /// </summary>
+    private async Task CleanupSnbtFiles(string gitMcPath, SaveInitStep step, IProgress<SaveInitStep>? progress)
+    {
+        try
+        {
+            var regionPath = Path.Combine(gitMcPath, "region");
+
+            if (!Directory.Exists(regionPath))
+            {
+                step.Message = "No region directory found - cleanup skipped";
+                progress?.Report(step);
+                return;
+            }
+
+            // Count SNBT files first for progress reporting
+            var snbtFiles = Directory.GetFiles(regionPath, "*.snbt", SearchOption.AllDirectories);
+            var totalFiles = snbtFiles.Length;
+
+            if (totalFiles == 0)
+            {
+                step.Message = "No SNBT files found - cleanup skipped";
+                progress?.Report(step);
+                return;
+            }
+
+            step.Message = $"Cleaning up {totalFiles} SNBT files...";
+            progress?.Report(step);
+
+            // Delete all SNBT files in batches to avoid blocking the UI
+            const int batchSize = 100;
+            var deletedCount = 0;
+
+            for (int i = 0; i < snbtFiles.Length; i += batchSize)
+            {
+                var batch = snbtFiles.Skip(i).Take(batchSize);
+
+                await Task.Run(() =>
+                {
+                    foreach (var snbtFile in batch)
+                    {
+                        try
+                        {
+                            File.Delete(snbtFile);
+                            deletedCount++;
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log the error but continue with other files
+                            System.Diagnostics.Debug.WriteLine($"Failed to delete SNBT file {snbtFile}: {ex.Message}");
+                        }
+                    }
+                });
+
+                // Update progress
+                step.Message = $"Cleaned up {deletedCount}/{totalFiles} SNBT files...";
+                progress?.Report(step);
+
+                // Brief pause to prevent UI blocking
+                await Task.Delay(10);
+            }
+
+            // Clean up empty directories
+            await Task.Run(() =>
+            {
+                try
+                {
+                    CleanupEmptyDirectories(regionPath);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to cleanup empty directories: {ex.Message}");
+                }
+            });
+
+            step.Message = $"Successfully cleaned up {deletedCount} SNBT files";
+            progress?.Report(step);
+        }
+        catch (Exception ex)
+        {
+            step.Message = $"Warning: Failed to cleanup SNBT files - {ex.Message}";
+            progress?.Report(step);
+            // Don't throw - this is not critical for the initialization process
+        }
+    }
+
+    /// <summary>
+    /// Recursively remove empty directories, but preserve the main structure
+    /// </summary>
+    private void CleanupEmptyDirectories(string directoryPath)
+    {
+        if (!Directory.Exists(directoryPath))
+            return;
+
+        // Get all subdirectories
+        var subdirectories = Directory.GetDirectories(directoryPath);
+
+        // Recursively clean subdirectories first
+        foreach (var subdirectory in subdirectories)
+        {
+            CleanupEmptyDirectories(subdirectory);
+        }
+
+        // Check if directory is empty (no files and no subdirectories)
+        var isEmpty = !Directory.GetFiles(directoryPath).Any() &&
+                     !Directory.GetDirectories(directoryPath).Any();
+
+        // Don't delete the main region directory, only subdirectories
+        if (isEmpty && !directoryPath.EndsWith("region", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                Directory.Delete(directoryPath);
+            }
+            catch
+            {
+                // Ignore deletion errors - directory might be in use
+            }
         }
     }
 }

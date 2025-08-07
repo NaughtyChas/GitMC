@@ -748,6 +748,27 @@ public class GitService : IGitService
         }
     }
 
+    public async Task<string?> GetCurrentCommitHashAsync(string? workingDirectory = null)
+    {
+        try
+        {
+            var repoPath = workingDirectory ?? _currentDirectory;
+            if (string.IsNullOrEmpty(repoPath))
+                return null;
+
+            return await Task.Run(() =>
+            {
+                using var repo = new Repository(repoPath);
+                return repo.Head?.Tip?.Sha;
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error getting current commit hash: {ex.Message}");
+            return null;
+        }
+    }
+
     private async Task<string> GetSystemGitVersionAsync()
     {
         try

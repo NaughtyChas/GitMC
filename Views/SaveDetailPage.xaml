@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 
 <Page
     Background="{ThemeResource LayerFillColorDefaultBrush}"
@@ -623,8 +623,7 @@
                                                     FontWeight="Medium"
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                     Text="Available Branches" />
-                                                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                                              VerticalScrollBarVisibility="Disabled">
+                                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                                                     <StackPanel
                                                         Orientation="Horizontal"
                                                         Spacing="4"
@@ -1227,8 +1226,7 @@
                                                     FontSize="14"
                                                     FontWeight="SemiBold"
                                                     Text="Description (optional)" />
-                                                <TextBox PlaceholderText="Describe your world..."
-                                                         x:Name="GitHubRepoDescBox" />
+                                                <TextBox PlaceholderText="Describe your world..." x:Name="GitHubRepoDescBox" />
                                             </StackPanel>
 
                                             <CheckBox
@@ -1240,8 +1238,7 @@
 
                                         <!--  Repository action buttons  -->
                                         <StackPanel Orientation="Horizontal" Spacing="12">
-                                            <Button Click="CreateAndLinkRepo_Click"
-                                                    Content="Create and Link Repository" />
+                                            <Button Click="CreateAndLinkRepo_Click" Content="Create and Link Repository" />
                                             <Button Click="LinkExistingRepo_Click" Content="Link Existing Repository" />
                                         </StackPanel>
                                     </StackPanel>
