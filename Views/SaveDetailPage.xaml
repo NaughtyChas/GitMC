@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <Page
-    Background="{ThemeResource LayerFillColorDefaultBrush}"
-    mc:Ignorable="d"
     x:Class="GitMC.Views.SaveDetailPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:GitMC.Extensions"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:GitMC.Models"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    Background="{ThemeResource LayerFillColorDefaultBrush}"
+    mc:Ignorable="d">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -29,35 +29,35 @@
 
             <!--  Save Icon  -->
             <Border
+                Grid.Column="0"
+                Width="80"
+                Height="80"
                 Background="#E3F2FD"
                 BorderBrush="#C8E6FA"
                 BorderThickness="1"
-                CornerRadius="8"
-                Grid.Column="0"
-                Height="80"
-                Width="80">
+                CornerRadius="8">
                 <FontIcon
-                    FontSize="32"
-                    Foreground="#2196F3"
-                    Glyph="&#xE8B7;"
+                    x:Name="SaveIconFont"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    x:Name="SaveIconFont" />
+                    FontSize="32"
+                    Foreground="#2196F3"
+                    Glyph="&#xE8B7;" />
             </Border>
 
             <!--  Save Information  -->
             <StackPanel Grid.Column="2" VerticalAlignment="Center">
                 <TextBlock
+                    x:Name="SaveNameText"
                     FontSize="24"
                     FontWeight="SemiBold"
-                    Text="Save Name"
-                    x:Name="SaveNameText" />
+                    Text="Save Name" />
                 <TextBlock
+                    x:Name="SavePathText"
+                    Margin="0,4,0,8"
                     FontSize="14"
                     Foreground="Gray"
-                    Margin="0,4,0,8"
-                    Text="Save Path"
-                    x:Name="SavePathText" />
+                    Text="Save Path" />
 
                 <!--  Info Line with Icons  -->
                 <StackPanel
@@ -65,53 +65,53 @@
                     Orientation="Horizontal"
                     Spacing="24">
                     <!--  Branch Count  -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
                         <Image
+                            Width="16"
                             Height="16"
                             Margin="0,0,8,0"
-                            Source="ms-appx:///Assets/Icons/branch_grey.svg"
-                            UseLayoutRounding="True"
                             VerticalAlignment="Center"
-                            Width="16" />
+                            Source="ms-appx:///Assets/Icons/branch_grey.svg"
+                            UseLayoutRounding="True" />
                         <TextBlock
+                            x:Name="BranchCountText"
+                            VerticalAlignment="Center"
                             FontSize="12"
                             Foreground="Gray"
-                            Text="3 branches"
-                            VerticalAlignment="Center"
-                            x:Name="BranchCountText" />
+                            Text="3 branches" />
                     </StackPanel>
 
                     <!--  Commit Count  -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
                         <Image
+                            Width="16"
                             Height="16"
                             Margin="0,0,8,0"
-                            Source="ms-appx:///Assets/Icons/commit_grey.svg"
-                            UseLayoutRounding="True"
                             VerticalAlignment="Center"
-                            Width="16" />
+                            Source="ms-appx:///Assets/Icons/commit_grey.svg"
+                            UseLayoutRounding="True" />
                         <TextBlock
+                            x:Name="CommitCountText"
+                            VerticalAlignment="Center"
                             FontSize="12"
                             Foreground="Gray"
-                            Text="45 commits"
-                            VerticalAlignment="Center"
-                            x:Name="CommitCountText" />
+                            Text="45 commits" />
                     </StackPanel>
 
                     <!--  Last Modified  -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
                         <FontIcon
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
                             FontSize="16"
                             Foreground="Gray"
-                            Glyph="&#xE823;"
-                            Margin="0,0,8,0"
-                            VerticalAlignment="Center" />
+                            Glyph="&#xE823;" />
                         <TextBlock
+                            x:Name="LastModifiedText"
+                            VerticalAlignment="Center"
                             FontSize="12"
                             Foreground="Gray"
-                            Text="2 hours ago"
-                            VerticalAlignment="Center"
-                            x:Name="LastModifiedText" />
+                            Text="2 hours ago" />
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
@@ -119,24 +119,24 @@
             <!--  Status and Git Badges Section  -->
             <StackPanel
                 Grid.Column="3"
-                Spacing="8"
-                VerticalAlignment="Center">
+                VerticalAlignment="Center"
+                Spacing="8">
                 <!--  Top Row: Status Badge  -->
                 <Border
+                    Padding="8,4,8,4"
+                    HorizontalAlignment="Right"
                     Background="#FFF4CE"
                     BorderBrush="#F7E018"
                     BorderThickness="1"
                     CornerRadius="12"
-                    HorizontalAlignment="Right"
-                    Padding="8,4,8,4"
                     UseLayoutRounding="True">
                     <TextBlock
+                        x:Name="SaveStatusBadgeText"
                         FontSize="12"
                         FontWeight="SemiBold"
                         Foreground="#8A6914"
                         Text="modified"
-                        UseLayoutRounding="True"
-                        x:Name="SaveStatusBadgeText" />
+                        UseLayoutRounding="True" />
                 </Border>
 
                 <!--  Bottom Row: Git Status Badge  -->
@@ -146,57 +146,57 @@
                     Spacing="8">
                     <!--  Push Badge  -->
                     <Border
+                        x:Name="PushStatusBadge"
+                        Padding="8,4,8,4"
                         Background="#E6F3FF"
                         BorderBrush="#0078D4"
                         BorderThickness="1"
                         CornerRadius="8"
-                        Padding="8,4,8,4"
-                        UseLayoutRounding="True"
-                        x:Name="PushStatusBadge">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        UseLayoutRounding="True">
+                        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
                             <FontIcon
+                                Margin="0,0,4,0"
+                                VerticalAlignment="Center"
                                 FontSize="10"
                                 Foreground="#0078D4"
                                 Glyph="&#xE898;"
-                                Margin="0,0,4,0"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center" />
+                                UseLayoutRounding="True" />
                             <TextBlock
+                                x:Name="PushStatusText"
+                                VerticalAlignment="Center"
                                 FontSize="10"
                                 FontWeight="SemiBold"
                                 Foreground="#0078D4"
                                 Text="1 to push"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center"
-                                x:Name="PushStatusText" />
+                                UseLayoutRounding="True" />
                         </StackPanel>
                     </Border>
 
                     <!--  Pull Badge  -->
                     <Border
+                        x:Name="PullStatusBadge"
+                        Padding="8,4,8,4"
                         Background="#E6F3FF"
                         BorderBrush="#0078D4"
                         BorderThickness="1"
                         CornerRadius="8"
-                        Padding="8,4,8,4"
-                        UseLayoutRounding="True"
-                        x:Name="PullStatusBadge">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        UseLayoutRounding="True">
+                        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
                             <FontIcon
+                                Margin="0,0,4,0"
+                                VerticalAlignment="Center"
                                 FontSize="10"
                                 Foreground="#0078D4"
                                 Glyph="&#xE896;"
-                                Margin="0,0,4,0"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center" />
+                                UseLayoutRounding="True" />
                             <TextBlock
+                                x:Name="PullStatusText"
+                                VerticalAlignment="Center"
                                 FontSize="10"
                                 FontWeight="SemiBold"
                                 Foreground="#0078D4"
                                 Text="2 to pull"
-                                UseLayoutRounding="True"
-                                VerticalAlignment="Center"
-                                x:Name="PullStatusText" />
+                                UseLayoutRounding="True" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -205,13 +205,13 @@
 
         <!--  Button Bar Section  -->
         <Border
+            Grid.Row="1"
+            Margin="24,0,24,12"
+            Padding="12"
             Background="White"
             BorderBrush="#E1E1E1"
             BorderThickness="1"
-            CornerRadius="8"
-            Grid.Row="1"
-            Margin="24,0,24,12"
-            Padding="12">
+            CornerRadius="8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -221,18 +221,18 @@
                 <!--  Left Side Controls  -->
                 <StackPanel
                     Grid.Column="0"
+                    VerticalAlignment="Center"
                     Orientation="Horizontal"
-                    Spacing="12"
-                    VerticalAlignment="Center">
+                    Spacing="12">
 
                     <!--  Branch ComboBox with integrated Create Branch option  -->
                     <ComboBox
+                        x:Name="BranchComboBox"
                         MinWidth="150"
-                        SelectionChanged="BranchComboBox_SelectionChanged"
-                        x:Name="BranchComboBox">
+                        SelectionChanged="BranchComboBox_SelectionChanged">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" />
+                                <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
@@ -241,36 +241,36 @@
                     <Grid>
                         <!--  Normal Button (when no commits to pull)  -->
                         <Button
+                            x:Name="FetchButton"
                             Click="FetchButton_Click"
-                            Visibility="Visible"
-                            x:Name="FetchButton">
+                            Visibility="Visible">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon
+                                    x:Name="FetchIcon"
                                     FontSize="16"
-                                    Glyph="&#xE895;"
-                                    x:Name="FetchIcon" />
-                                <TextBlock Text="Fetch remote" x:Name="FetchText" />
+                                    Glyph="&#xE895;" />
+                                <TextBlock x:Name="FetchText" Text="Fetch remote" />
                             </StackPanel>
                         </Button>
 
                         <!--  SplitButton (when there are commits to pull)  -->
                         <SplitButton
+                            x:Name="PullButton"
                             Click="PullButton_Click"
-                            Visibility="Collapsed"
-                            x:Name="PullButton">
+                            Visibility="Collapsed">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon
+                                    x:Name="PullIcon"
                                     FontSize="16"
-                                    Glyph="&#xE896;"
-                                    x:Name="PullIcon" />
-                                <TextBlock Text="Pull commits" x:Name="PullText" />
+                                    Glyph="&#xE896;" />
+                                <TextBlock x:Name="PullText" Text="Pull commits" />
                             </StackPanel>
                             <SplitButton.Flyout>
                                 <MenuFlyout>
                                     <MenuFlyoutItem
+                                        x:Name="FetchFromDropdown"
                                         Click="FetchButton_Click"
-                                        Text="Fetch remote"
-                                        x:Name="FetchFromDropdown">
+                                        Text="Fetch remote">
                                         <MenuFlyoutItem.Icon>
                                             <FontIcon Glyph="&#xE895;" />
                                         </MenuFlyoutItem.Icon>
@@ -281,31 +281,31 @@
 
                         <!--  Pull Badge  -->
                         <Border
+                            x:Name="PullBadge"
+                            MinWidth="20"
+                            Margin="0,-8,0,0"
+                            Padding="4,2"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
                             Background="#FF4444"
                             CornerRadius="10"
-                            HorizontalAlignment="Right"
-                            Margin="0,-8,0,0"
-                            MinWidth="20"
-                            Padding="4,2"
-                            VerticalAlignment="Top"
-                            Visibility="Collapsed"
-                            x:Name="PullBadge">
+                            Visibility="Collapsed">
                             <TextBlock
+                                x:Name="PullBadgeText"
+                                HorizontalAlignment="Center"
                                 FontSize="10"
                                 FontWeight="Bold"
                                 Foreground="White"
-                                HorizontalAlignment="Center"
-                                Text="2"
-                                x:Name="PullBadgeText" />
+                                Text="2" />
                         </Border>
                     </Grid>
 
                     <!--  Push Button with Badge  -->
                     <Grid>
                         <Button
+                            x:Name="PushButton"
                             Click="PushButton_Click"
-                            IsEnabled="False"
-                            x:Name="PushButton">
+                            IsEnabled="False">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon FontSize="16" Glyph="&#xE898;" />
                                 <TextBlock Text="{local:Localize Key=SaveDetail_Push}" />
@@ -314,22 +314,22 @@
 
                         <!--  Push Badge  -->
                         <Border
+                            x:Name="PushBadge"
+                            MinWidth="20"
+                            Margin="0,-8,0,0"
+                            Padding="4,2"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
                             Background="#FF4444"
                             CornerRadius="10"
-                            HorizontalAlignment="Right"
-                            Margin="0,-8,0,0"
-                            MinWidth="20"
-                            Padding="4,2"
-                            VerticalAlignment="Top"
-                            Visibility="Collapsed"
-                            x:Name="PushBadge">
+                            Visibility="Collapsed">
                             <TextBlock
+                                x:Name="PushBadgeText"
+                                HorizontalAlignment="Center"
                                 FontSize="10"
                                 FontWeight="Bold"
                                 Foreground="White"
-                                HorizontalAlignment="Center"
-                                Text="1"
-                                x:Name="PushBadgeText" />
+                                Text="1" />
                         </Border>
                     </Grid>
                 </StackPanel>
@@ -337,12 +337,12 @@
                 <!--  Right Side Controls  -->
                 <StackPanel
                     Grid.Column="1"
+                    VerticalAlignment="Center"
                     Orientation="Horizontal"
-                    Spacing="8"
-                    VerticalAlignment="Center">
+                    Spacing="8">
 
                     <!--  Stash Button  -->
-                    <Button Click="StashButton_Click" x:Name="StashButton">
+                    <Button x:Name="StashButton" Click="StashButton_Click">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon FontSize="14" Glyph="&#xE7B8;" />
                             <TextBlock FontSize="13" Text="{local:Localize Key=SaveDetail_Stash}" />
@@ -350,7 +350,7 @@
                     </Button>
 
                     <!--  Scan Button  -->
-                    <Button Click="ScanButton_Click" x:Name="ScanButton">
+                    <Button x:Name="ScanButton" Click="ScanButton_Click">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon FontSize="14" Glyph="&#xE773;" />
                             <TextBlock FontSize="13" Text="{local:Localize Key=SaveDetail_Scan}" />
@@ -359,9 +359,9 @@
 
                     <!--  Open Folder Button  -->
                     <Button
+                        x:Name="OpenFolderButton"
                         Click="OpenInExplorerButton_Click"
-                        ToolTipService.ToolTip="{local:Localize Key=SaveDetail_OpenInExplorer}"
-                        x:Name="OpenFolderButton">
+                        ToolTipService.ToolTip="{local:Localize Key=SaveDetail_OpenInExplorer}">
                         <FontIcon FontSize="16" Glyph="&#xE8DA;" />
                     </Button>
                 </StackPanel>
@@ -379,33 +379,33 @@
 
             <!--  Navigation Tabs  -->
             <SelectorBar
+                x:Name="TabSelector"
                 Grid.Row="0"
-                SelectionChanged="TabSelector_SelectionChanged"
-                x:Name="TabSelector">
+                SelectionChanged="TabSelector_SelectionChanged">
                 <SelectorBarItem
+                    x:Name="OverviewTab"
                     IsSelected="True"
-                    Text="{local:Localize Key=SaveDetail_Tab_Overview}"
-                    x:Name="OverviewTab">
+                    Text="{local:Localize Key=SaveDetail_Tab_Overview}">
                     <SelectorBarItem.Icon>
                         <FontIcon Glyph="&#xE80F;" />
                     </SelectorBarItem.Icon>
                 </SelectorBarItem>
-                <SelectorBarItem Text="{local:Localize Key=SaveDetail_Tab_Files}" x:Name="FilesTab">
+                <SelectorBarItem x:Name="FilesTab" Text="{local:Localize Key=SaveDetail_Tab_Files}">
                     <SelectorBarItem.Icon>
                         <FontIcon Glyph="&#xE8A5;" />
                     </SelectorBarItem.Icon>
                 </SelectorBarItem>
-                <SelectorBarItem Text="{local:Localize Key=SaveDetail_Tab_History}" x:Name="HistoryTab">
+                <SelectorBarItem x:Name="HistoryTab" Text="{local:Localize Key=SaveDetail_Tab_History}">
                     <SelectorBarItem.Icon>
                         <FontIcon Glyph="&#xE81C;" />
                     </SelectorBarItem.Icon>
                 </SelectorBarItem>
-                <SelectorBarItem Text="{local:Localize Key=SaveDetail_Tab_Changes}" x:Name="ChangesTab">
+                <SelectorBarItem x:Name="ChangesTab" Text="{local:Localize Key=SaveDetail_Tab_Changes}">
                     <SelectorBarItem.Icon>
                         <FontIcon Glyph="&#xE8AC;" />
                     </SelectorBarItem.Icon>
                 </SelectorBarItem>
-                <SelectorBarItem Text="{local:Localize Key=SaveDetail_Tab_Analytics}" x:Name="AnalyticsTab">
+                <SelectorBarItem x:Name="AnalyticsTab" Text="{local:Localize Key=SaveDetail_Tab_Analytics}">
                     <SelectorBarItem.Icon>
                         <FontIcon Glyph="&#xE9D9;" />
                     </SelectorBarItem.Icon>
@@ -414,20 +414,20 @@
 
             <!--  Separator Line  -->
             <Border
-                Background="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                 Grid.Row="1"
                 Height="1"
-                Margin="0,8,0,0" />
+                Margin="0,8,0,0"
+                Background="{ThemeResource SurfaceStrokeColorDefaultBrush}" />
 
             <!--  Content Area (No ScrollViewer - content manages its own scrolling)  -->
             <Grid Grid.Row="3">
                 <!--  Overview Tab Content  -->
                 <ScrollViewer
+                    x:Name="OverviewScrollViewer"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
-                    Visibility="Visible"
-                    x:Name="OverviewScrollViewer">
-                    <Grid x:Name="OverviewContent">
+                    Visibility="Visible">
+                    <Grid x:Name="OverviewContent" Margin="24">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="20" />
@@ -438,12 +438,12 @@
 
                         <!--  Row 1: Current Status Card  -->
                         <Border
+                            Grid.Row="0"
+                            Padding="20"
                             Background="{ThemeResource LayerFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                             BorderThickness="1"
-                            CornerRadius="8"
-                            Grid.Row="0"
-                            Padding="20">
+                            CornerRadius="8">
                             <StackPanel Spacing="16">
                                 <!--  Card Header  -->
                                 <StackPanel Orientation="Horizontal" Spacing="12">
@@ -468,47 +468,47 @@
                                     <!--  Branch Icon and Name  -->
                                     <StackPanel
                                         Grid.Column="0"
+                                        VerticalAlignment="Center"
                                         Orientation="Horizontal"
-                                        Spacing="8"
-                                        VerticalAlignment="Center">
+                                        Spacing="8">
                                         <ImageIcon
+                                            Width="16"
                                             Height="16"
-                                            Source="../Assets/Icons/branch_grey.svg"
-                                            Width="16" />
+                                            Source="../Assets/Icons/branch_grey.svg" />
                                         <TextBlock
+                                            x:Name="CurrentBranchDisplayText"
                                             FontSize="16"
                                             FontWeight="SemiBold"
-                                            Text="main"
-                                            x:Name="CurrentBranchDisplayText" />
+                                            Text="main" />
                                     </StackPanel>
 
                                     <!--  Sync Status Badge  -->
                                     <Border
-                                        Background="#E6F3FF"
-                                        BorderBrush="#B3D9FF"
-                                        BorderThickness="1"
-                                        CornerRadius="12"
+                                        x:Name="SyncStatusBadge"
                                         Grid.Column="2"
                                         Padding="8,4"
                                         VerticalAlignment="Center"
-                                        x:Name="SyncStatusBadge">
+                                        Background="#E6F3FF"
+                                        BorderBrush="#B3D9FF"
+                                        BorderThickness="1"
+                                        CornerRadius="12">
                                         <TextBlock
+                                            x:Name="SyncStatusText"
                                             FontSize="12"
                                             FontWeight="SemiBold"
                                             Foreground="#0066CC"
-                                            Text="Up to date"
-                                            x:Name="SyncStatusText" />
+                                            Text="Up to date" />
                                     </Border>
                                 </Grid>
 
                                 <!--  Status InfoBar  -->
                                 <InfoBar
+                                    x:Name="StatusInfoBar"
+                                    Title="Working tree clean"
                                     IsClosable="False"
                                     IsOpen="True"
                                     Message="All changes are committed and synchronized"
-                                    Severity="Success"
-                                    Title="Working tree clean"
-                                    x:Name="StatusInfoBar" />
+                                    Severity="Success" />
 
                                 <!--  Status Grid - Two Columns with Enhanced Layout  -->
                                 <Grid>
@@ -520,12 +520,12 @@
 
                                     <!--  Left Column: Sync & Branch Status - Enhanced with Border  -->
                                     <Border
+                                        Grid.Column="0"
+                                        Padding="12"
                                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="6"
-                                        Grid.Column="0"
-                                        Padding="12">
+                                        CornerRadius="6">
                                         <StackPanel Spacing="12">
                                             <!--  Section Header  -->
                                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -554,28 +554,28 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <ProgressBar
+                                                        x:Name="SyncProgressBar"
                                                         Grid.Column="0"
                                                         Height="6"
                                                         Margin="0,0,8,0"
-                                                        Value="100"
                                                         VerticalAlignment="Center"
-                                                        x:Name="SyncProgressBar" />
+                                                        Value="100" />
 
                                                     <TextBlock
+                                                        x:Name="SyncProgressText"
+                                                        Grid.Column="1"
+                                                        VerticalAlignment="Center"
                                                         FontSize="12"
                                                         FontWeight="SemiBold"
-                                                        Grid.Column="1"
-                                                        Text="100%"
-                                                        VerticalAlignment="Center"
-                                                        x:Name="SyncProgressText" />
+                                                        Text="100%" />
                                                 </Grid>
                                             </StackPanel>
 
                                             <!--  Separator  -->
                                             <Border
-                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
                                                 Height="1"
-                                                Margin="0,2" />
+                                                Margin="0,2"
+                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                                             <!--  Ahead/Behind Status Section  -->
                                             <StackPanel Spacing="6">
@@ -597,11 +597,11 @@
                                                         Spacing="4">
                                                         <TextBlock FontSize="12" Text="Ahead" />
                                                         <TextBlock
+                                                            x:Name="AheadCommitsText"
                                                             FontSize="12"
                                                             FontWeight="SemiBold"
                                                             Foreground="#22C55E"
-                                                            Text="0 commits"
-                                                            x:Name="AheadCommitsText" />
+                                                            Text="0 commits" />
                                                     </StackPanel>
 
                                                     <!--  Behind  -->
@@ -611,20 +611,20 @@
                                                         Spacing="4">
                                                         <TextBlock FontSize="12" Text="Behind" />
                                                         <TextBlock
+                                                            x:Name="BehindCommitsText"
                                                             FontSize="12"
                                                             FontWeight="SemiBold"
                                                             Foreground="#EF4444"
-                                                            Text="0 commits"
-                                                            x:Name="BehindCommitsText" />
+                                                            Text="0 commits" />
                                                     </StackPanel>
                                                 </Grid>
                                             </StackPanel>
 
                                             <!--  Separator  -->
                                             <Border
-                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
                                                 Height="1"
-                                                Margin="0,2" />
+                                                Margin="0,2"
+                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                                             <!--  Available Branches Section  -->
                                             <StackPanel Spacing="6">
@@ -635,14 +635,14 @@
                                                     Text="Available Branches" />
                                                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                                                     <StackPanel
+                                                        x:Name="BranchTagsContainer"
                                                         Orientation="Horizontal"
-                                                        Spacing="4"
-                                                        x:Name="BranchTagsContainer">
+                                                        Spacing="4">
                                                         <Border
+                                                            Padding="6,3"
                                                             Background="#E6F3FF"
                                                             BorderBrush="#B3D9FF"
-                                                            CornerRadius="8"
-                                                            Padding="6,3">
+                                                            CornerRadius="8">
                                                             <TextBlock
                                                                 FontSize="10"
                                                                 FontWeight="Medium"
@@ -650,15 +650,15 @@
                                                                 Text="main" />
                                                         </Border>
                                                         <Border
+                                                            Padding="6,3"
                                                             Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                                            CornerRadius="8"
-                                                            Padding="6,3">
+                                                            CornerRadius="8">
                                                             <TextBlock FontSize="10" Text="feature/castle-wing" />
                                                         </Border>
                                                         <Border
+                                                            Padding="6,3"
                                                             Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                                            CornerRadius="8"
-                                                            Padding="6,3">
+                                                            CornerRadius="8">
                                                             <TextBlock FontSize="10" Text="hotfix/water-fix" />
                                                         </Border>
                                                     </StackPanel>
@@ -669,12 +669,12 @@
 
                                     <!--  Right Column: File Changes Breakdown - Enhanced with Border  -->
                                     <Border
+                                        Grid.Column="2"
+                                        Padding="12"
                                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                         BorderThickness="1"
-                                        CornerRadius="6"
-                                        Grid.Column="2"
-                                        Padding="12">
+                                        CornerRadius="6">
                                         <StackPanel Spacing="12">
                                             <!--  Section Header  -->
                                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -705,25 +705,25 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <TextBlock
-                                                        FontSize="12"
                                                         Grid.Column="0"
-                                                        Text="Region Chunks"
-                                                        VerticalAlignment="Center" />
+                                                        VerticalAlignment="Center"
+                                                        FontSize="12"
+                                                        Text="Region Chunks" />
 
                                                     <StackPanel
                                                         Grid.Column="1"
                                                         Orientation="Horizontal"
                                                         Spacing="4">
                                                         <TextBlock
+                                                            x:Name="RegionChunksCountText"
                                                             FontSize="12"
                                                             FontWeight="SemiBold"
-                                                            Text="2"
-                                                            x:Name="RegionChunksCountText" />
+                                                            Text="2" />
                                                         <Ellipse
-                                                            Fill="#3B82F6"
+                                                            Width="6"
                                                             Height="6"
                                                             VerticalAlignment="Center"
-                                                            Width="6" />
+                                                            Fill="#3B82F6" />
                                                     </StackPanel>
                                                 </Grid>
 
@@ -735,25 +735,25 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <TextBlock
-                                                        FontSize="12"
                                                         Grid.Column="0"
-                                                        Text="World Data"
-                                                        VerticalAlignment="Center" />
+                                                        VerticalAlignment="Center"
+                                                        FontSize="12"
+                                                        Text="World Data" />
 
                                                     <StackPanel
                                                         Grid.Column="1"
                                                         Orientation="Horizontal"
                                                         Spacing="4">
                                                         <TextBlock
+                                                            x:Name="WorldDataCountText"
                                                             FontSize="12"
                                                             FontWeight="SemiBold"
-                                                            Text="1"
-                                                            x:Name="WorldDataCountText" />
+                                                            Text="1" />
                                                         <Ellipse
-                                                            Fill="#3B82F6"
+                                                            Width="6"
                                                             Height="6"
                                                             VerticalAlignment="Center"
-                                                            Width="6" />
+                                                            Fill="#3B82F6" />
                                                     </StackPanel>
                                                 </Grid>
 
@@ -765,25 +765,25 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <TextBlock
-                                                        FontSize="12"
                                                         Grid.Column="0"
-                                                        Text="Player Data"
-                                                        VerticalAlignment="Center" />
+                                                        VerticalAlignment="Center"
+                                                        FontSize="12"
+                                                        Text="Player Data" />
 
                                                     <StackPanel
                                                         Grid.Column="1"
                                                         Orientation="Horizontal"
                                                         Spacing="4">
                                                         <TextBlock
+                                                            x:Name="PlayerDataCountText"
                                                             FontSize="12"
                                                             FontWeight="SemiBold"
-                                                            Text="1"
-                                                            x:Name="PlayerDataCountText" />
+                                                            Text="1" />
                                                         <Ellipse
-                                                            Fill="#3B82F6"
+                                                            Width="6"
                                                             Height="6"
                                                             VerticalAlignment="Center"
-                                                            Width="6" />
+                                                            Fill="#3B82F6" />
                                                     </StackPanel>
                                                 </Grid>
 
@@ -795,25 +795,25 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <TextBlock
-                                                        FontSize="12"
                                                         Grid.Column="0"
-                                                        Text="Entity Data"
-                                                        VerticalAlignment="Center" />
+                                                        VerticalAlignment="Center"
+                                                        FontSize="12"
+                                                        Text="Entity Data" />
 
                                                     <StackPanel
                                                         Grid.Column="1"
                                                         Orientation="Horizontal"
                                                         Spacing="4">
                                                         <TextBlock
+                                                            x:Name="EntityDataCountText"
                                                             FontSize="12"
                                                             FontWeight="SemiBold"
-                                                            Text="1"
-                                                            x:Name="EntityDataCountText" />
+                                                            Text="1" />
                                                         <Ellipse
-                                                            Fill="#3B82F6"
+                                                            Width="6"
                                                             Height="6"
                                                             VerticalAlignment="Center"
-                                                            Width="6" />
+                                                            Fill="#3B82F6" />
                                                     </StackPanel>
                                                 </Grid>
 
@@ -825,34 +825,34 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <TextBlock
-                                                        FontSize="12"
                                                         Grid.Column="0"
-                                                        Text="Structure Data"
-                                                        VerticalAlignment="Center" />
+                                                        VerticalAlignment="Center"
+                                                        FontSize="12"
+                                                        Text="Structure Data" />
 
                                                     <StackPanel
                                                         Grid.Column="1"
                                                         Orientation="Horizontal"
                                                         Spacing="4">
                                                         <TextBlock
+                                                            x:Name="StructureDataCountText"
                                                             FontSize="12"
                                                             FontWeight="SemiBold"
-                                                            Text="1"
-                                                            x:Name="StructureDataCountText" />
+                                                            Text="1" />
                                                         <Ellipse
-                                                            Fill="#3B82F6"
+                                                            Width="6"
                                                             Height="6"
                                                             VerticalAlignment="Center"
-                                                            Width="6" />
+                                                            Fill="#3B82F6" />
                                                     </StackPanel>
                                                 </Grid>
                                             </StackPanel>
 
                                             <!--  Separator  -->
                                             <Border
-                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
                                                 Height="1"
-                                                Margin="0,4" />
+                                                Margin="0,4"
+                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                                             <!--  Changes Summary Section  -->
                                             <StackPanel Spacing="6">
@@ -874,16 +874,16 @@
                                                         HorizontalAlignment="Center"
                                                         Spacing="2">
                                                         <TextBlock
+                                                            x:Name="AddedFilesText"
+                                                            HorizontalAlignment="Center"
                                                             FontSize="14"
                                                             FontWeight="Bold"
                                                             Foreground="#22C55E"
-                                                            HorizontalAlignment="Center"
-                                                            Text="+458"
-                                                            x:Name="AddedFilesText" />
+                                                            Text="+458" />
                                                         <TextBlock
+                                                            HorizontalAlignment="Center"
                                                             FontSize="10"
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            HorizontalAlignment="Center"
                                                             Text="Added" />
                                                     </StackPanel>
 
@@ -893,16 +893,16 @@
                                                         HorizontalAlignment="Center"
                                                         Spacing="2">
                                                         <TextBlock
+                                                            x:Name="DeletedFilesText"
+                                                            HorizontalAlignment="Center"
                                                             FontSize="14"
                                                             FontWeight="Bold"
                                                             Foreground="#EF4444"
-                                                            HorizontalAlignment="Center"
-                                                            Text="-43"
-                                                            x:Name="DeletedFilesText" />
+                                                            Text="-43" />
                                                         <TextBlock
+                                                            HorizontalAlignment="Center"
                                                             FontSize="10"
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            HorizontalAlignment="Center"
                                                             Text="Deleted" />
                                                     </StackPanel>
 
@@ -912,15 +912,15 @@
                                                         HorizontalAlignment="Center"
                                                         Spacing="2">
                                                         <TextBlock
+                                                            x:Name="TotalFilesText"
+                                                            HorizontalAlignment="Center"
                                                             FontSize="14"
                                                             FontWeight="Bold"
-                                                            HorizontalAlignment="Center"
-                                                            Text="6"
-                                                            x:Name="TotalFilesText" />
+                                                            Text="6" />
                                                         <TextBlock
+                                                            HorizontalAlignment="Center"
                                                             FontSize="10"
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            HorizontalAlignment="Center"
                                                             Text="Files" />
                                                     </StackPanel>
                                                 </Grid>
@@ -941,20 +941,20 @@
 
                             <!--  Recent Activity Card  -->
                             <Border
+                                Grid.Column="0"
+                                MinHeight="450"
+                                Padding="20"
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                                 BorderThickness="1"
-                                CornerRadius="8"
-                                Grid.Column="0"
-                                MinHeight="450"
-                                Padding="20">
+                                CornerRadius="8">
                                 <StackPanel Spacing="16">
                                     <!--  Card Header with Button  -->
                                     <Grid>
                                         <StackPanel
+                                            VerticalAlignment="Center"
                                             Orientation="Horizontal"
-                                            Spacing="12"
-                                            VerticalAlignment="Center">
+                                            Spacing="12">
                                             <FontIcon
                                                 FontSize="20"
                                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
@@ -967,22 +967,22 @@
 
                                         <!--  View All Button - Top Right  -->
                                         <Button
-                                            Click="ViewAllCommits_Click"
-                                            Content="View all commits"
                                             HorizontalAlignment="Right"
-                                            VerticalAlignment="Center" />
+                                            VerticalAlignment="Center"
+                                            Click="ViewAllCommits_Click"
+                                            Content="View all commits" />
                                     </Grid>
 
                                     <!--  Activity List with ScrollViewer  -->
                                     <ScrollViewer MaxHeight="350" VerticalScrollBarVisibility="Auto">
-                                        <StackPanel Spacing="8" x:Name="RecentActivityContainer">
+                                        <StackPanel x:Name="RecentActivityContainer" Spacing="8">
                                             <!--  Sample Activity 1 - Commit  -->
                                             <Border
+                                                Padding="12"
                                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                 BorderThickness="1"
-                                                CornerRadius="4"
-                                                Padding="12">
+                                                CornerRadius="4">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
@@ -1018,11 +1018,11 @@
                                                     </StackPanel>
 
                                                     <Border
-                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                        CornerRadius="12"
                                                         Grid.Column="1"
                                                         Padding="8,3"
-                                                        VerticalAlignment="Center">
+                                                        VerticalAlignment="Center"
+                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                        CornerRadius="12">
                                                         <TextBlock
                                                             FontSize="11"
                                                             FontWeight="SemiBold"
@@ -1034,11 +1034,11 @@
 
                                             <!--  Sample Activity 2 - Commit  -->
                                             <Border
+                                                Padding="12"
                                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                 BorderThickness="1"
-                                                CornerRadius="4"
-                                                Padding="12">
+                                                CornerRadius="4">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
@@ -1074,11 +1074,11 @@
                                                     </StackPanel>
 
                                                     <Border
-                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                        CornerRadius="12"
                                                         Grid.Column="1"
                                                         Padding="8,3"
-                                                        VerticalAlignment="Center">
+                                                        VerticalAlignment="Center"
+                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                        CornerRadius="12">
                                                         <TextBlock
                                                             FontSize="11"
                                                             FontWeight="SemiBold"
@@ -1090,11 +1090,11 @@
 
                                             <!--  Sample Activity 3 - Commit  -->
                                             <Border
+                                                Padding="12"
                                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                 BorderThickness="1"
-                                                CornerRadius="4"
-                                                Padding="12">
+                                                CornerRadius="4">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
@@ -1130,11 +1130,11 @@
                                                     </StackPanel>
 
                                                     <Border
-                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                        CornerRadius="12"
                                                         Grid.Column="1"
                                                         Padding="8,3"
-                                                        VerticalAlignment="Center">
+                                                        VerticalAlignment="Center"
+                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                        CornerRadius="12">
                                                         <TextBlock
                                                             FontSize="11"
                                                             FontWeight="SemiBold"
@@ -1150,20 +1150,20 @@
 
                             <!--  Remote Repository Card (Redesigned)  -->
                             <Border
+                                Grid.Column="2"
+                                MinHeight="450"
+                                Padding="20,20,20,16"
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                                 BorderThickness="1"
-                                CornerRadius="8"
-                                Grid.Column="2"
-                                MinHeight="450"
-                                Padding="20,20,20,16">
+                                CornerRadius="8">
                                 <StackPanel Spacing="16">
                                     <!--  Card Header with Button  -->
                                     <Grid>
                                         <StackPanel
+                                            VerticalAlignment="Center"
                                             Orientation="Horizontal"
-                                            Spacing="12"
-                                            VerticalAlignment="Center">
+                                            Spacing="12">
                                             <FontIcon
                                                 FontSize="20"
                                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
@@ -1176,12 +1176,12 @@
 
                                         <!--  View on GitHub Button  -->
                                         <Button
-                                            Click="ViewOnGitHub_Click"
-                                            HorizontalAlignment="Right"
+                                            x:Name="ViewOnGitHubButtonHeader"
                                             Padding="12,6"
+                                            HorizontalAlignment="Right"
                                             VerticalAlignment="Center"
-                                            Visibility="Visible"
-                                            x:Name="ViewOnGitHubButtonHeader">
+                                            Click="ViewOnGitHub_Click"
+                                            Visibility="Visible">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <FontIcon FontSize="14" Glyph="&#xE774;" />
                                                 <TextBlock FontSize="13" Text="View on GitHub" />
@@ -1191,35 +1191,35 @@
 
                                     <!--  Not logged in to GitHub  -->
                                     <StackPanel
+                                        x:Name="GitHubNotLoggedInPanel"
                                         Spacing="12"
-                                        Visibility="Collapsed"
-                                        x:Name="GitHubNotLoggedInPanel">
+                                        Visibility="Collapsed">
                                         <InfoBar
+                                            Title="Not logged in to GitHub"
                                             IsClosable="False"
                                             IsOpen="True"
                                             Message="Sign in to GitHub to link or create a remote repository."
-                                            Severity="Warning"
-                                            Title="Not logged in to GitHub">
+                                            Severity="Warning">
                                             <InfoBar.ActionButton>
                                                 <Button
+                                                    HorizontalAlignment="Left"
                                                     Click="SignInGitHub_Click"
-                                                    Content="Sign in with GitHub"
-                                                    HorizontalAlignment="Left" />
+                                                    Content="Sign in with GitHub" />
                                             </InfoBar.ActionButton>
                                         </InfoBar>
                                     </StackPanel>
 
                                     <!--  No repository linked  -->
                                     <StackPanel
+                                        x:Name="GitHubNoRepoPanel"
                                         Spacing="12"
-                                        Visibility="Collapsed"
-                                        x:Name="GitHubNoRepoPanel">
+                                        Visibility="Collapsed">
                                         <InfoBar
+                                            Title="No remote repository linked"
                                             IsClosable="False"
                                             IsOpen="True"
                                             Message="You can create a new GitHub repository for this save, or link an existing one."
-                                            Severity="Informational"
-                                            Title="No remote repository linked" />
+                                            Severity="Informational" />
 
                                         <!--  Repository Creation Form  -->
                                         <StackPanel Spacing="12">
@@ -1228,7 +1228,7 @@
                                                     FontSize="14"
                                                     FontWeight="SemiBold"
                                                     Text="Repository Name" />
-                                                <TextBox PlaceholderText="e.g. my-mc-save" x:Name="GitHubRepoNameBox" />
+                                                <TextBox x:Name="GitHubRepoNameBox" PlaceholderText="e.g. my-mc-save" />
                                             </StackPanel>
 
                                             <StackPanel Spacing="4">
@@ -1236,14 +1236,14 @@
                                                     FontSize="14"
                                                     FontWeight="SemiBold"
                                                     Text="Description (optional)" />
-                                                <TextBox PlaceholderText="Describe your world..." x:Name="GitHubRepoDescBox" />
+                                                <TextBox x:Name="GitHubRepoDescBox" PlaceholderText="Describe your world..." />
                                             </StackPanel>
 
                                             <CheckBox
-                                                Content="Private repository"
-                                                IsChecked="True"
+                                                x:Name="GitHubRepoPrivateBox"
                                                 Margin="0,4,0,8"
-                                                x:Name="GitHubRepoPrivateBox" />
+                                                Content="Private repository"
+                                                IsChecked="True" />
                                         </StackPanel>
 
                                         <!--  Repository action buttons  -->
@@ -1255,50 +1255,50 @@
 
                                     <!--  Repository linked - New Design  -->
                                     <StackPanel
+                                        x:Name="GitHubRepoLinkedPanel"
                                         Spacing="12"
-                                        Visibility="Collapsed"
-                                        x:Name="GitHubRepoLinkedPanel">
+                                        Visibility="Collapsed">
                                         <!--  Success InfoBar - Only shown temporarily after linking  -->
                                         <InfoBar
+                                            x:Name="GitHubLinkSuccessInfoBar"
+                                            Title="Repository linked successfully"
                                             IsClosable="True"
                                             IsOpen="False"
                                             Message="This save is now linked to your GitHub repository."
-                                            Severity="Success"
-                                            Title="Repository linked successfully"
-                                            x:Name="GitHubLinkSuccessInfoBar" />
+                                            Severity="Success" />
 
                                         <!--  Repository Header  -->
                                         <StackPanel Spacing="4">
                                             <!--  Avatar and Repository Name Row  -->
                                             <StackPanel
+                                                VerticalAlignment="Center"
                                                 Orientation="Horizontal"
-                                                Spacing="12"
-                                                VerticalAlignment="Center">
+                                                Spacing="12">
                                                 <!--  GitHub Avatar  -->
                                                 <Border
+                                                    Width="40"
+                                                    Height="40"
                                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                     BorderThickness="1"
-                                                    CornerRadius="20"
-                                                    Height="40"
-                                                    Width="40">
-                                                    <Image Stretch="UniformToFill" x:Name="GitHubAvatar" />
+                                                    CornerRadius="20">
+                                                    <Image x:Name="GitHubAvatar" Stretch="UniformToFill" />
                                                 </Border>
 
                                                 <!--  Repository Name and Info  -->
-                                                <StackPanel Spacing="4" VerticalAlignment="Center">
+                                                <StackPanel VerticalAlignment="Center" Spacing="4">
                                                     <!--  Repository Name  -->
                                                     <TextBlock
+                                                        x:Name="GitHubRepoFullNameText"
                                                         FontSize="20"
                                                         FontWeight="SemiBold"
-                                                        Text="player1/creative-castle-build"
-                                                        x:Name="GitHubRepoFullNameText" />
+                                                        Text="player1/creative-castle-build" />
 
                                                     <!--  Platform and Visibility  -->
                                                     <StackPanel
+                                                        VerticalAlignment="Center"
                                                         Orientation="Horizontal"
-                                                        Spacing="8"
-                                                        VerticalAlignment="Center">
+                                                        Spacing="8">
                                                         <TextBlock
                                                             FontSize="14"
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -1308,10 +1308,10 @@
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                             Text="•" />
                                                         <TextBlock
+                                                            x:Name="GitHubRepoVisibilityText"
                                                             FontSize="14"
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            Text="Public"
-                                                            x:Name="GitHubRepoVisibilityText" />
+                                                            Text="Public" />
                                                     </StackPanel>
                                                 </StackPanel>
                                             </StackPanel>
@@ -1331,19 +1331,19 @@
                                                 Orientation="Horizontal"
                                                 Spacing="8">
                                                 <ImageIcon
+                                                    Width="16"
                                                     Height="16"
-                                                    Source="../Assets/Icons/pullRequest_grey.svg"
-                                                    Width="16" />
+                                                    Source="../Assets/Icons/pullRequest_grey.svg" />
                                                 <TextBlock
+                                                    x:Name="GitHubOpenPRsCountText"
                                                     FontSize="16"
                                                     FontWeight="SemiBold"
-                                                    Text="2"
-                                                    x:Name="GitHubOpenPRsCountText" />
+                                                    Text="2" />
                                                 <TextBlock
+                                                    VerticalAlignment="Center"
                                                     FontSize="14"
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Text="Open PRs"
-                                                    VerticalAlignment="Center" />
+                                                    Text="Open PRs" />
                                             </StackPanel>
 
                                             <!--  Open Issues  -->
@@ -1352,19 +1352,19 @@
                                                 Orientation="Horizontal"
                                                 Spacing="8">
                                                 <ImageIcon
+                                                    Width="16"
                                                     Height="16"
-                                                    Source="../Assets/Icons/issue_grey.svg"
-                                                    Width="16" />
+                                                    Source="../Assets/Icons/issue_grey.svg" />
                                                 <TextBlock
+                                                    x:Name="GitHubOpenIssuesCountText"
                                                     FontSize="16"
                                                     FontWeight="SemiBold"
-                                                    Text="4"
-                                                    x:Name="GitHubOpenIssuesCountText" />
+                                                    Text="4" />
                                                 <TextBlock
+                                                    VerticalAlignment="Center"
                                                     FontSize="14"
                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Text="Open Issues"
-                                                    VerticalAlignment="Center" />
+                                                    Text="Open Issues" />
                                             </StackPanel>
                                         </Grid>
 
@@ -1377,14 +1377,14 @@
 
                                             <!--  PR List with ScrollViewer  -->
                                             <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
-                                                <StackPanel Spacing="8" x:Name="RecentPRsContainer">
+                                                <StackPanel x:Name="RecentPRsContainer" Spacing="8">
                                                     <!--  Sample PR 1  -->
                                                     <Border
+                                                        Padding="12"
                                                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                         BorderThickness="1"
-                                                        CornerRadius="4"
-                                                        Padding="12">
+                                                        CornerRadius="4">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*" />
@@ -1409,11 +1409,11 @@
                                                             </StackPanel>
 
                                                             <Border
-                                                                Background="{ThemeResource SystemFillColorSuccessBrush}"
-                                                                CornerRadius="12"
                                                                 Grid.Column="1"
                                                                 Padding="8,3"
-                                                                VerticalAlignment="Center">
+                                                                VerticalAlignment="Center"
+                                                                Background="{ThemeResource SystemFillColorSuccessBrush}"
+                                                                CornerRadius="12">
                                                                 <TextBlock
                                                                     FontSize="12"
                                                                     FontWeight="SemiBold"
@@ -1425,11 +1425,11 @@
 
                                                     <!--  Sample PR 2 - Review needed  -->
                                                     <Border
+                                                        Padding="12"
                                                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                         BorderThickness="1"
-                                                        CornerRadius="4"
-                                                        Padding="12">
+                                                        CornerRadius="4">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*" />
@@ -1454,11 +1454,11 @@
                                                             </StackPanel>
 
                                                             <Border
-                                                                Background="{ThemeResource SystemFillColorCautionBrush}"
-                                                                CornerRadius="12"
                                                                 Grid.Column="1"
                                                                 Padding="8,3"
-                                                                VerticalAlignment="Center">
+                                                                VerticalAlignment="Center"
+                                                                Background="{ThemeResource SystemFillColorCautionBrush}"
+                                                                CornerRadius="12">
                                                                 <TextBlock
                                                                     FontSize="12"
                                                                     FontWeight="SemiBold"
@@ -1470,11 +1470,11 @@
 
                                                     <!--  Sample PR 3 - Merged  -->
                                                     <Border
+                                                        Padding="12"
                                                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                         BorderThickness="1"
-                                                        CornerRadius="4"
-                                                        Padding="12">
+                                                        CornerRadius="4">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*" />
@@ -1499,11 +1499,11 @@
                                                             </StackPanel>
 
                                                             <Border
-                                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                                CornerRadius="12"
                                                                 Grid.Column="1"
                                                                 Padding="8,3"
-                                                                VerticalAlignment="Center">
+                                                                VerticalAlignment="Center"
+                                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                                CornerRadius="12">
                                                                 <TextBlock
                                                                     FontSize="12"
                                                                     FontWeight="SemiBold"
@@ -1515,11 +1515,11 @@
 
                                                     <!--  Sample PR 4 - Draft  -->
                                                     <Border
+                                                        Padding="12"
                                                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                         BorderThickness="1"
-                                                        CornerRadius="4"
-                                                        Padding="12">
+                                                        CornerRadius="4">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*" />
@@ -1544,11 +1544,11 @@
                                                             </StackPanel>
 
                                                             <Border
-                                                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                                                CornerRadius="12"
                                                                 Grid.Column="1"
                                                                 Padding="8,3"
-                                                                VerticalAlignment="Center">
+                                                                VerticalAlignment="Center"
+                                                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                                CornerRadius="12">
                                                                 <TextBlock
                                                                     FontSize="12"
                                                                     FontWeight="SemiBold"
@@ -1560,11 +1560,11 @@
 
                                                     <!--  Sample PR 5 - Closed  -->
                                                     <Border
+                                                        Padding="12"
                                                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                                         BorderThickness="1"
-                                                        CornerRadius="4"
-                                                        Padding="12">
+                                                        CornerRadius="4">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*" />
@@ -1589,11 +1589,11 @@
                                                             </StackPanel>
 
                                                             <Border
-                                                                Background="{ThemeResource SystemFillColorCriticalBrush}"
-                                                                CornerRadius="12"
                                                                 Grid.Column="1"
                                                                 Padding="8,3"
-                                                                VerticalAlignment="Center">
+                                                                VerticalAlignment="Center"
+                                                                Background="{ThemeResource SystemFillColorCriticalBrush}"
+                                                                CornerRadius="12">
                                                                 <TextBlock
                                                                     FontSize="12"
                                                                     FontWeight="SemiBold"
@@ -1614,21 +1614,21 @@
 
                 <!--  Other Tab Contents (Hidden by default)  -->
                 <TextBlock
+                    x:Name="FilesContent"
                     HorizontalAlignment="Center"
-                    Text="Files tab content - Coming soon"
                     VerticalAlignment="Center"
-                    Visibility="Collapsed"
-                    x:Name="FilesContent" />
+                    Text="Files tab content - Coming soon"
+                    Visibility="Collapsed" />
 
                 <TextBlock
+                    x:Name="HistoryContent"
                     HorizontalAlignment="Center"
-                    Text="History tab content - Coming soon"
                     VerticalAlignment="Center"
-                    Visibility="Collapsed"
-                    x:Name="HistoryContent" />
+                    Text="History tab content - Coming soon"
+                    Visibility="Collapsed" />
 
                 <!--  Changes Tab Content  -->
-                <Grid Visibility="Collapsed" x:Name="ChangesContent">
+                <Grid x:Name="ChangesContent" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="360" />
                         <ColumnDefinition Width="8" />
@@ -1638,17 +1638,17 @@
                     <!--  Left Panel: Changed Files and Commit Panel  -->
                     <Grid Grid.Column="0">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="*" x:Name="ChangedFilesRowDefinition" />
+                            <RowDefinition x:Name="ChangedFilesRowDefinition" Height="*" />
                             <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" x:Name="CommitSectionRowDefinition" />
+                            <RowDefinition x:Name="CommitSectionRowDefinition" Height="Auto" />
                         </Grid.RowDefinitions>
                         <!--  Changed Files List with Flexible Height  -->
                         <Border
+                            Grid.Row="0"
                             Background="White"
                             BorderBrush="#E1E1E1"
                             BorderThickness="1"
-                            CornerRadius="8"
-                            Grid.Row="0">
+                            CornerRadius="8">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -1657,47 +1657,47 @@
 
                                 <!--  Header  -->
                                 <Border
-                                    Background="#F8F9FA"
-                                    CornerRadius="8,8,0,0"
                                     Grid.Row="0"
-                                    Padding="16,8">
+                                    Padding="12,8"
+                                    Background="#F8F9FA"
+                                    CornerRadius="8,8,0,0">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock
-                                            FontSize="12"
-                                            FontWeight="SemiBold"
                                             Grid.Column="0"
-                                            Text="Changed Files"
-                                            VerticalAlignment="Center" />
+                                            VerticalAlignment="Center"
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Text="Changed Files" />
                                         <Button
+                                            x:Name="RefreshChangesButton"
+                                            Grid.Column="1"
                                             Background="Transparent"
                                             BorderThickness="0"
-                                            Click="RefreshChanges_Click"
-                                            Grid.Column="1"
-                                            x:Name="RefreshChangesButton">
-                                            <FontIcon FontSize="16" Glyph="&#xE72C;" />
+                                            Click="RefreshChanges_Click">
+                                            <FontIcon FontSize="14" Glyph="&#xE72C;" />
                                         </Button>
                                     </Grid>
                                 </Border>
 
                                 <!--  File Groups List with Scrolling  -->
                                 <ScrollViewer
+                                    x:Name="ChangedFilesScrollViewer"
                                     Grid.Row="1"
-                                    HorizontalScrollBarVisibility="Disabled"
                                     Padding="8"
-                                    VerticalScrollBarVisibility="Auto"
-                                    x:Name="ChangedFilesScrollViewer">
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
                                     <ItemsControl ItemsSource="{x:Bind ViewModel.ChangedFileGroups}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="models:ChangedFileGroup">
                                                 <Expander
+                                                    Margin="0,2"
                                                     HorizontalAlignment="Stretch"
                                                     HorizontalContentAlignment="Stretch"
-                                                    IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
-                                                    Margin="0,4">
+                                                    IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}">
                                                     <Expander.Header>
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
@@ -1707,38 +1707,38 @@
                                                                 <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
                                                             <FontIcon
-                                                                FontSize="16"
-                                                                Foreground="#666666"
-                                                                Glyph="{x:Bind CategoryIcon}"
                                                                 Grid.Column="0"
-                                                                VerticalAlignment="Center" />
-                                                            <TextBlock
-                                                                FontWeight="SemiBold"
-                                                                Grid.Column="2"
-                                                                Text="{x:Bind CategoryName}"
-                                                                VerticalAlignment="Center" />
-                                                            <TextBlock
-                                                                FontSize="12"
+                                                                VerticalAlignment="Center"
+                                                                FontSize="14"
                                                                 Foreground="#666666"
+                                                                Glyph="{x:Bind CategoryIcon}" />
+                                                            <TextBlock
+                                                                Grid.Column="2"
+                                                                VerticalAlignment="Center"
+                                                                FontWeight="SemiBold"
+                                                                Text="{x:Bind CategoryName}" />
+                                                            <TextBlock
                                                                 Grid.Column="3"
-                                                                Text="{x:Bind FileCount}"
-                                                                VerticalAlignment="Center" />
+                                                                VerticalAlignment="Center"
+                                                                FontSize="11"
+                                                                Foreground="#666666"
+                                                                Text="{x:Bind FileCount}" />
                                                         </Grid>
                                                     </Expander.Header>
                                                     <ListView
+                                                        x:Name="ChangedFilesList"
                                                         HorizontalAlignment="Stretch"
                                                         HorizontalContentAlignment="Stretch"
                                                         ItemsSource="{x:Bind Files}"
                                                         SelectionChanged="ChangedFiles_SelectionChanged"
-                                                        SelectionMode="Single"
-                                                        x:Name="ChangedFilesList">
+                                                        SelectionMode="Single">
                                                         <ListView.ItemTemplate>
                                                             <DataTemplate x:DataType="models:ChangedFile">
                                                                 <Grid
-                                                                    Background="Transparent"
+                                                                    Margin="0,1"
+                                                                    Padding="6"
                                                                     HorizontalAlignment="Stretch"
-                                                                    Margin="0,2"
-                                                                    Padding="8">
+                                                                    Background="Transparent">
                                                                     <Grid.ColumnDefinitions>
                                                                         <ColumnDefinition Width="Auto" />
                                                                         <ColumnDefinition Width="8" />
@@ -1746,29 +1746,29 @@
                                                                         <ColumnDefinition Width="Auto" />
                                                                     </Grid.ColumnDefinitions>
                                                                     <FontIcon
-                                                                        FontSize="14"
-                                                                        Foreground="{x:Bind StatusColor}"
-                                                                        Glyph="{x:Bind IconGlyph}"
                                                                         Grid.Column="0"
-                                                                        VerticalAlignment="Center" />
+                                                                        VerticalAlignment="Center"
+                                                                        FontSize="12"
+                                                                        Foreground="{x:Bind StatusColor}"
+                                                                        Glyph="{x:Bind IconGlyph}" />
                                                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                                                         <TextBlock
-                                                                            FontSize="13"
+                                                                            FontSize="12"
                                                                             Text="{x:Bind FileName}"
                                                                             TextTrimming="CharacterEllipsis" />
                                                                         <TextBlock
-                                                                            FontSize="11"
+                                                                            FontSize="10"
                                                                             Foreground="#666666"
                                                                             Text="{x:Bind DisplaySize}"
                                                                             Visibility="{x:Bind ChunkCount, Converter={StaticResource IntToVisibilityConverter}}" />
                                                                     </StackPanel>
                                                                     <Border
-                                                                        Background="{x:Bind StatusColor}"
-                                                                        CornerRadius="8"
                                                                         Grid.Column="3"
-                                                                        Padding="6,2">
+                                                                        Padding="6,2"
+                                                                        Background="{x:Bind StatusColor}"
+                                                                        CornerRadius="8">
                                                                         <TextBlock
-                                                                            FontSize="10"
+                                                                            FontSize="9"
                                                                             FontWeight="SemiBold"
                                                                             Foreground="White"
                                                                             Text="{x:Bind StatusText}" />
@@ -1785,54 +1785,54 @@
                             </Grid>
                         </Border>
 
-                        <!--  Commit Panel  -->
+                        <!--  Commit Panel (Collapsible)  -->
                         <Border
+                            x:Name="CommitSectionBorder"
+                            Grid.Row="2"
                             Background="White"
                             BorderBrush="#E1E1E1"
                             BorderThickness="1"
-                            CornerRadius="8"
-                            Grid.Row="2"
-                            x:Name="CommitSectionBorder">
+                            CornerRadius="8">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" x:Name="CommitContentRowDefinition" />
-                                    <RowDefinition Height="Auto" x:Name="CommitActionsRowDefinition" />
+                                    <RowDefinition x:Name="CommitContentRowDefinition" Height="Auto" />
+                                    <RowDefinition x:Name="CommitActionsRowDefinition" Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <!--  Commit Header with Collapse Button  -->
                                 <Border
-                                    Background="#F8F9FA"
-                                    CornerRadius="8,8,0,0"
                                     Grid.Row="0"
-                                    Padding="16,8">
+                                    Padding="12,8"
+                                    Background="#F8F9FA"
+                                    CornerRadius="8,8,0,0">
                                     <Button
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Click="ToggleCommitSection_Click"
+                                        x:Name="CommitSectionToggleButton"
+                                        Padding="0"
                                         HorizontalAlignment="Stretch"
                                         HorizontalContentAlignment="Stretch"
-                                        Padding="0"
-                                        x:Name="CommitSectionToggleButton">
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="ToggleCommitSection_Click">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock
-                                                FontSize="12"
-                                                FontWeight="SemiBold"
                                                 Grid.Column="0"
                                                 HorizontalAlignment="Left"
-                                                Text="Commit Changes"
-                                                VerticalAlignment="Center" />
+                                                VerticalAlignment="Center"
+                                                FontSize="14"
+                                                FontWeight="SemiBold"
+                                                Text="Commit Changes" />
                                             <FontIcon
+                                                x:Name="CommitSectionCollapseIcon"
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
                                                 FontSize="14"
                                                 Glyph="&#xE70D;"
-                                                Grid.Column="1"
-                                                RenderTransformOrigin="0.5,0.5"
-                                                VerticalAlignment="Center"
-                                                x:Name="CommitSectionCollapseIcon">
+                                                RenderTransformOrigin="0.5,0.5">
                                                 <FontIcon.RenderTransform>
                                                     <RotateTransform x:Name="CommitSectionCollapseIconTransform" />
                                                 </FontIcon.RenderTransform>
@@ -1843,33 +1843,35 @@
 
                                 <!--  Commit Form (Collapsible Content)  -->
                                 <StackPanel
+                                    x:Name="CommitFormContent"
                                     Grid.Row="1"
-                                    Margin="16"
-                                    Spacing="12"
-                                    Visibility="Visible"
-                                    x:Name="CommitFormContent">
+                                    Margin="12"
+                                    Spacing="8"
+                                    Visibility="Visible">
                                     <TextBox
-                                        PlaceholderText="Summary (required)"
-                                        Text="{x:Bind ViewModel.CommitMessage, Mode=TwoWay}"
-                                        x:Name="CommitMessageTextBox" />
+                                        x:Name="CommitMessageTextBox"
+                                        Header="Summary"
+                                        PlaceholderText="Enter commit message..."
+                                        Text="{x:Bind ViewModel.CommitMessage, Mode=TwoWay}" />
                                     <TextBox
+                                        x:Name="CommitDescriptionTextBox"
+                                        Height="72"
                                         AcceptsReturn="True"
-                                        Height="80"
-                                        PlaceholderText="Description"
+                                        Header="Description (optional)"
+                                        PlaceholderText="Provide additional details about your changes..."
                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                                         Text="{x:Bind ViewModel.CommitDescription, Mode=TwoWay}"
-                                        TextWrapping="Wrap"
-                                        x:Name="CommitDescriptionTextBox" />
+                                        TextWrapping="Wrap" />
                                 </StackPanel>
 
-                                <!--  Commit Actions  -->
+                                <!--  Commit Actions (Collapsible Content)  -->
                                 <Border
+                                    x:Name="CommitActionsContent"
+                                    Grid.Row="2"
+                                    Padding="12,8"
                                     BorderBrush="#E1E1E1"
                                     BorderThickness="0,1,0,0"
-                                    Grid.Row="2"
-                                    Padding="16,12"
-                                    Visibility="Visible"
-                                    x:Name="CommitActionsContent">
+                                    Visibility="Visible">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -1879,27 +1881,33 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <Button
-                                            Click="CommitChanges_Click"
+                                            x:Name="CommitButton"
                                             Grid.Column="0"
                                             HorizontalAlignment="Stretch"
-                                            IsEnabled="{x:Bind ViewModel.IsCommitInProgress, Converter={StaticResource BoolNegationConverter}}"
-                                            Style="{StaticResource AccentButtonStyle}"
-                                            x:Name="CommitButton">
+                                            Background="#2196F3"
+                                            Click="CommitChanges_Click"
+                                            Foreground="White"
+                                            IsEnabled="{x:Bind ViewModel.IsCommitInProgress, Converter={StaticResource BoolNegationConverter}}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon FontSize="16" Glyph="&#xE74E;" />
                                                 <TextBlock Text="Commit" />
                                             </StackPanel>
                                         </Button>
                                         <Button
-                                            Click="CommitAndPushChanges_Click"
+                                            x:Name="CommitAndPushButton"
                                             Grid.Column="2"
                                             HorizontalAlignment="Stretch"
-                                            IsEnabled="{x:Bind ViewModel.IsCommitInProgress, Converter={StaticResource BoolNegationConverter}}"
-                                            x:Name="CommitAndPushButton">
+                                            Background="#4CAF50"
+                                            Click="CommitAndPushChanges_Click"
+                                            Foreground="White"
+                                            IsEnabled="{x:Bind ViewModel.IsCommitInProgress, Converter={StaticResource BoolNegationConverter}}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon FontSize="16" Glyph="&#xE898;" />
                                                 <TextBlock Text="Commit &amp; Push" />
                                             </StackPanel>
+                                        </Button>
+                                        <Button x:Name="CommitOptionsButton" Grid.Column="4">
+                                            <FontIcon FontSize="14" Glyph="&#xE712;" />
                                         </Button>
                                     </Grid>
                                 </Border>
@@ -1909,233 +1917,690 @@
 
                     <!--  Splitter  -->
                     <Border
-                        Background="#E1E1E1"
                         Grid.Column="1"
-                        Width="1" />
+                        Width="1"
+                        Background="#E1E1E1" />
 
-                    <!--  Right Panel: File Content Viewer  -->
-                    <Grid Grid.Column="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
+                    <!--  Right Panel: File Content Editor  -->
+            <Grid Grid.Column="2" Loaded="EditorAreaGrid_Loaded">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                <!-- Start collapsed; code-behind will toggle between 0 and 280 based on IsSidePanelVisible -->
+                <ColumnDefinition x:Name="SidePanelColumn" Width="0" />
+                        </Grid.ColumnDefinitions>
 
-                        <!--  File Viewer Header  -->
-                        <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
-                            BorderThickness="1"
-                            CornerRadius="8,8,0,0"
-                            Grid.Row="0"
-                            Padding="16,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock
-                                    FontSize="16"
-                                    FontWeight="SemiBold"
-                                    Grid.Column="0"
-                                    Text="{x:Bind ViewModel.SelectedChangedFile.FileName, Mode=OneWay, FallbackValue='Select a file to view details'}"
-                                    VerticalAlignment="Center" />
-                                <Button
-                                    Click="OpenSidePanel_Click"
-                                    Grid.Column="1"
-                                    x:Name="OpenSidePanelButton">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon FontSize="14" Glyph="&#xE76F;" />
-                                        <TextBlock Text="Edit Panel" />
+                        <!--  Main Content Area  -->
+                        <Grid Grid.Column="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!--  File Editor Header  -->
+                            <Border
+                                Grid.Row="0"
+                                Padding="12,8"
+                                Background="White"
+                                BorderBrush="#E1E1E1"
+                                BorderThickness="1"
+                                CornerRadius="8,8,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.SelectedChangedFile.FileName, Mode=OneWay, FallbackValue='Select a file to view and edit'}" />
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock FontSize="10" Foreground="#666666" TextTrimming="CharacterEllipsis"
+                                                       Text="{x:Bind ViewModel.SelectedChangedFile.RelativePath, Mode=OneWay}" />
+                                            <Border Padding="6,2" Background="{x:Bind ViewModel.SelectedChangedFile.StatusColor, Mode=OneWay}" CornerRadius="6">
+                                                <TextBlock FontSize="9" FontWeight="SemiBold" Foreground="White" Text="{x:Bind ViewModel.SelectedChangedFile.StatusText, Mode=OneWay}" />
+                                            </Border>
+                                            <TextBlock FontSize="10" Foreground="#666666" Text="{x:Bind ViewModel.SelectedChangedFile.DisplaySize, Mode=OneWay}" />
+                                        </StackPanel>
                                     </StackPanel>
-                                </Button>
-                            </Grid>
-                        </Border>
 
-                        <!--  File Content Area  -->
-                        <Border
-                            Background="White"
-                            BorderBrush="#E1E1E1"
-                            BorderThickness="1,0,1,1"
-                            CornerRadius="0,0,8,8"
-                            Grid.Row="1">
-                            <Grid>
-                                <!--  Default State: No File Selected  -->
-                                <StackPanel
-                                    HorizontalAlignment="Center"
-                                    Spacing="16"
-                                    VerticalAlignment="Center"
-                                    Visibility="{x:Bind ViewModel.SelectedChangedFile, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}"
-                                    x:Name="NoFileSelectedPanel">
-                                    <FontIcon
-                                        FontSize="48"
-                                        Foreground="#CCCCCC"
-                                        Glyph="&#xE8A5;" />
-                                    <TextBlock
-                                        FontSize="18"
-                                        Foreground="#666666"
-                                        HorizontalAlignment="Center"
-                                        Text="Select a changed file to view details" />
-                                    <TextBlock
-                                        FontSize="14"
-                                        Foreground="#999999"
-                                        HorizontalAlignment="Center"
-                                        Text="Choose from the list on the left to see file changes and editing options" />
-                                </StackPanel>
+                                    <!--  Translation Status Badge  -->
+                                    <Border
+                                        x:Name="TranslatedBadge"
+                                        Grid.Column="1"
+                                        Padding="8,4"
+                                        Background="#4CAF50"
+                                        CornerRadius="12"
+                                        Visibility="{x:Bind ViewModel.SelectedChangedFile.IsTranslated, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <FontIcon
+                                                FontSize="12"
+                                                Foreground="White"
+                                                Glyph="&#xE73E;" />
+                                            <TextBlock
+                                                FontSize="11"
+                                                FontWeight="SemiBold"
+                                                Foreground="White"
+                                                Text="Translated" />
+                                        </StackPanel>
+                                    </Border>
 
-                                <!--  File Content Placeholder  -->
-                                <ScrollViewer
-                                    Padding="16"
-                                    Visibility="{x:Bind ViewModel.SelectedChangedFile, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}"
-                                    x:Name="FileContentViewer">
-                                    <StackPanel Spacing="16">
-                                        <!--  File Info Section  -->
-                                        <Border
-                                            Background="#F8F9FA"
-                                            CornerRadius="8"
-                                            Padding="16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
+                                    <!--  Toggle Side Panel Button  -->
+                                    <Button
+                                        x:Name="ToggleSidePanelButton"
+                                        Grid.Column="3"
+                                        Click="ToggleSidePanel_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon
+                                                x:Name="SidePanelToggleIcon"
+                                                FontSize="14"
+                                                Glyph="&#xE76F;" />
+                                            <TextBlock Text="Tools" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!--  File Content Area  -->
+                            <Border
+                                Grid.Row="1"
+                                Background="White"
+                                BorderBrush="#E1E1E1"
+                                BorderThickness="1,0,1,1"
+                                CornerRadius="0,0,8,8">
+                                <Grid>
+                                    <!--  Default State: No File Selected  -->
+                                    <StackPanel
+                                        x:Name="NoFileSelectedPanel"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Spacing="16"
+                                        Visibility="{x:Bind ViewModel.SelectedChangedFile, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}">
+                                        <FontIcon
+                                            FontSize="48"
+                                            Foreground="#CCCCCC"
+                                            Glyph="&#xE8A5;" />
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            FontSize="18"
+                                            Foreground="#666666"
+                                            Text="Select a changed file to view details" />
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            FontSize="14"
+                                            Foreground="#999999"
+                                            Text="Choose from the list on the left to see file changes and editing options" />
+                                    </StackPanel>
+
+                                    <!--  File Content Editor Area  -->
+                                    <Grid x:Name="FileContentEditorGrid" Visibility="{x:Bind ViewModel.SelectedChangedFile, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+
+                                        <!--  Text Editor Area  -->
+                                        <Grid Grid.Row="0" Margin="16,0,16,16">
+                                            <!--  Editor Available State (SNBT or direct-editable)  -->
+                                            <Grid Visibility="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}">
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="8" />
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="8" />
+                                                    <RowDefinition Height="*" />
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
 
-                                                <TextBlock
-                                                    FontSize="16"
-                                                    FontWeight="SemiBold"
-                                                    Grid.ColumnSpan="2"
+                                                <!--  Editor Toolbar  -->
+                                                <Border
                                                     Grid.Row="0"
-                                                    Text="File Information" />
+                                                    Padding="12,8"
+                                                    Background="White"
+                                                    BorderBrush="#E1E1E1"
+                                                    BorderThickness="1,1,1,0"
+                                                    CornerRadius="8,8,0,0">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
 
-                                                <StackPanel
-                                                    Grid.Column="0"
+                                                        <!--  Editor Mode Indicator  -->
+                                                        <StackPanel
+                                                            Grid.Column="0"
+                                                            Orientation="Horizontal"
+                                                            Spacing="8">
+                                                            <Border
+                                                                Padding="8,4"
+                                                                Background="#E3F2FD"
+                                                                CornerRadius="12">
+                                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                    <FontIcon
+                                                                        FontSize="12"
+                                                                        Foreground="#2196F3"
+                                                                        Glyph="&#xE8A5;" />
+                                                                    <TextBlock
+                                                                        FontSize="11"
+                                                                        FontWeight="SemiBold"
+                                                                        Foreground="#2196F3"
+                                                                        Text="Text Editor" />
+                                                                </StackPanel>
+                                                            </Border>
+
+                                                            <!--  Modification Indicator  -->
+                                                            <Border
+                                                                x:Name="ModificationIndicator"
+                                                                Padding="8,4"
+                                                                Background="#FFF3CD"
+                                                                CornerRadius="12"
+                                                                Visibility="{x:Bind ViewModel.IsFileModified, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                    <FontIcon
+                                                                        FontSize="10"
+                                                                        Foreground="#856404"
+                                                                        Glyph="&#xE7C3;" />
+                                                                    <TextBlock
+                                                                        FontSize="11"
+                                                                        FontWeight="SemiBold"
+                                                                        Foreground="#856404"
+                                                                        Text="Modified" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </StackPanel>
+
+                                                        <!--  Editor Status  -->
+                                                        <StackPanel
+                                                            Grid.Column="1"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center"
+                                                            Orientation="Horizontal"
+                                                            Spacing="16">
+                                                            <TextBlock
+                                                                x:Name="LineCountDisplay"
+                                                                FontSize="11"
+                                                                Foreground="#666666"
+                                                                Text="{x:Bind ViewModel.EditorLineCount, Mode=OneWay}" />
+                                                            <TextBlock
+                                                                x:Name="CharCountDisplay"
+                                                                FontSize="11"
+                                                                Foreground="#666666"
+                                                                Text="{x:Bind ViewModel.EditorCharCount, Mode=OneWay}" />
+                                                            <TextBlock
+                                                                x:Name="CursorPositionDisplay"
+                                                                FontSize="11"
+                                                                Foreground="#666666"
+                                                                Text="{x:Bind ViewModel.CurrentCursorPosition, Mode=OneWay}" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+
+                                                <!--  Text Editor  -->
+                                                <Border
+                                                    Grid.Row="1"
+                                                    Background="White"
+                                                    BorderBrush="#E1E1E1"
+                                                    BorderThickness="1,0,1,0">
+                                                    <ScrollViewer
+                                                        HorizontalScrollBarVisibility="Auto"
+                                                        VerticalScrollBarVisibility="Auto"
+                                                        ZoomMode="Enabled">
+                                                        <TextBox
+                                                            x:Name="FileTextEditor"
+                                                            MinHeight="400"
+                                                            Padding="16"
+                                                            AcceptsReturn="True"
+                                                            Background="Transparent"
+                                                            BorderThickness="0"
+                                                            FontFamily="Consolas"
+                                                            FontSize="13"
+                                                            IsSpellCheckEnabled="False"
+                                                            PlaceholderText="File content will appear here when loaded..."
+                                                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                            SelectionChanged="TextEditor_SelectionChanged"
+                                                            Text="{x:Bind ViewModel.FileContent, Mode=TwoWay}"
+                                                            TextChanged="TextEditor_TextChanged"
+                                                            TextWrapping="NoWrap" />
+                                                    </ScrollViewer>
+                                                </Border>
+
+                                                <!--  Editor Actions  -->
+                                                <Border
                                                     Grid.Row="2"
-                                                    Spacing="4">
-                                                    <TextBlock
-                                                        FontSize="12"
-                                                        Foreground="#666666"
-                                                        Text="Path" />
-                                                    <TextBlock
-                                                        FontSize="13"
-                                                        Text="{x:Bind ViewModel.SelectedChangedFile.RelativePath, Mode=OneWay}"
-                                                        TextWrapping="Wrap" />
-                                                </StackPanel>
+                                                    Padding="12,8"
+                                                    Background="White"
+                                                    BorderBrush="#E1E1E1"
+                                                    BorderThickness="1,0,1,1"
+                                                    CornerRadius="0,0,8,8">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
 
-                                                <StackPanel
-                                                    Grid.Column="1"
-                                                    Grid.Row="2"
-                                                    Spacing="4">
-                                                    <TextBlock
-                                                        FontSize="12"
-                                                        Foreground="#666666"
-                                                        Text="Status" />
-                                                    <Border
-                                                        Background="{x:Bind ViewModel.SelectedChangedFile.StatusColor, Mode=OneWay}"
-                                                        CornerRadius="4"
-                                                        HorizontalAlignment="Left"
-                                                        Padding="8,4">
-                                                        <TextBlock
-                                                            FontSize="12"
-                                                            FontWeight="SemiBold"
-                                                            Foreground="White"
-                                                            Text="{x:Bind ViewModel.SelectedChangedFile.StatusText, Mode=OneWay}" />
-                                                    </Border>
-                                                </StackPanel>
+                                                        <!--  Validation Status  -->
+                                                        <StackPanel
+                                                            Grid.Column="0"
+                                                            VerticalAlignment="Center"
+                                                            Orientation="Horizontal"
+                                                            Spacing="8">
+                                                            <Border
+                                                                Padding="8,4"
+                                                                Background="{x:Bind ViewModel.ValidationStatus.BackgroundColor, Mode=OneWay}"
+                                                                CornerRadius="12"
+                                                                Visibility="{x:Bind ViewModel.ValidationStatus, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}">
+                                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                    <FontIcon
+                                                                        FontSize="10"
+                                                                        Foreground="{x:Bind ViewModel.ValidationStatus.ForegroundColor, Mode=OneWay}"
+                                                                        Glyph="{x:Bind ViewModel.ValidationStatus.Icon, Mode=OneWay}" />
+                                                                    <TextBlock
+                                                                        FontSize="11"
+                                                                        FontWeight="SemiBold"
+                                                                        Foreground="{x:Bind ViewModel.ValidationStatus.ForegroundColor, Mode=OneWay}"
+                                                                        Text="{x:Bind ViewModel.ValidationStatus.Message, Mode=OneWay}" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </StackPanel>
 
-                                                <StackPanel
-                                                    Grid.Column="0"
-                                                    Grid.Row="4"
-                                                    Spacing="4">
-                                                    <TextBlock
-                                                        FontSize="12"
-                                                        Foreground="#666666"
-                                                        Text="Size" />
-                                                    <TextBlock FontSize="13" Text="{x:Bind ViewModel.SelectedChangedFile.DisplaySize, Mode=OneWay}" />
-                                                </StackPanel>
-
-                                                <StackPanel
-                                                    Grid.Column="1"
-                                                    Grid.Row="4"
-                                                    Spacing="4"
-                                                    Visibility="{x:Bind ViewModel.SelectedChangedFile.ChunkCount, Mode=OneWay, Converter={StaticResource IntToVisibilityConverter}}">
-                                                    <TextBlock
-                                                        FontSize="12"
-                                                        Foreground="#666666"
-                                                        Text="Chunks" />
-                                                    <TextBlock FontSize="13" Text="{x:Bind ViewModel.SelectedChangedFile.ChunkCount, Mode=OneWay}" />
-                                                </StackPanel>
+                                                        <!--  Action Buttons  -->
+                                                        <StackPanel
+                                                            Grid.Column="2"
+                                                            Orientation="Horizontal"
+                                                            Spacing="8">
+                                                            <Button
+                                                                x:Name="ValidateButton"
+                                                                Click="ValidateContent_Click"
+                                                                IsEnabled="{x:Bind ViewModel.CanValidate, Mode=OneWay}"
+                                                                ToolTipService.ToolTip="Validate syntax">
+                                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                    <FontIcon FontSize="14" Glyph="&#xE8FB;" />
+                                                                    <TextBlock FontSize="12" Text="Validate" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                            <Button
+                                                                x:Name="ResetChangesButton"
+                                                                Click="ResetChanges_Click"
+                                                                IsEnabled="{x:Bind ViewModel.IsFileModified, Mode=OneWay}"
+                                                                ToolTipService.ToolTip="Reset to original content">
+                                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                    <FontIcon FontSize="14" Glyph="&#xE8BB;" />
+                                                                    <TextBlock FontSize="12" Text="Reset" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                            <Button
+                                                                x:Name="SaveFileButton"
+                                                                Background="#4CAF50"
+                                                                Click="SaveFileChanges_Click"
+                                                                Foreground="White"
+                                                                IsEnabled="{x:Bind ViewModel.CanSaveFile, Mode=OneWay}"
+                                                                ToolTipService.ToolTip="Save changes to file">
+                                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                    <FontIcon FontSize="14" Glyph="&#xE74E;" />
+                                                                    <TextBlock FontSize="12" Text="Save" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
                                             </Grid>
-                                        </Border>
 
-                                        <!--  Content Preview Placeholder  -->
-                                        <Border
-                                            Background="#F8F9FA"
-                                            BorderBrush="#E1E1E1"
-                                            BorderThickness="2"
-                                            CornerRadius="8"
-                                            MinHeight="300"
-                                            Padding="24">
-                                            <StackPanel
-                                                HorizontalAlignment="Center"
-                                                Spacing="16"
-                                                VerticalAlignment="Center">
-                                                <FontIcon
-                                                    FontSize="32"
-                                                    Foreground="#CCCCCC"
-                                                    Glyph="&#xE8B7;" />
-                                                <TextBlock
-                                                    FontSize="16"
-                                                    FontWeight="SemiBold"
+                                            <!--  Translation Required State (when no editable path available)  -->
+                                            <Border
+                                                Padding="32"
+                                                Background="#FFF8E1"
+                                                BorderBrush="#FFCC02"
+                                                BorderThickness="2"
+                                                CornerRadius="8"
+                                                Visibility="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}">
+                                                <StackPanel
                                                     HorizontalAlignment="Center"
-                                                    Text="Content Preview Coming Soon" />
-                                                <TextBlock
-                                                    FontSize="14"
-                                                    Foreground="#666666"
-                                                    HorizontalAlignment="Center"
-                                                    Text="This area will display:" />
-                                                <StackPanel HorizontalAlignment="Center" Spacing="8">
+                                                    VerticalAlignment="Center"
+                                                    Spacing="16">
+                                                    <FontIcon
+                                                        FontSize="48"
+                                                        Foreground="#FF9800"
+                                                        Glyph="&#xE7BA;" />
                                                     <TextBlock
-                                                        FontSize="13"
-                                                        Foreground="#666666"
-                                                        Text="• 3D Chunk View (for .mca files)"
-                                                        TextAlignment="Left" />
+                                                        HorizontalAlignment="Center"
+                                                        FontSize="18"
+                                                        FontWeight="SemiBold"
+                                                        Text="Translation Required" />
                                                     <TextBlock
-                                                        FontSize="13"
+                                                        HorizontalAlignment="Center"
+                                                        FontSize="14"
                                                         Foreground="#666666"
-                                                        Text="• SNBT Tree Editor"
-                                                        TextAlignment="Left" />
+                                                        Text="This file must be translated from binary format before editing."
+                                                        TextAlignment="Center"
+                                                        TextWrapping="Wrap" />
                                                     <TextBlock
+                                                        HorizontalAlignment="Center"
                                                         FontSize="13"
-                                                        Foreground="#666666"
-                                                        Text="• Plain Text Editor"
-                                                        TextAlignment="Left" />
-                                                    <TextBlock
-                                                        FontSize="13"
-                                                        Foreground="#666666"
-                                                        Text="• Diff Viewer"
-                                                        TextAlignment="Left" />
+                                                        Foreground="#999999"
+                                                        Text="Files are automatically translated after gameplay sessions."
+                                                        TextAlignment="Center" />
+                                                    <Button
+                                                        x:Name="ForceTranslationButton"
+                                                        Margin="0,8,0,0"
+                                                        Background="#FF9800"
+                                                        Click="ForceTranslation_Click"
+                                                        Foreground="White"
+                                                        IsEnabled="{x:Bind ViewModel.CanForceTranslation, Mode=OneWay}">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon FontSize="16" Glyph="&#xE895;" />
+                                                            <TextBlock Text="Force Translation" />
+                                                        </StackPanel>
+                                                    </Button>
                                                 </StackPanel>
-                                            </StackPanel>
-                                        </Border>
-                                    </StackPanel>
-                                </ScrollViewer>
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </Grid>
+                                            </Border>
+                                        </Grid>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </Grid>
 
-                <TextBlock
-                    HorizontalAlignment="Center"
-                    Text="Analytics tab content - Coming soon"
-                    VerticalAlignment="Center"
-                    Visibility="Collapsed"
-                    x:Name="AnalyticsContent" />
+                        <!--  Vertical Splitter  -->
+                        <Border
+                            x:Name="SidePanelSplitter"
+                            Grid.Column="1"
+                            Width="1"
+                            Background="#E1E1E1"
+                            Margin="8,0,8,0"
+                            Visibility="{x:Bind ViewModel.IsSidePanelVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                        <!--  Right Side Panel: Tools  -->
+                        <Grid
+                            x:Name="SidePanelGrid"
+                            Grid.Column="2"
+                            Margin="8,0,0,0"
+                            Visibility="{x:Bind ViewModel.IsSidePanelVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Border
+                                Background="White"
+                                BorderBrush="#E1E1E1"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <!--  Tools Header  -->
+                                    <Border
+                                        Grid.Row="0"
+                                        Padding="12,8"
+                                        Background="#F8F9FA"
+                                        CornerRadius="8,8,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock
+                                                Grid.Column="0"
+                                                VerticalAlignment="Center"
+                                                FontSize="16"
+                                                FontWeight="SemiBold"
+                                                Text="Editor Tools" />
+                                            <Button
+                                                x:Name="SidePanelCloseButton"
+                                                Grid.Column="1"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Click="ToggleSidePanel_Click"
+                                                ToolTipService.ToolTip="Hide tools panel">
+                                                <FontIcon FontSize="14" Glyph="&#xE76B;" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+
+                                    <!--  Tools Content  -->
+                                    <ScrollViewer
+                                        Grid.Row="1"
+                                        Padding="12"
+                                        VerticalScrollBarVisibility="Auto">
+                                        <StackPanel Spacing="16">
+                                            <!--  Navigation Tools  -->
+                                            <Border
+                                                Padding="10"
+                                                Background="#F8F9FA"
+                                                CornerRadius="8">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock
+                                                        FontSize="14"
+                                                        FontWeight="SemiBold"
+                                                        Text="Navigation" />
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="8" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Button
+                                                            x:Name="GoToLineButton"
+                                                            Grid.Column="0"
+                                                            HorizontalAlignment="Stretch"
+                                                            Click="GoToLine_Click"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}">
+                                                            <StackPanel Spacing="4">
+                                                                <FontIcon FontSize="14" Glyph="&#xE8A7;" />
+                                                                <TextBlock FontSize="11" Text="Go To Line" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                        <Button
+                                                            x:Name="FindReplaceButton"
+                                                            Grid.Column="2"
+                                                            HorizontalAlignment="Stretch"
+                                                            Click="FindReplace_Click"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}">
+                                                            <StackPanel Spacing="4">
+                                                                <FontIcon FontSize="14" Glyph="&#xE721;" />
+                                                                <TextBlock FontSize="11" Text="Find/Replace" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!--  Format Tools  -->
+                                            <Border
+                                                Padding="10"
+                                                Background="#F8F9FA"
+                                                CornerRadius="8">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock
+                                                        FontSize="14"
+                                                        FontWeight="SemiBold"
+                                                        Text="Format" />
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="8" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Button
+                                                            x:Name="FormatDocumentButton"
+                                                            Grid.Column="0"
+                                                            HorizontalAlignment="Stretch"
+                                                            Click="FormatDocument_Click"
+                                                            IsEnabled="{x:Bind ViewModel.CanFormat, Mode=OneWay}">
+                                                            <StackPanel Spacing="4">
+                                                                <FontIcon FontSize="14" Glyph="&#xE8E2;" />
+                                                                <TextBlock FontSize="11" Text="Format" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                        <Button
+                                                            x:Name="MinifyDocumentButton"
+                                                            Grid.Column="2"
+                                                            HorizontalAlignment="Stretch"
+                                                            Click="MinifyDocument_Click"
+                                                            IsEnabled="{x:Bind ViewModel.CanMinify, Mode=OneWay}">
+                                                            <StackPanel Spacing="4">
+                                                                <FontIcon FontSize="14" Glyph="&#xE8CB;" />
+                                                                <TextBlock FontSize="11" Text="Minify" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!--  File Operations  -->
+                                            <Border
+                                                Padding="10"
+                                                Background="#F8F9FA"
+                                                CornerRadius="8">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock
+                                                        FontSize="14"
+                                                        FontWeight="SemiBold"
+                                                        Text="File Operations" />
+                                                    <StackPanel Spacing="8">
+                                                        <Button
+                                                            x:Name="ExportFileButton"
+                                                            HorizontalAlignment="Stretch"
+                                                            Click="ExportFile_Click"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <FontIcon FontSize="14" Glyph="&#xE8C5;" />
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    Text="Export SNBT"
+                                                                    Visibility="{x:Bind ViewModel.SelectedChangedFile.IsTranslated, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    Text="Export File"
+                                                                    Visibility="{x:Bind ViewModel.SelectedChangedFile.IsTranslated, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                        <Button
+                                                            x:Name="ImportFileButton"
+                                                            HorizontalAlignment="Stretch"
+                                                            Click="ImportFile_Click"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <FontIcon FontSize="14" Glyph="&#xE8B5;" />
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    Text="Import SNBT"
+                                                                    Visibility="{x:Bind ViewModel.SelectedChangedFile.IsTranslated, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    Text="Import File"
+                                                                    Visibility="{x:Bind ViewModel.SelectedChangedFile.IsTranslated, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Invert}" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                        <Button
+                                                            x:Name="ReloadFromDiskButton"
+                                                            HorizontalAlignment="Stretch"
+                                                            Click="ReloadFromDisk_Click"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                                                                <TextBlock FontSize="12" Text="Reload from Disk" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!--  Syntax Highlighting  -->
+                                            <Border
+                                                Padding="10"
+                                                Background="#F8F9FA"
+                                                CornerRadius="8">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock
+                                                        FontSize="14"
+                                                        FontWeight="SemiBold"
+                                                        Text="View Options" />
+                                                    <StackPanel Spacing="8">
+                                                        <ToggleSwitch
+                                                            x:Name="SyntaxHighlightingToggle"
+                                                            Header="Syntax Highlighting"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}"
+                                                            IsOn="{x:Bind ViewModel.IsSyntaxHighlightingEnabled, Mode=TwoWay}" />
+                                                        <ToggleSwitch
+                                                            x:Name="LineNumbersToggle"
+                                                            Header="Line Numbers"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}"
+                                                            IsOn="{x:Bind ViewModel.AreLineNumbersVisible, Mode=TwoWay}" />
+                                                        <ToggleSwitch
+                                                            x:Name="WordWrapToggle"
+                                                            Header="Word Wrap"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}"
+                                                            IsOn="{x:Bind ViewModel.IsWordWrapEnabled, Mode=TwoWay}"
+                                                            Toggled="WordWrapToggle_Toggled" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!--  Font Settings  -->
+                                            <Border
+                                                Padding="12"
+                                                Background="#F8F9FA"
+                                                CornerRadius="8">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock
+                                                        FontSize="14"
+                                                        FontWeight="SemiBold"
+                                                        Text="Font Settings" />
+                                                    <StackPanel Spacing="8">
+                                                        <ComboBox
+                                                            x:Name="FontFamilyComboBox"
+                                                            Width="220"
+                                                            Header="Font Family"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}"
+                                                            SelectedItem="{x:Bind ViewModel.SelectedFontFamily, Mode=OneWay}"
+                                                            SelectionChanged="FontFamilyComboBox_SelectionChanged">
+                                                            <x:String>Consolas</x:String>
+                                                            <x:String>Courier New</x:String>
+                                                            <x:String>Cascadia Code</x:String>
+                                                            <x:String>Cascadia Mono</x:String>
+                                                            <x:String>Fira Code</x:String>
+                                                        </ComboBox>
+                                                        <ComboBox
+                                                            x:Name="FontSizeComboBox"
+                                                            Width="220"
+                                                            Header="Font Size"
+                                                            IsEnabled="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToBoolConverter}}"
+                                                            SelectedItem="{x:Bind ViewModel.EditorFontSize, Mode=OneWay}"
+                                                            SelectionChanged="FontSizeComboBox_SelectionChanged">
+                                                            <x:Double>8</x:Double>
+                                                            <x:Double>9</x:Double>
+                                                            <x:Double>10</x:Double>
+                                                            <x:Double>11</x:Double>
+                                                            <x:Double>12</x:Double>
+                                                            <x:Double>13</x:Double>
+                                                            <x:Double>14</x:Double>
+                                                            <x:Double>15</x:Double>
+                                                            <x:Double>16</x:Double>
+                                                            <x:Double>17</x:Double>
+                                                            <x:Double>18</x:Double>
+                                                            <x:Double>19</x:Double>
+                                                            <x:Double>20</x:Double>
+                                                            <x:Double>21</x:Double>
+                                                            <x:Double>22</x:Double>
+                                                            <x:Double>23</x:Double>
+                                                            <x:Double>24</x:Double>
+                                                        </ComboBox>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <TextBlock
+                        x:Name="AnalyticsContent"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Text="Analytics tab content - Coming soon"
+                        Visibility="Collapsed" />
+                </Grid>
             </Grid>
         </Grid>
     </Grid>

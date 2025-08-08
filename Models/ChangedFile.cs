@@ -21,6 +21,29 @@ public class ChangedFile
     public string StatusColor { get; set; } = "#2196F3";
 
     /// <summary>
+    /// Indicates if this file has been translated to an editable SNBT representation
+    /// according to the "one translation, then use" workflow. When true, the SNBT
+    /// path should be available under the save's GitMC mirror folder.
+    /// </summary>
+    public bool IsTranslated { get; set; }
+
+    /// <summary>
+    /// If translated, holds the absolute path to the SNBT file to edit.
+    /// </summary>
+    public string? SnbtPath { get; set; }
+
+    /// <summary>
+    /// True when this file can be edited directly without translation (e.g., .txt, .json, .mcfunction).
+    /// </summary>
+    public bool IsDirectEditable { get; set; }
+
+    /// <summary>
+    /// The effective path the editor should load/save. For SNBT, this is SnbtPath; for direct-editable files, this is FullPath.
+    /// Null when the file is not currently editable.
+    /// </summary>
+    public string? EditorPath { get; set; }
+
+    /// <summary>
     /// For region files, contains the associated chunk files
     /// </summary>
     public ObservableCollection<ChunkInfo>? AssociatedChunks { get; set; }
