@@ -1,5 +1,4 @@
 using Windows.ApplicationModel.Core;
-using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.UI.Core;
 using GitMC.Services;
@@ -35,18 +34,18 @@ public sealed partial class DebugPage : Page
             picker.FileTypeFilter.Add("*");
 
             // Get current window handle for the picker
-            Window? window = App.MainWindow;
-            IntPtr hWnd = WindowNative.GetWindowHandle(window);
+            var window = App.MainWindow;
+            var hWnd = WindowNative.GetWindowHandle(window);
             InitializeWithWindow.Initialize(picker, hWnd);
 
-            StorageFile? file = await picker.PickSingleFileAsync();
+            var file = await picker.PickSingleFileAsync();
             if (file != null)
             {
                 _selectedFilePath = file.Path;
                 SelectedFileTextBlock.Text = Path.GetFileName(_selectedFilePath);
 
                 // Check if it's an Anvil file
-                string extension = Path.GetExtension(_selectedFilePath).ToLowerInvariant();
+                var extension = Path.GetExtension(_selectedFilePath).ToLowerInvariant();
                 _isAnvilFile = await CommonHelpers.IsAnvilRelatedFileAsync(_selectedFilePath, extension);
 
                 // Show appropriate UI panels
@@ -63,7 +62,7 @@ public sealed partial class DebugPage : Page
                     ConvertSnbtToMcaButton.IsEnabled = true;
 
                     // Disable NBT buttons for .mca files (but not .mcc)
-                    bool enableNbtActions = extension == ".mcc";
+                    var enableNbtActions = extension == ".mcc";
                     ConvertToSnbtButton.IsEnabled = enableNbtActions;
                     ValidateFileButton.IsEnabled = enableNbtActions;
                 }
@@ -99,12 +98,12 @@ public sealed partial class DebugPage : Page
         {
             if (_isAnvilFile)
             {
-                bool isValid = await _nbtService.IsValidAnvilFileAsync(_selectedFilePath!);
+                var isValid = await _nbtService.IsValidAnvilFileAsync(_selectedFilePath!);
                 var fileInfo = new FileInfo(_selectedFilePath!);
 
                 if (Path.GetExtension(_selectedFilePath)?.ToLowerInvariant() == ".mca")
                 {
-                    AnvilRegionInfo regionInfo = await _nbtService.GetRegionInfoAsync(_selectedFilePath!);
+                    var regionInfo = await _nbtService.GetRegionInfoAsync(_selectedFilePath!);
                     FileInfoTextBlock.Text =
                         $"Anvil Region File | Size: {fileInfo.Length / 1024.0:F1} KB | Valid: {(isValid ? "Yes" : "No")}";
                     OutputTextBox.Text = $"📁 Anvil Region File Analysis\n" +
@@ -122,13 +121,13 @@ public sealed partial class DebugPage : Page
                     // .mcc file
                     FileInfoTextBlock.Text =
                         $"Oversized Chunk File | Size: {fileInfo.Length / 1024.0:F1} KB | Valid: {(isValid ? "Yes" : "No")}";
-                    string nbtInfo = await _nbtService.GetNbtFileInfoAsync(_selectedFilePath!);
+                    var nbtInfo = await _nbtService.GetNbtFileInfoAsync(_selectedFilePath!);
                     OutputTextBox.Text = $"📦 Oversized Chunk File Analysis\n{nbtInfo}";
                 }
             }
             else
             {
-                string fileInfo = await _nbtService.GetNbtFileInfoAsync(_selectedFilePath!);
+                var fileInfo = await _nbtService.GetNbtFileInfoAsync(_selectedFilePath!);
                 var file = new FileInfo(_selectedFilePath!);
                 FileInfoTextBlock.Text = $"NBT/DAT File | Size: {file.Length / 1024.0:F1} KB";
                 OutputTextBox.Text = fileInfo;
@@ -152,7 +151,7 @@ public sealed partial class DebugPage : Page
         try
         {
             OutputTextBox.Text = "Loading region information...";
-            AnvilRegionInfo regionInfo = await _nbtService.GetRegionInfoAsync(_selectedFilePath);
+            var regionInfo = await _nbtService.GetRegionInfoAsync(_selectedFilePath);
 
             OutputTextBox.Text = $"🗺️ Region Information\n" +
                                  $"{new string('=', 50)}\n" +
@@ -183,18 +182,18 @@ public sealed partial class DebugPage : Page
         try
         {
             OutputTextBox.Text = "Listing chunks...";
-            List<AnvilChunkInfo> chunks = await _nbtService.ListChunksInRegionAsync(_selectedFilePath);
+            var chunks = await _nbtService.ListChunksInRegionAsync(_selectedFilePath);
             var validChunks = chunks.Where(c => c.IsValid).ToList();
 
-            string output = $"📋 Chunk List ({validChunks.Count} valid chunks)\n" +
-                            $"{new string('=', 80)}\n" +
-                            $"{"Chunk Coords",-15} {"Local",-8} {"Offset",-8} {"Sectors",-8} {"Size",-10} {"Compression",-12} {"Last Modified",-20}\n" +
-                            $"{new string('-', 80)}\n";
+            var output = $"📋 Chunk List ({validChunks.Count} valid chunks)\n" +
+                         $"{new string('=', 80)}\n" +
+                         $"{"Chunk Coords",-15} {"Local",-8} {"Offset",-8} {"Sectors",-8} {"Size",-10} {"Compression",-12} {"Last Modified",-20}\n" +
+                         $"{new string('-', 80)}\n";
 
-            foreach (AnvilChunkInfo chunk in validChunks.Take(50)) // Limit to first 50 chunks
+            foreach (var chunk in validChunks.Take(50)) // Limit to first 50 chunks
             {
-                string compressionStr = chunk.IsOversized ? "Oversized" : chunk.CompressionType.ToString();
-                string sizeStr = chunk.IsOversized ? "External" : $"{chunk.DataSize} B";
+                var compressionStr = chunk.IsOversized ? "Oversized" : chunk.CompressionType.ToString();
+                var sizeStr = chunk.IsOversized ? "External" : $"{chunk.DataSize} B";
 
                 output += $"({chunk.ChunkX},{chunk.ChunkZ})"
                               .PadRight(15) +
@@ -232,11 +231,11 @@ public sealed partial class DebugPage : Page
 
         try
         {
-            int chunkX = (int)ChunkXNumberBox.Value;
-            int chunkZ = (int)ChunkZNumberBox.Value;
+            var chunkX = (int)ChunkXNumberBox.Value;
+            var chunkZ = (int)ChunkZNumberBox.Value;
 
             OutputTextBox.Text = $"Extracting chunk ({chunkX}, {chunkZ})...";
-            string chunkData = await _nbtService.ExtractChunkDataAsync(_selectedFilePath, chunkX, chunkZ);
+            var chunkData = await _nbtService.ExtractChunkDataAsync(_selectedFilePath, chunkX, chunkZ);
 
             OutputTextBox.Text = $"🎯 Chunk Data ({chunkX}, {chunkZ})\n" +
                                  $"{new string('=', 50)}\n" +
@@ -300,11 +299,11 @@ public sealed partial class DebugPage : Page
             picker.SuggestedFileName = "converted";
 
             // Get current window handle for the picker
-            Window? window = App.MainWindow;
-            IntPtr hWnd = WindowNative.GetWindowHandle(window);
+            var window = App.MainWindow;
+            var hWnd = WindowNative.GetWindowHandle(window);
             InitializeWithWindow.Initialize(picker, hWnd);
 
-            StorageFile? file = await picker.PickSaveFileAsync();
+            var file = await picker.PickSaveFileAsync();
             if (file != null)
             {
                 OutputTextBox.Text = "Translating to NBT...";
@@ -341,7 +340,7 @@ public sealed partial class DebugPage : Page
                 isValid = await _nbtService.IsValidAnvilFileAsync(_selectedFilePath);
                 if (Path.GetExtension(_selectedFilePath).ToLowerInvariant() == ".mca")
                 {
-                    AnvilRegionInfo regionInfo = await _nbtService.GetRegionInfoAsync(_selectedFilePath);
+                    var regionInfo = await _nbtService.GetRegionInfoAsync(_selectedFilePath);
                     fileInfo =
                         $"Anvil Region File\nRegion: ({regionInfo.RegionX}, {regionInfo.RegionZ})\nChunks: {regionInfo.ValidChunks}/{regionInfo.TotalChunks}";
                 }
@@ -392,7 +391,7 @@ public sealed partial class DebugPage : Page
 
                 // Create test instance and run with progress reporting
                 var test = new RoundtripConversionTest(progress);
-                bool success = await Task.Run(async () =>
+                var success = await Task.Run(async () =>
                 {
                     try
                     {
@@ -424,7 +423,7 @@ public sealed partial class DebugPage : Page
                 OutputTextBox.Text += "\nRunning NBT round-trip test...\n";
 
                 var test = new NbtRoundTripTest();
-                bool success = await Task.Run(async () =>
+                var success = await Task.Run(async () =>
                 {
                     try
                     {
@@ -491,11 +490,11 @@ public sealed partial class DebugPage : Page
             picker.SuggestedFileName = Path.GetFileNameWithoutExtension(_selectedFilePath);
 
             // Get current window handle for the picker
-            Window? window = App.MainWindow;
-            IntPtr hWnd = WindowNative.GetWindowHandle(window);
+            var window = App.MainWindow;
+            var hWnd = WindowNative.GetWindowHandle(window);
             InitializeWithWindow.Initialize(picker, hWnd);
 
-            StorageFile? file = await picker.PickSaveFileAsync();
+            var file = await picker.PickSaveFileAsync();
             if (file != null)
             {
                 // Create progress reporter to update UI
@@ -541,11 +540,11 @@ public sealed partial class DebugPage : Page
             openPicker.FileTypeFilter.Add("*");
 
             // Get current window handle for the picker
-            Window? window = App.MainWindow;
-            IntPtr hWnd = WindowNative.GetWindowHandle(window);
+            var window = App.MainWindow;
+            var hWnd = WindowNative.GetWindowHandle(window);
             InitializeWithWindow.Initialize(openPicker, hWnd);
 
-            StorageFile? snbtFile = await openPicker.PickSingleFileAsync();
+            var snbtFile = await openPicker.PickSingleFileAsync();
             if (snbtFile == null)
             {
                 OutputTextBox.Text = "No SNBT file selected.";
@@ -561,7 +560,7 @@ public sealed partial class DebugPage : Page
 
             InitializeWithWindow.Initialize(savePicker, hWnd);
 
-            StorageFile? mcaFile = await savePicker.PickSaveFileAsync();
+            var mcaFile = await savePicker.PickSaveFileAsync();
             if (mcaFile != null)
             {
                 // Create progress reporter to update UI

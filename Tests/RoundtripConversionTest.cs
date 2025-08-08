@@ -1,5 +1,4 @@
 using GitMC.Services;
-using GitMC.Utils;
 using GitMC.Utils.Mca;
 
 namespace GitMC.Tests;
@@ -40,7 +39,7 @@ public class RoundtripConversionTest
             }
 
             // Step 1: Convert MCA to SNBT
-            string snbtPath = Path.Combine(_testDataPath,
+            var snbtPath = Path.Combine(_testDataPath,
                 $"step1_{Path.GetFileNameWithoutExtension(originalMcaPath)}.snbt");
             ReportProgress("Step 1: Converting MCA to SNBT...");
 
@@ -54,11 +53,11 @@ public class RoundtripConversionTest
                 return false;
             }
 
-            long snbtSize = new FileInfo(snbtPath).Length;
+            var snbtSize = new FileInfo(snbtPath).Length;
             ReportProgress($"✓ SNBT file created: {snbtPath} ({snbtSize:N0} bytes)");
 
             // Step 2: Convert SNBT back to MCA
-            string reconstructedMcaPath = Path.Combine(_testDataPath, $"step2_{Path.GetFileName(originalMcaPath)}");
+            var reconstructedMcaPath = Path.Combine(_testDataPath, $"step2_{Path.GetFileName(originalMcaPath)}");
             ReportProgress("Step 2: Converting SNBT back to MCA...");
             _nbtService.ConvertSnbtToRegionFile(snbtPath, reconstructedMcaPath);
 
@@ -68,12 +67,12 @@ public class RoundtripConversionTest
                 return false;
             }
 
-            long reconstructedSize = new FileInfo(reconstructedMcaPath).Length;
+            var reconstructedSize = new FileInfo(reconstructedMcaPath).Length;
             ReportProgress($"✓ Reconstructed MCA file created: {reconstructedMcaPath} ({reconstructedSize:N0} bytes)");
 
             // Step 3: Verify the reconstructed MCA file structure
             ReportProgress("Step 3: Verifying reconstructed MCA file...");
-            McaVerificationResult verificationResult = await VerifyMcaFile(reconstructedMcaPath);
+            var verificationResult = await VerifyMcaFile(reconstructedMcaPath);
 
             if (!verificationResult.IsValid)
             {
@@ -87,7 +86,7 @@ public class RoundtripConversionTest
 
             // Step 4: Compare chunk data (optional detailed verification)
             ReportProgress("Step 4: Comparing chunk data integrity...");
-            ChunkComparisonResult comparisonResult = await CompareChunkData(originalMcaPath, reconstructedMcaPath);
+            var comparisonResult = await CompareChunkData(originalMcaPath, reconstructedMcaPath);
 
             if (!comparisonResult.Success)
                 ReportProgress($"WARNING: Chunk data comparison detected differences: {comparisonResult.Message}");
@@ -130,8 +129,8 @@ public class RoundtripConversionTest
             using var mcaFile = new McaRegionFile(mcaPath);
             await mcaFile.LoadAsync();
 
-            List<Point2I> chunks = mcaFile.GetExistingChunks();
-            long fileSize = new FileInfo(mcaPath).Length;
+            var chunks = mcaFile.GetExistingChunks();
+            var fileSize = new FileInfo(mcaPath).Length;
 
             return new McaVerificationResult
             {
@@ -160,8 +159,8 @@ public class RoundtripConversionTest
             await originalMca.LoadAsync();
             await reconstructedMca.LoadAsync();
 
-            List<Point2I> originalChunks = originalMca.GetExistingChunks();
-            List<Point2I> reconstructedChunks = reconstructedMca.GetExistingChunks();
+            var originalChunks = originalMca.GetExistingChunks();
+            var reconstructedChunks = reconstructedMca.GetExistingChunks();
 
             if (originalChunks.Count != reconstructedChunks.Count)
                 return new ChunkComparisonResult
@@ -189,7 +188,7 @@ public class RoundtripConversionTest
     private async Task GenerateTestReport(string originalPath, string snbtPath, string reconstructedPath,
         McaVerificationResult verification, ChunkComparisonResult comparison)
     {
-        string reportPath = Path.Combine(_testDataPath, $"roundtrip_report_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+        var reportPath = Path.Combine(_testDataPath, $"roundtrip_report_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
 
         using var writer = new StreamWriter(reportPath);
         await writer.WriteLineAsync("=== MCA Roundtrip Conversion Test Report ===");
@@ -224,7 +223,7 @@ public class RoundtripConversionTest
         await writer.WriteLineAsync();
 
         await writer.WriteLineAsync("=== Test Summary ===");
-        string overallResult = verification.IsValid && comparison.Success ? "SUCCESS" : "PARTIAL SUCCESS";
+        var overallResult = verification.IsValid && comparison.Success ? "SUCCESS" : "PARTIAL SUCCESS";
         await writer.WriteLineAsync($"Overall Result: {overallResult}");
 
         Console.WriteLine($@"Test report generated: {reportPath}");
@@ -236,7 +235,7 @@ public class RoundtripConversionTest
     public async Task<bool> RunSampleTest()
     {
         // Look for sample MCA files in the mcfiles/region directory
-        string regionPath = Path.Combine(Environment.CurrentDirectory, "mcfiles", "region");
+        var regionPath = Path.Combine(Environment.CurrentDirectory, "mcfiles", "region");
 
         if (!Directory.Exists(regionPath))
         {
@@ -244,7 +243,7 @@ public class RoundtripConversionTest
             return false;
         }
 
-        string[] mcaFiles = Directory.GetFiles(regionPath, "*.mca");
+        var mcaFiles = Directory.GetFiles(regionPath, "*.mca");
         if (mcaFiles.Length == 0)
         {
             Console.WriteLine($@"No MCA files found in: {regionPath}");
@@ -252,7 +251,7 @@ public class RoundtripConversionTest
         }
 
         // Test with the first MCA file found
-        string sampleFile = mcaFiles[0];
+        var sampleFile = mcaFiles[0];
         Console.WriteLine($@"Using sample file: {sampleFile}");
 
         return await TestRoundtripConversion(sampleFile);

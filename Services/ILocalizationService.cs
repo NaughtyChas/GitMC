@@ -36,7 +36,7 @@ public class LocalizationService : ILocalizationService
     {
         try
         {
-            string? value = _resourceManager.GetString(key, _currentCulture);
+            var value = _resourceManager.GetString(key, _currentCulture);
             return value ?? key; // Return key if localization not found
         }
         catch
@@ -47,7 +47,7 @@ public class LocalizationService : ILocalizationService
 
     public string GetLocalizedString(string key, params object[] args)
     {
-        string format = GetLocalizedString(key);
+        var format = GetLocalizedString(key);
         try
         {
             return string.Format(format, args);

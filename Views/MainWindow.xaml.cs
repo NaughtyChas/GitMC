@@ -1,13 +1,13 @@
 using System.Diagnostics;
-using GitMC.Models;
+using Windows.Graphics;
+using GitMC.Extensions;
 using GitMC.Services;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Navigation;
-using Windows.Graphics;
 
 namespace GitMC.Views;
 
-public partial class MainWindow
+public sealed partial class MainWindow : Window
 {
     private readonly IConfigurationService _configurationService;
     private readonly IDataStorageService _dataStorageService;
@@ -18,11 +18,11 @@ public partial class MainWindow
     {
         InitializeComponent();
 
-        // Initialize services
-        _dataStorageService = new DataStorageService();
-        _configurationService = new ConfigurationService();
-        IGitService gitService = new GitService(_configurationService);
-        _onboardingService = new OnboardingService(gitService, _configurationService);
+        // Initialize services using ServiceFactory for consistency
+        var services = ServiceFactory.Services;
+        _dataStorageService = services.DataStorage;
+        _configurationService = services.Configuration;
+        _onboardingService = services.Onboarding;
         _managedSaveService = new ManagedSaveService(_dataStorageService);
 
         SetWindowProperties();
@@ -42,7 +42,7 @@ public partial class MainWindow
             await _onboardingService.InitializeAsync();
 
             // Determine target page and navigate directly
-            Type targetPageType = GetHomeTargetPageType();
+            var targetPageType = GetHomeTargetPageType();
             ContentFrame.Navigate(targetPageType);
         }
         catch
@@ -75,7 +75,7 @@ public partial class MainWindow
         catch
         {
             // If there's any error accessing the filesystem, fall back to onboarding check
-            OnboardingStepStatus[] statuses = _onboardingService.StepStatuses;
+            var statuses = _onboardingService.StepStatuses;
             if (statuses.Length > 4 &&
                 statuses[4] == OnboardingStepStatus.Completed) return 1; // At least one save exists based on onboarding
             return 0;
@@ -107,7 +107,7 @@ public partial class MainWindow
         const int defaultHeight = 800;
 
         // Check if this is the first launch
-        bool isFirstLaunch = !_configurationService.IsFirstLaunchComplete;
+        var isFirstLaunch = !_configurationService.IsFirstLaunchComplete;
 
         if (isFirstLaunch)
         {
@@ -118,8 +118,8 @@ public partial class MainWindow
             var displayArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
             if (displayArea != null)
             {
-                int centerX = (displayArea.WorkArea.Width - defaultWidth) / 2;
-                int centerY = (displayArea.WorkArea.Height - defaultHeight) / 2;
+                var centerX = (displayArea.WorkArea.Width - defaultWidth) / 2;
+                var centerY = (displayArea.WorkArea.Height - defaultHeight) / 2;
                 AppWindow.Move(new PointInt32(centerX, centerY));
             }
 
@@ -130,10 +130,10 @@ public partial class MainWindow
         else
         {
             // Restore saved window size and position
-            int savedWidth = (int)Math.Max(_configurationService.WindowWidth, minWidth);
-            int savedHeight = (int)Math.Max(_configurationService.WindowHeight, minHeight);
-            int savedX = (int)_configurationService.WindowX;
-            int savedY = (int)_configurationService.WindowY;
+            var savedWidth = (int)Math.Max(_configurationService.WindowWidth, minWidth);
+            var savedHeight = (int)Math.Max(_configurationService.WindowHeight, minHeight);
+            var savedX = (int)_configurationService.WindowX;
+            var savedY = (int)_configurationService.WindowY;
 
             AppWindow.Resize(new SizeInt32(savedWidth, savedHeight));
             AppWindow.Move(new PointInt32(savedX, savedY));
@@ -155,13 +155,18 @@ public partial class MainWindow
         ContentFrame.Navigate(pageType);
     }
 
-    public void AddSaveToNavigation(string saveName, string savePath)
+    public void NavigateToSaveDetail(string saveId)
+    {
+        ContentFrame.Navigate(typeof(SaveDetailPage), saveId);
+    }
+
+    public void AddSaveToNavigation(string saveName, string saveId)
     {
         NavView.MenuItems.Add(new NavigationViewItem
         {
             Content = saveName,
             Icon = new SymbolIcon(Symbol.Folder),
-            Tag = savePath
+            Tag = saveId
         });
     }
 
@@ -169,8 +174,8 @@ public partial class MainWindow
     {
         try
         {
-            List<ManagedSaveInfo> managedSaves = await _managedSaveService.GetManagedSaves();
-            foreach (ManagedSaveInfo save in managedSaves) AddSaveToNavigation(save.Name, save.OriginalPath);
+            var managedSaves = await _managedSaveService.GetManagedSaves();
+            foreach (var save in managedSaves) AddSaveToNavigation(save.Name, save.Id);
         }
         catch (Exception ex)
         {
@@ -187,14 +192,14 @@ public partial class MainWindow
         }
         else
         {
-            NavigationViewItemBase? item = args.InvokedItemContainer;
+            var item = args.InvokedItemContainer;
             if (item != null)
             {
-                string? tag = item.Tag?.ToString();
+                var tag = item.Tag?.ToString();
                 if (tag == "Home")
                 {
                     // Get the target home page type and only navigate if different
-                    Type targetPageType = GetHomeTargetPageType();
+                    var targetPageType = GetHomeTargetPageType();
                     if (ContentFrame.CurrentSourcePageType != targetPageType) ContentFrame.Navigate(targetPageType);
                 }
                 else if (tag == "Console")
@@ -207,7 +212,11 @@ public partial class MainWindow
                     if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
                         ContentFrame.Navigate(typeof(SettingsPage));
                 }
-                // Potentially handle save-specific navigation here
+                else if (!string.IsNullOrEmpty(tag))
+                {
+                    // Handle save-specific navigation - tag should be the save ID
+                    NavigateToSaveDetail(tag);
+                }
             }
         }
     }
@@ -223,11 +232,11 @@ public partial class MainWindow
             var selectedItem = args.SelectedItem as NavigationViewItem;
             if (selectedItem != null)
             {
-                string? tag = selectedItem.Tag?.ToString();
+                var tag = selectedItem.Tag?.ToString();
                 if (tag == "Home")
                 {
                     // Get the target home page type and only navigate if different
-                    Type targetPageType = GetHomeTargetPageType();
+                    var targetPageType = GetHomeTargetPageType();
                     if (ContentFrame.CurrentSourcePageType != targetPageType) ContentFrame.Navigate(targetPageType);
                 }
                 else if (tag == "Console")
@@ -240,7 +249,11 @@ public partial class MainWindow
                     if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
                         ContentFrame.Navigate(typeof(SettingsPage));
                 }
-                // Potentially handle save-specific navigation here
+                else if (!string.IsNullOrEmpty(tag))
+                {
+                    // Handle save-specific navigation - tag should be the save ID
+                    NavigateToSaveDetail(tag);
+                }
             }
         }
     }
@@ -253,15 +266,14 @@ public partial class MainWindow
     private void ContentFrame_Navigated(object sender, NavigationEventArgs e)
     {
         // NavView.IsBackEnabled = ContentFrame.CanGoBack;
-        // IsBackButtonEnabled 已通过 XAML 绑定到 ContentFrame.CanGoBack
-        UpdateNavigationSelection(e.SourcePageType);
+        UpdateNavigationSelection(e.SourcePageType, e.Parameter);
     }
 
-    private void UpdateNavigationSelection(Type pageType)
+    private void UpdateNavigationSelection(Type pageType, object? parameter = null)
     {
         if (pageType == typeof(HomePage))
         {
-            foreach (object? item in NavView.MenuItems)
+            foreach (var item in NavView.MenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Home")
                 {
                     NavView.SelectedItem = navItem;
@@ -272,8 +284,18 @@ public partial class MainWindow
         {
             // When HomePage routes to OnboardingPage or SaveManagementPage,
             // keep Home selected to maintain navigation state
-            foreach (object? item in NavView.MenuItems)
+            foreach (var item in NavView.MenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Home")
+                {
+                    NavView.SelectedItem = navItem;
+                    break;
+                }
+        }
+        else if (pageType == typeof(SaveDetailPage) && parameter is string saveId)
+        {
+            // For SaveDetailPage, find the corresponding save navigation item by saveId
+            foreach (var item in NavView.MenuItems)
+                if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == saveId)
                 {
                     NavView.SelectedItem = navItem;
                     break;
@@ -281,7 +303,7 @@ public partial class MainWindow
         }
         else if (pageType == typeof(ConsolePage))
         {
-            foreach (object? item in NavView.FooterMenuItems)
+            foreach (var item in NavView.FooterMenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Console")
                 {
                     NavView.SelectedItem = navItem;
@@ -291,7 +313,7 @@ public partial class MainWindow
         else if (pageType == typeof(SettingsPage))
         {
             // Look for custom Settings item in FooterMenuItems
-            foreach (object? item in NavView.FooterMenuItems)
+            foreach (var item in NavView.FooterMenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Settings")
                 {
                     NavView.SelectedItem = navItem;
@@ -305,7 +327,7 @@ public partial class MainWindow
         {
             // For debug/tools pages, keep settings selected since they're accessed from settings
             // Look for custom Settings item in FooterMenuItems
-            foreach (object? item in NavView.FooterMenuItems)
+            foreach (var item in NavView.FooterMenuItems)
                 if (item is NavigationViewItem navItem && navItem.Tag?.ToString() == "Settings")
                 {
                     NavView.SelectedItem = navItem;
@@ -330,10 +352,10 @@ public partial class MainWindow
 
         if (args.DidSizeChange)
         {
-            SizeInt32 currentSize = sender.Size;
-            bool needsResize = false;
-            int newWidth = currentSize.Width;
-            int newHeight = currentSize.Height;
+            var currentSize = sender.Size;
+            var needsResize = false;
+            var newWidth = currentSize.Width;
+            var newHeight = currentSize.Height;
 
             if (currentSize.Width < minWidth)
             {

@@ -53,6 +53,7 @@ public interface IGitService
     Task<string> GetDiffAsync(string? filePath = null, string? workingDirectory = null);
     Task<bool> ResetAsync(string mode = "mixed", string? target = null, string? workingDirectory = null);
     Task<bool> CloneAsync(string url, string targetPath, string? branchName = null);
+    Task<string?> GetCurrentCommitHashAsync(string? workingDirectory = null);
 }
 
 public class GitCommandResult

@@ -13,23 +13,23 @@ public static class StringUtils
     {
         if (fileName.StartsWith("r."))
         {
-            ReadOnlySpan<char> nameSpan = fileName.AsSpan();
+            var nameSpan = fileName.AsSpan();
             if (nameSpan.Length > 2) // "r." + at least one char
             {
-                ReadOnlySpan<char> remaining = nameSpan[2..]; // Skip "r."
+                var remaining = nameSpan[2..]; // Skip "r."
 
                 // Find first dot
-                int firstDot = remaining.IndexOf('.');
+                var firstDot = remaining.IndexOf('.');
                 if (firstDot > 0)
                 {
-                    ReadOnlySpan<char> xSpan = remaining[..firstDot];
-                    ReadOnlySpan<char> afterFirstDot = remaining[(firstDot + 1)..];
+                    var xSpan = remaining[..firstDot];
+                    var afterFirstDot = remaining[(firstDot + 1)..];
 
                     // Find second dot (or end of string)
-                    int secondDot = afterFirstDot.IndexOf('.');
-                    ReadOnlySpan<char> zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
+                    var secondDot = afterFirstDot.IndexOf('.');
+                    var zSpan = secondDot >= 0 ? afterFirstDot[..secondDot] : afterFirstDot;
 
-                    if (int.TryParse(xSpan, out int x) && int.TryParse(zSpan, out int z))
+                    if (int.TryParse(xSpan, out var x) && int.TryParse(zSpan, out var z))
                         return (x, z);
                 }
             }

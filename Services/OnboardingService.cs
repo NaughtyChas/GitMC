@@ -122,7 +122,7 @@ public class OnboardingService : IOnboardingService
     public async Task MoveToNextStep()
     {
         // Find next incomplete step
-        for (int i = CurrentStepIndex + 1; i < StepStatuses.Length; i++)
+        for (var i = CurrentStepIndex + 1; i < StepStatuses.Length; i++)
             if (StepStatuses[i] != OnboardingStepStatus.Completed)
             {
                 // Mark previous step as completed if it's verified
@@ -141,12 +141,12 @@ public class OnboardingService : IOnboardingService
 
     public async Task RefreshAllSteps()
     {
-        bool hasChanges = false;
+        var hasChanges = false;
 
         // First pass: Update completion status based on actual conditions
-        for (int i = 0; i < _steps.Length; i++)
+        for (var i = 0; i < _steps.Length; i++)
         {
-            bool isComplete = await CheckStepStatus(i);
+            var isComplete = await CheckStepStatus(i);
 
             if (isComplete && StepStatuses[i] != OnboardingStepStatus.Completed)
             {
@@ -156,8 +156,8 @@ public class OnboardingService : IOnboardingService
         }
 
         // Second pass: Find the current step (first non-completed step)
-        int newCurrentStep = -1;
-        for (int i = 0; i < StepStatuses.Length; i++)
+        var newCurrentStep = -1;
+        for (var i = 0; i < StepStatuses.Length; i++)
             if (StepStatuses[i] != OnboardingStepStatus.Completed)
             {
                 newCurrentStep = i;
@@ -222,7 +222,8 @@ public class OnboardingService : IOnboardingService
             {
                 Title = "Git System Setup",
                 ShortDescription = "Choose your Git implementation",
-                FullDescription = "GitMC includes built-in Git support which works without installing Git. You can download and install system Git for enhanced functionality and ecosystem compatibility, or skip to use the built-in system.",
+                FullDescription =
+                    "GitMC includes built-in Git support which works without installing Git. You can download and install system Git for enhanced functionality and ecosystem compatibility, or skip to use the built-in system.",
                 StatusChecker = CheckGitSystemSetup
             },
             new OnboardingStep
@@ -252,7 +253,7 @@ public class OnboardingService : IOnboardingService
         };
 
         StepStatuses = new OnboardingStepStatus[_steps.Length];
-        for (int i = 0; i < StepStatuses.Length; i++)
+        for (var i = 0; i < StepStatuses.Length; i++)
             StepStatuses[i] = i == 0 ? OnboardingStepStatus.Current : OnboardingStepStatus.NotStarted;
     }
 
@@ -265,13 +266,10 @@ public class OnboardingService : IOnboardingService
     private async Task<bool> CheckGitSystemSetup()
     {
         // Check if user has already made a choice (download Git or use built-in)
-        if (_configurationService.IsGitSystemConfigured)
-        {
-            return true;
-        }
+        if (_configurationService.IsGitSystemConfigured) return true;
 
         // Auto-detect if system Git is installed
-        bool isGitInstalled = await _gitService.IsInstalledAsync();
+        var isGitInstalled = await _gitService.IsInstalledAsync();
         if (isGitInstalled)
         {
             // Auto-complete step if Git is detected
@@ -325,10 +323,10 @@ public class OnboardingService : IOnboardingService
     {
         try
         {
-            string managedSavesPath = GetManagedSavesStoragePath();
+            var managedSavesPath = GetManagedSavesStoragePath();
             if (!Directory.Exists(managedSavesPath)) return false;
 
-            string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+            var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
             return jsonFiles.Length > 0;
         }
         catch
