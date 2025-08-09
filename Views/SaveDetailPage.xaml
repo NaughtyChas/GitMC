@@ -410,6 +410,11 @@
                         <FontIcon Glyph="&#xE9D9;" />
                     </SelectorBarItem.Icon>
                 </SelectorBarItem>
+                <SelectorBarItem x:Name="SettingsTab" Text="Settings">
+                    <SelectorBarItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </SelectorBarItem.Icon>
+                </SelectorBarItem>
             </SelectorBar>
 
             <!--  Separator Line  -->
@@ -504,11 +509,20 @@
                                 <!--  Status InfoBar  -->
                                 <InfoBar
                                     x:Name="StatusInfoBar"
-                                    Title="Working tree clean"
+                                        Title="Working tree clean"
                                     IsClosable="False"
                                     IsOpen="True"
                                     Message="All changes are committed and synchronized"
-                                    Severity="Success" />
+                                    Severity="Success">
+                                    <InfoBar.ActionButton>
+                                            <Button x:Name="TranslateButton" Click="TranslateButton_Click" Visibility="Collapsed">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon FontSize="14" Glyph="&#xE74E;" />
+                                                    <TextBlock FontSize="12" Text="Translate" />
+                                            </StackPanel>
+                                        </Button>
+                                    </InfoBar.ActionButton>
+                                </InfoBar>
 
                                 <!--  Status Grid - Two Columns with Enhanced Layout  -->
                                 <Grid>
@@ -518,7 +532,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <!--  Left Column: Sync & Branch Status - Enhanced with Border  -->
+                                    <!--  Left Column: Translation Status - Enhanced with Border  -->
                                     <Border
                                         Grid.Column="0"
                                         Padding="12"
@@ -537,88 +551,61 @@
                                                     FontSize="13"
                                                     FontWeight="SemiBold"
                                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                    Text="Sync &amp; Branch Status" />
+                                                    Text="Translation Status" />
                                             </StackPanel>
 
-                                            <!--  Sync Progress Section  -->
+                                            <!--  Translation Progress Section  -->
                                             <StackPanel Spacing="6">
                                                 <TextBlock
                                                     FontSize="11"
-                                                    FontWeight="Medium"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Text="Sync Progress" />
-                                                <Grid>
+                                                    Foreground="#666666"
+                                                    Text="Current Translation" />
+                                                <Grid ColumnSpacing="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-
-                                                    <ProgressBar
-                                                        x:Name="SyncProgressBar"
-                                                        Grid.Column="0"
-                                                        Height="6"
-                                                        Margin="0,0,8,0"
-                                                        VerticalAlignment="Center"
-                                                        Value="100" />
-
-                                                    <TextBlock
-                                                        x:Name="SyncProgressText"
-                                                        Grid.Column="1"
-                                                        VerticalAlignment="Center"
-                                                        FontSize="12"
-                                                        FontWeight="SemiBold"
-                                                        Text="100%" />
+                                                    <ProgressBar x:Name="TranslationProgressBar" Height="4" Minimum="0" Maximum="100" Value="0" />
+                                                    <TextBlock Grid.Column="1" x:Name="TranslationProgressText" FontSize="11" Foreground="#666666" Text="Idle" />
                                                 </Grid>
+                                                <TextBlock x:Name="TranslationStepText" FontSize="11" Foreground="#999999" Text="Waiting..." />
                                             </StackPanel>
 
                                             <!--  Separator  -->
-                                            <Border
-                                                Height="1"
-                                                Margin="0,2"
-                                                Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                            <Border Height="1" Margin="0,2" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                            <!--  Ahead / Behind row  -->
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel
+                                                    Grid.Column="0"
+                                                    Orientation="Horizontal"
+                                                    Spacing="4">
+                                                    <TextBlock FontSize="12" Text="Ahead" />
+                                                    <TextBlock
+                                                        x:Name="AheadCommitsText"
+                                                        FontSize="12"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="#22C55E"
+                                                        Text="0 commits" />
+                                                </StackPanel>
 
-                                            <!--  Ahead/Behind Status Section  -->
-                                            <StackPanel Spacing="6">
-                                                <TextBlock
-                                                    FontSize="11"
-                                                    FontWeight="Medium"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Text="Commit Status" />
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <!--  Ahead  -->
-                                                    <StackPanel
-                                                        Grid.Column="0"
-                                                        Orientation="Horizontal"
-                                                        Spacing="4">
-                                                        <TextBlock FontSize="12" Text="Ahead" />
-                                                        <TextBlock
-                                                            x:Name="AheadCommitsText"
-                                                            FontSize="12"
-                                                            FontWeight="SemiBold"
-                                                            Foreground="#22C55E"
-                                                            Text="0 commits" />
-                                                    </StackPanel>
-
-                                                    <!--  Behind  -->
-                                                    <StackPanel
-                                                        Grid.Column="1"
-                                                        Orientation="Horizontal"
-                                                        Spacing="4">
-                                                        <TextBlock FontSize="12" Text="Behind" />
-                                                        <TextBlock
-                                                            x:Name="BehindCommitsText"
-                                                            FontSize="12"
-                                                            FontWeight="SemiBold"
-                                                            Foreground="#EF4444"
-                                                            Text="0 commits" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </StackPanel>
+                                                <!--  Behind  -->
+                                                <StackPanel
+                                                    Grid.Column="1"
+                                                    Orientation="Horizontal"
+                                                    Spacing="4">
+                                                    <TextBlock FontSize="12" Text="Behind" />
+                                                    <TextBlock
+                                                        x:Name="BehindCommitsText"
+                                                        FontSize="12"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="#EF4444"
+                                                        Text="0 commits" />
+                                                </StackPanel>
+                                            </Grid>
 
                                             <!--  Separator  -->
                                             <Border
@@ -2600,6 +2587,22 @@
                         VerticalAlignment="Center"
                         Text="Analytics tab content - Coming soon"
                         Visibility="Collapsed" />
+
+                    <!--  Settings Tab Content  -->
+                    <Grid x:Name="SettingsContent" Visibility="Collapsed">
+                        <Border Background="White" BorderBrush="#E1E1E1" BorderThickness="1" CornerRadius="8" Padding="16">
+                            <StackPanel Spacing="16">
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="Save Settings" />
+                                <StackPanel Spacing="8">
+                                    <ToggleSwitch x:Name="AutoTranslateToggle"
+                                                  Header="Auto-translate when world is idle"
+                                                  IsOn="{x:Bind ViewModel.SaveInfo.AutoTranslateOnIdle, Mode=TwoWay}"
+                                                  Toggled="AutoTranslateToggle_Toggled" />
+                                    <TextBlock FontSize="12" Foreground="#666666" Text="When enabled, GitMC will translate changes automatically once the game releases file locks." />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Grid>
         </Grid>

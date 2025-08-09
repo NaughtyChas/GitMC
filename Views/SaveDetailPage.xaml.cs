@@ -1083,6 +1083,15 @@ namespace GitMC.Views
                 statusInfoBar.Message = GetStatusDescription(ViewModel.SaveInfo);
                 statusInfoBar.Severity = GetStatusSeverity(ViewModel.SaveInfo);
                 statusInfoBar.IsOpen = true;
+
+                // Show manual Translate action when there are uncommitted changes
+                if (FindName("TranslateButton") is Button tacButton)
+                {
+                    tacButton.Visibility = ViewModel.SaveInfo.CurrentStatus == ManagedSaveInfo.SaveStatus.Modified
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                    tacButton.IsEnabled = !ViewModel.IsCommitInProgress;
+                }
             }
         }
 
@@ -1462,6 +1471,7 @@ namespace GitMC.Views
                     "HistoryTab" => "History",
                     "ChangesTab" => "Changes",
                     "AnalyticsTab" => "Analytics",
+                    "SettingsTab" => "Settings",
                     _ => "Overview"
                 };
 
@@ -1484,6 +1494,8 @@ namespace GitMC.Views
                     changesContent.Visibility = Visibility.Collapsed;
                 if (FindName("AnalyticsContent") is TextBlock analyticsContent)
                     analyticsContent.Visibility = Visibility.Collapsed;
+                if (FindName("SettingsContent") is Grid settingsContent)
+                    settingsContent.Visibility = Visibility.Collapsed;
 
                 // Show selected tab content
                 switch (tabName)
@@ -1515,6 +1527,10 @@ namespace GitMC.Views
                         if (FindName("AnalyticsContent") is TextBlock analytics)
                             analytics.Visibility = Visibility.Visible;
                         break;
+                    case "Settings":
+                        if (FindName("SettingsContent") is Grid settings)
+                            settings.Visibility = Visibility.Visible;
+                        break;
                 }
 
                 ViewModel.CurrentTab = tabName;
@@ -1522,6 +1538,79 @@ namespace GitMC.Views
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in NavigateToTab: {ex.Message}");
+            }
+        }
+
+        private bool _autoCommitInProgress;
+
+        private async void TranslateButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (ViewModel.SaveInfo?.Path == null || _autoCommitInProgress) return;
+
+            try
+            {
+                ViewModel.IsCommitInProgress = true;
+                _autoCommitInProgress = true;
+
+                // Wire up translation progress to the Translation Status UI
+                if (FindName("TranslationStepText") is TextBlock stepText &&
+                    FindName("TranslationProgressBar") is ProgressBar pb &&
+                    FindName("TranslationProgressText") is TextBlock pct)
+                {
+                    stepText.Text = "Starting translation...";
+                    pb.Value = 0;
+                    pct.Text = "0%";
+                }
+
+                var progress = new Progress<SaveInitStep>(step =>
+                {
+                    Debug.WriteLine($"Translate: {step.Message}");
+                    if (FindName("TranslationStepText") is TextBlock s) s.Text = step.Message ?? string.Empty;
+                    if (FindName("TranslationProgressBar") is ProgressBar p && step.TotalProgress > 0)
+                    {
+                        var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
+                        p.Value = value;
+                    }
+                    if (FindName("TranslationProgressText") is TextBlock t && step.TotalProgress > 0)
+                    {
+                        var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
+                        t.Text = $"{value:F0}%";
+                    }
+                });
+
+                var ok = await _saveInitializationService.TranslateChangedAsync(ViewModel.SaveInfo.Path, progress);
+
+                if (ok)
+                {
+                    await LoadSaveDetailAsync();
+                    await UpdateChangeDetectionDataAsync();
+                    if (FindName("TranslationStepText") is TextBlock s) s.Text = "Translation complete";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"TranslateButton_Click error: {ex.Message}");
+            }
+            finally
+            {
+                ViewModel.IsCommitInProgress = false;
+                _autoCommitInProgress = false;
+                UpdateStatusInfoBar();
+            }
+        }
+
+        private async void AutoTranslateToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (ViewModel.SaveInfo != null)
+                {
+                    await _managedSaveService.UpdateManagedSave(ViewModel.SaveInfo);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to persist AutoTranslateOnIdle: {ex.Message}");
             }
         }
 
@@ -2034,6 +2123,18 @@ namespace GitMC.Views
                     DispatcherQueue.TryEnqueue(async () =>
                     {
                         await UpdateChangeDetectionDataAsync();
+
+                        // Auto-translate when enabled and idle (no locks)
+                        if (ViewModel.SaveInfo?.AutoTranslateOnIdle == true &&
+                            ViewModel.SaveInfo.CurrentStatus == ManagedSaveInfo.SaveStatus.Modified &&
+                            !_autoCommitInProgress && !ViewModel.IsCommitInProgress)
+                        {
+                            var inUse = await IsSaveInUseAsync(ViewModel.SaveInfo.Path);
+                            if (!inUse)
+                            {
+                                TranslateButton_Click(this, new RoutedEventArgs());
+                            }
+                        }
                     });
                 }
                 catch (Exception ex)
@@ -2041,6 +2142,50 @@ namespace GitMC.Views
                     Debug.WriteLine($"Error in change detection timer: {ex.Message}");
                 }
             }, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+        }
+
+        private async Task<bool> IsSaveInUseAsync(string savePath)
+        {
+            try
+            {
+                // Simple heuristic: try to open common files exclusively to detect locks
+                var candidates = new[]
+                {
+                    System.IO.Path.Combine(savePath, "level.dat"),
+                    System.IO.Path.Combine(savePath, "region"),
+                    System.IO.Path.Combine(savePath, "region2"),
+                };
+
+                foreach (var candidate in candidates)
+                {
+                    if (Directory.Exists(candidate))
+                    {
+                        var mca = Directory.EnumerateFiles(candidate, "*.mca").FirstOrDefault();
+                        if (mca != null && IsFileLocked(mca)) return true;
+                    }
+                    else if (File.Exists(candidate) && IsFileLocked(candidate))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch { /* ignore */ }
+
+            await Task.CompletedTask;
+            return false;
+        }
+
+        private static bool IsFileLocked(string path)
+        {
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         /// <summary>
@@ -2634,20 +2779,56 @@ namespace GitMC.Views
             return Path.Combine(gitMc, normalizedRel) + ".snbt";
         }
 
+        private string? GetAnyChunkSnbtForMca(string mcaRelativePath)
+        {
+            try
+            {
+                // mcaRelativePath like "region/r.x.z.mca"
+                var fileName = Path.GetFileNameWithoutExtension(mcaRelativePath);
+                var parts = fileName.Split('.');
+                if (parts.Length >= 3 && parts[0] == "r" && int.TryParse(parts[1], out var rx) && int.TryParse(parts[2], out var rz))
+                {
+                    var dir = Path.Combine(GetGitMcFolder(), "region", $"r.{rx}.{rz}.mca");
+                    if (Directory.Exists(dir))
+                    {
+                        var first = Directory.EnumerateFiles(dir, "chunk_*_*.snbt").FirstOrDefault();
+                        return first;
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+
         private void TryPopulateTranslationInfo(ChangedFile file)
         {
             try
             {
-                var snbtPath = GetSnbtPathForRelative(file.RelativePath);
-                // Consider translated if .snbt exists or chunk mode marker exists
-                var isTranslated = File.Exists(snbtPath) || File.Exists(snbtPath + ".chunk_mode") ||
-                                   Directory.Exists(Path.ChangeExtension(snbtPath, ".chunks"));
+                string? snbtPath = null;
+                var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
+                if (ext == ".mca")
+                {
+                    // For region files, look for any chunk SNBT under GitMC/region/r.x.z.mca
+                    snbtPath = GetAnyChunkSnbtForMca(file.RelativePath);
+                }
+                else
+                {
+                    snbtPath = GetSnbtPathForRelative(file.RelativePath);
+                }
+
+                bool isTranslated = false;
+                if (!string.IsNullOrEmpty(snbtPath))
+                {
+                    if (ext == ".mca")
+                        isTranslated = File.Exists(snbtPath);
+                    else
+                        isTranslated = File.Exists(snbtPath) || File.Exists(snbtPath + ".chunk_mode") || Directory.Exists(Path.ChangeExtension(snbtPath, ".chunks"));
+                }
 
                 file.IsTranslated = isTranslated;
                 file.SnbtPath = isTranslated ? snbtPath : null;
 
                 // Determine if original file is directly editable (text-based)
-                var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
                 // Common editable text formats
                 var directEditable = ext is ".txt" or ".json" or ".md" or ".log" or ".mcfunction" or ".mcmeta" or ".cfg" or ".ini" or ".csv" or ".yaml" or ".yml" or ".toml" or ".xml" or ".properties" or ".snbt";
                 // Treat zero-length extension but small file as possibly text? Keep conservative: require known extensions.
@@ -2677,6 +2858,19 @@ namespace GitMC.Views
             {
                 ViewModel.ValidationStatus = null;
                 var editorPath = ViewModel.SelectedChangedFile?.EditorPath;
+                // If MCA selected and not translated, show a hint text instead of empty editor
+                if (ViewModel.SelectedChangedFile is { } sel && string.IsNullOrEmpty(editorPath))
+                {
+                    var ext = Path.GetExtension(sel.FullPath).ToLowerInvariant();
+                    if (ext == ".mca")
+                    {
+                        _originalFileContent = string.Empty;
+                        ViewModel.FileContent = "This region file is not translated yet. Click 'Translate' in the InfoBar or 'Force Translation' in Tools to generate SNBT for viewing.";
+                        ViewModel.IsFileModified = false;
+                        UpdateEditorMetrics();
+                        return;
+                    }
+                }
                 if (!string.IsNullOrEmpty(editorPath))
                 {
                     // Normalize to absolute
@@ -2889,23 +3083,29 @@ namespace GitMC.Views
             {
                 if (ViewModel.SelectedChangedFile is not { } file || ViewModel.SaveInfo?.Path == null) return;
 
-                var snbtPath = GetSnbtPathForRelative(file.RelativePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(snbtPath)!);
-
-                var progress = new Progress<string>(msg => Debug.WriteLine($"Translation: {msg}"));
-                await _nbtService.ConvertToSnbtAsync(file.FullPath, snbtPath, progress);
+                var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
+                if (ext == ".mca")
+                {
+                    // Trigger translation for changed chunks in the save; simplest and consistent
+                    var stepProgress = new Progress<SaveInitStep>(s => Debug.WriteLine($"Translate: {s.Message}"));
+                    await _saveInitializationService.TranslateChangedAsync(ViewModel.SaveInfo.Path, stepProgress);
+                }
+                else
+                {
+                    var snbtPath = GetSnbtPathForRelative(file.RelativePath);
+                    Directory.CreateDirectory(Path.GetDirectoryName(snbtPath)!);
+                    var progress = new Progress<string>(msg => Debug.WriteLine($"Translation: {msg}"));
+                    await _nbtService.ConvertToSnbtAsync(file.FullPath, snbtPath, progress);
+                }
 
                 // Refresh translation state and reload
-                file.IsTranslated = File.Exists(snbtPath);
-                file.SnbtPath = file.IsTranslated ? snbtPath : null;
-                // Also refresh editor path and direct-edit flag
                 TryPopulateTranslationInfo(file);
                 // Update toggles based on new editor context
                 ViewModel.CanForceTranslation = !file.IsTranslated && !file.IsDirectEditable;
                 var path = file.SnbtPath ?? file.EditorPath ?? file.FullPath;
-                var ext = string.IsNullOrEmpty(path) ? string.Empty : Path.GetExtension(path).ToLowerInvariant();
-                ViewModel.IsSnbtContext = ext == ".snbt";
-                ViewModel.IsJsonContext = ext == ".json";
+                var newExt = string.IsNullOrEmpty(path) ? string.Empty : Path.GetExtension(path).ToLowerInvariant();
+                ViewModel.IsSnbtContext = newExt == ".snbt";
+                ViewModel.IsJsonContext = newExt == ".json";
                 ViewModel.CanValidate = ViewModel.IsSnbtContext || ViewModel.IsJsonContext;
                 ViewModel.CanFormat = ViewModel.CanValidate;
                 ViewModel.CanMinify = ViewModel.CanValidate;
@@ -3129,12 +3329,12 @@ namespace GitMC.Views
                         CommentHandling = JsonCommentHandling.Skip
                     });
                     var opts = new JsonWriterOptions { Indented = true, SkipValidation = false, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-                    var buffer = new System.Buffers.ArrayBufferWriter<byte>();
-                    using (var writer = new Utf8JsonWriter(buffer, opts))
+                    using var ms = new MemoryStream();
+                    using (var writer = new Utf8JsonWriter(ms, opts))
                     {
                         doc.WriteTo(writer);
                     }
-                    ViewModel.FileContent = System.Text.Encoding.UTF8.GetString(buffer.WrittenSpan);
+                    ViewModel.FileContent = System.Text.Encoding.UTF8.GetString(ms.ToArray());
                 }
                 else
                 {
@@ -3170,12 +3370,12 @@ namespace GitMC.Views
                         CommentHandling = JsonCommentHandling.Skip
                     });
                     var opts = new JsonWriterOptions { Indented = false, SkipValidation = false, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-                    var buffer = new System.Buffers.ArrayBufferWriter<byte>();
-                    using (var writer = new Utf8JsonWriter(buffer, opts))
+                    using var ms = new MemoryStream();
+                    using (var writer = new Utf8JsonWriter(ms, opts))
                     {
                         doc.WriteTo(writer);
                     }
-                    ViewModel.FileContent = System.Text.Encoding.UTF8.GetString(buffer.WrittenSpan);
+                    ViewModel.FileContent = System.Text.Encoding.UTF8.GetString(ms.ToArray());
                 }
                 else
                 {

@@ -47,6 +47,9 @@ public class ManagedSaveInfo
 
     public SaveStatus CurrentStatus { get; set; } = SaveStatus.Clear;
 
+    // Preferences (persisted per save)
+    public bool AutoTranslateOnIdle { get; set; } = false;
+
     // Computed properties
     [JsonIgnore] public string SizeFormatted => CommonHelpers.FormatFileSize(Size);
 

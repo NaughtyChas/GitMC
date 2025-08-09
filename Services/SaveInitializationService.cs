@@ -203,7 +203,15 @@ public class SaveInitializationService : ISaveInitializationService
                 progressWrapper.Report(steps[6]);
                 await Task.Delay(100); // Brief pause for UI update
 
-                await _manifestService.UpdatePendingEntriesAsync(gitMcPath, commitHash);
+                var initUpdated = await _manifestService.UpdatePendingEntriesAsync(gitMcPath, commitHash);
+                if (initUpdated > 0)
+                {
+                    // Stage manifest and amend the commit so manifest and files share the same commit
+                    await _gitService.StageFileAsync("manifest.json", gitMcPath);
+                    var amendInit = await _gitService.AmendLastCommitAsync(null, gitMcPath);
+                    if (!amendInit.Success)
+                        throw new InvalidOperationException($"Failed to amend initial commit with manifest: {amendInit.ErrorMessage}");
+                }
 
                 // Clean up SNBT files from working directory after successful commit
                 currentOperation++;
@@ -1036,7 +1044,19 @@ public class SaveInitializationService : ISaveInitializationService
             step.Message = "Updating manifest with pending entries...";
             progress?.Report(step);
 
-            await _manifestService.UpdateManifestForChangesAsync(gitMcPath, changedChunks.Where(c => c != null).ToList());
+            // Build absolute paths to changed SNBT files so manifest normalizer can trim properly
+            var changedSnbtAbsolute = new List<string>();
+            foreach (var chunkFileName in changedChunks)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(chunkFileName, @"chunk_(-?\d+)_(-?\d+)\.snbt");
+                if (match.Success && int.TryParse(match.Groups[1].Value, out var cx) && int.TryParse(match.Groups[2].Value, out var cz))
+                {
+                    var rx = cx >> 5; var rz = cz >> 5;
+                    var full = Path.Combine(gitMcPath, "region", $"r.{rx}.{rz}.mca", chunkFileName);
+                    changedSnbtAbsolute.Add(full);
+                }
+            }
+            await _manifestService.UpdateManifestForChangesAsync(gitMcPath, changedSnbtAbsolute);
 
             // Step 4: Stage changed SNBT files and manifest
             currentOperation++;
@@ -1067,7 +1087,16 @@ public class SaveInitializationService : ISaveInitializationService
             step.Message = "Updating manifest with commit hash...";
             progress?.Report(step);
 
-            await _manifestService.UpdatePendingEntriesAsync(gitMcPath, commitHash);
+            var updated = await _manifestService.UpdatePendingEntriesAsync(gitMcPath, commitHash);
+            if (updated > 0)
+            {
+                // Stage manifest and amend commit so manifest is in the same commit
+                var manifestPath = Path.Combine(gitMcPath, "manifest.json");
+                await _gitService.StageFileAsync(manifestPath, gitMcPath);
+                var amend = await _gitService.AmendLastCommitAsync(null, gitMcPath);
+                if (!amend.Success)
+                    throw new InvalidOperationException($"Failed to amend commit with manifest: {amend.ErrorMessage}");
+            }
 
             // Step 7: Cleanup working directory (remove committed SNBT files)
             currentOperation++;
@@ -1092,6 +1121,77 @@ public class SaveInitializationService : ISaveInitializationService
     }
 
     /// <summary>
+    /// Translate ongoing changes to SNBT without committing
+    /// </summary>
+    public async Task<bool> TranslateChangedAsync(string savePath, IProgress<SaveInitStep>? progress = null)
+    {
+        var step = new SaveInitStep { Name = "Translating Changes", Description = "Exporting changes to SNBT (no commit)" };
+        var totalOperations = 4; // Detect, Export, Update manifest (pending), Cleanup old temp
+        var currentOperation = 0;
+
+        try
+        {
+            var gitMcPath = Path.Combine(savePath, "GitMC");
+
+            // Step 1: Detect changed chunks
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.TotalProgress = totalOperations;
+            step.Message = "Detecting changed chunks...";
+            progress?.Report(step);
+
+            var changedChunks = await DetectChangedChunksAsync(savePath);
+            if (changedChunks.Count == 0)
+            {
+                step.Message = "No changes detected - nothing to translate";
+                progress?.Report(step);
+                return true;
+            }
+
+            // Step 2: Export only changed chunks to SNBT
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = $"Exporting {changedChunks.Count} chunk(s) to SNBT...";
+            progress?.Report(step);
+
+            await ExportChangedChunksToSnbt(savePath, changedChunks, step, progress);
+
+            // Step 3: Update manifest with pending entries (no hash assigned yet)
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Updating manifest (pending entries)...";
+            progress?.Report(step);
+
+            var changedSnbtAbsolute = new List<string>();
+            foreach (var chunkFileName in changedChunks)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(chunkFileName, @"chunk_(-?\d+)_(-?\d+)\.snbt");
+                if (match.Success && int.TryParse(match.Groups[1].Value, out var cx) && int.TryParse(match.Groups[2].Value, out var cz))
+                {
+                    var rx = cx >> 5; var rz = cz >> 5;
+                    var full = Path.Combine(gitMcPath, "region", $"r.{rx}.{rz}.mca", chunkFileName);
+                    changedSnbtAbsolute.Add(full);
+                }
+            }
+            await _manifestService.UpdateManifestForChangesAsync(gitMcPath, changedSnbtAbsolute);
+
+            // Step 4: Finalize
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Translation complete";
+            progress?.Report(step);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            step.Message = $"Failed to translate changes: {ex.Message}";
+            progress?.Report(step);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Detect changed chunks compared to the last committed state
     /// </summary>
     /// <param name="savePath">Path to the save directory</param>
@@ -1105,7 +1205,10 @@ public class SaveInitializationService : ISaveInitializationService
             // Get Git status to find modified .mca files
             var gitStatus = await _gitService.GetStatusAsync(savePath);
             var modifiedMcaFiles = gitStatus.ModifiedFiles
+                .Concat(gitStatus.UntrackedFiles)
+                .Concat(gitStatus.DeletedFiles)
                 .Where(f => f.EndsWith(".mca", StringComparison.OrdinalIgnoreCase))
+                .Distinct()
                 .ToList();
 
             foreach (var mcaFile in modifiedMcaFiles)
@@ -1115,9 +1218,24 @@ public class SaveInitializationService : ISaveInitializationService
                 // Use file hash comparison to determine if the .mca file actually changed
                 if (await IsFileActuallyChanged(savePath, mcaFile))
                 {
-                    // Get all chunks from this .mca file that need to be exported
-                    var chunksInMca = await GetChunksFromMcaFile(fullMcaPath);
-                    changedChunks.AddRange(chunksInMca);
+                    // Try to list actual chunks from file; if file missing (deleted), skip export here
+                    if (File.Exists(fullMcaPath))
+                    {
+                        try
+                        {
+                            var chunks = await _nbtService.ListChunksInRegionAsync(fullMcaPath);
+                            foreach (var c in chunks.Where(c => c.IsValid))
+                            {
+                                changedChunks.Add($"chunk_{c.ChunkX}_{c.ChunkZ}.snbt");
+                            }
+                        }
+                        catch
+                        {
+                            // Fallback to coarse 32x32 if listing fails
+                            var fallback = await GetChunksFromMcaFile(fullMcaPath);
+                            changedChunks.AddRange(fallback);
+                        }
+                    }
                 }
             }
 
@@ -1253,9 +1371,8 @@ public class SaveInitializationService : ISaveInitializationService
     /// </summary>
     private async Task StageChangedFiles(string gitMcPath, List<string> changedChunks)
     {
-        // Stage the manifest file
-        var manifestPath = Path.Combine(gitMcPath, "manifest.json");
-        await _gitService.StageFileAsync(manifestPath, gitMcPath);
+        // Stage the manifest file (relative path)
+        await _gitService.StageFileAsync("manifest.json", gitMcPath);
 
         // Stage each changed SNBT file
         foreach (var chunkFileName in changedChunks)
@@ -1267,12 +1384,10 @@ public class SaveInitializationService : ISaveInitializationService
             {
                 var regionX = chunkX >> 5;
                 var regionZ = chunkZ >> 5;
-                var snbtPath = Path.Combine(gitMcPath, "region", $"r.{regionX}.{regionZ}.mca", chunkFileName);
-
-                if (File.Exists(snbtPath))
-                {
-                    await _gitService.StageFileAsync(snbtPath, gitMcPath);
-                }
+                var relativeSnbtPath = Path.Combine("region", $"r.{regionX}.{regionZ}.mca", chunkFileName);
+                var fullSnbtPath = Path.Combine(gitMcPath, relativeSnbtPath);
+                if (File.Exists(fullSnbtPath))
+                    await _gitService.StageFileAsync(relativeSnbtPath, gitMcPath);
             }
         }
     }

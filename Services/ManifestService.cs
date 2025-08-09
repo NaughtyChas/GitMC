@@ -34,8 +34,8 @@ public class ManifestService : IManifestService
             // Normalize path separators to forward slashes for consistency
             relativePath = relativePath.Replace(Path.DirectorySeparatorChar, '/');
 
-            // Add entry with "init" commit for initial manifest
-            manifest.AddEntry(relativePath, "init", deleted: false);
+            // Add entry with placeholder commit for initial manifest; will be updated after commit
+            manifest.AddEntry(relativePath, "pending", deleted: false);
         }
 
         await SaveManifestAsync(gitMcPath, manifest);
@@ -99,8 +99,14 @@ public class ManifestService : IManifestService
 
         foreach (var snbtFile in changedSnbtFiles)
         {
-            // Normalize path separators to forward slashes for consistency
+            // Normalize to manifest key relative to GitMC root and starting with 'region/'
             var normalizedPath = snbtFile.Replace(Path.DirectorySeparatorChar, '/');
+            if (normalizedPath.StartsWith(gitMcPath.Replace(Path.DirectorySeparatorChar, '/') + "/", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedPath = normalizedPath.Substring(gitMcPath.Replace(Path.DirectorySeparatorChar, '/').Length + 1);
+            }
+            // If it still contains leading './', trim it
+            if (normalizedPath.StartsWith("./")) normalizedPath = normalizedPath.Substring(2);
 
             // Update or add entry
             manifest.AddEntry(normalizedPath, commitHash, deleted: false);
@@ -167,7 +173,17 @@ public class ManifestService : IManifestService
     {
         try
         {
-            var manifest = await LoadManifestAsync(gitMcPath);
+            // Load manifest content from the specified commit to get the correct view
+            var manifestContent = await GetSnbtFileFromCommitAsync(gitMcPath, "manifest.json", targetCommit);
+            GitMCManifest manifest;
+            if (!string.IsNullOrEmpty(manifestContent))
+            {
+                manifest = JsonSerializer.Deserialize<GitMCManifest>(manifestContent!) ?? new GitMCManifest();
+            }
+            else
+            {
+                manifest = await LoadManifestAsync(gitMcPath);
+            }
             var activeFiles = manifest.GetActiveSnbtFiles(targetCommit);
 
             // Create output directory

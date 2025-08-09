@@ -32,6 +32,14 @@ public interface ISaveInitializationService
     Task<bool> CommitOngoingChangesAsync(string savePath, string commitMessage, IProgress<SaveInitStep>? progress = null);
 
     /// <summary>
+    ///     Translate ongoing changes to SNBT without committing
+    /// </summary>
+    /// <param name="savePath">Path to the save directory</param>
+    /// <param name="progress">Progress callback for step updates</param>
+    /// <returns>True if translation completed (even if no changes)</returns>
+    Task<bool> TranslateChangedAsync(string savePath, IProgress<SaveInitStep>? progress = null);
+
+    /// <summary>
     ///     Detect changed chunks compared to the last committed state
     /// </summary>
     /// <param name="savePath">Path to the save directory</param>

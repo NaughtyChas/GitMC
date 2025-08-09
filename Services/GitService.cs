@@ -474,6 +474,40 @@ public class GitService : IGitService
         }
     }
 
+    public async Task<GitOperationResult> AmendLastCommitAsync(string? message = null, string? workingDirectory = null)
+    {
+        try
+        {
+            await Task.Run(() =>
+            {
+                var repoPath = workingDirectory ?? _currentDirectory;
+                using var repo = new Repository(repoPath);
+
+                // Ensure there are staged changes to amend
+                var status = repo.RetrieveStatus();
+                var hasIndexChanges = status.Any(s => s.State.HasFlag(FileStatus.ModifiedInIndex) || s.State.HasFlag(FileStatus.NewInIndex) || s.State.HasFlag(FileStatus.DeletedFromIndex));
+                if (!hasIndexChanges)
+                    throw new LibGit2SharpException("No staged changes to amend");
+
+                // Build signature and message
+                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                var newMessage = message ?? repo.Head.Tip.Message;
+
+                // Amend commit
+                repo.Commit(newMessage, signature, signature, new CommitOptions { AmendPreviousCommit = true });
+            });
+            return GitOperationResult.CreateSuccess();
+        }
+        catch (LibGit2SharpException ex)
+        {
+            return GitOperationResult.CreateFailure($"Amend failed: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return GitOperationResult.CreateFailure($"Unexpected error during amend: {ex.Message}");
+        }
+    }
+
     public async Task<GitCommit[]> GetCommitHistoryAsync(int count = 50, string? workingDirectory = null)
     {
         try
