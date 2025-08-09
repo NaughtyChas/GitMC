@@ -38,6 +38,12 @@ public class ChangedFile
     public bool IsDirectEditable { get; set; }
 
     /// <summary>
+    /// True when this file type is known/supported for translation to SNBT (e.g., .mca regions, NBT dat files).
+    /// Used to avoid showing force-translation affordances for unsupported or unknown types.
+    /// </summary>
+    public bool IsTranslatable { get; set; }
+
+    /// <summary>
     /// The effective path the editor should load/save. For SNBT, this is SnbtPath; for direct-editable files, this is FullPath.
     /// Null when the file is not currently editable.
     /// </summary>

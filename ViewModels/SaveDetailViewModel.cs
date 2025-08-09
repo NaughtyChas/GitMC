@@ -17,6 +17,7 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private string _commitMessage = string.Empty;
     private string _commitDescription = string.Empty;
     private bool _isCommitInProgress;
+    private bool _canTranslate;
 
     // Editor-related state for the Changes tab
     private string _fileContent = string.Empty;
@@ -98,7 +99,10 @@ public class SaveDetailViewModel : INotifyPropertyChanged
             _selectedChangedFile = value;
             OnPropertyChanged();
             // Update feature toggles based on selection
-            CanForceTranslation = _selectedChangedFile != null && !_selectedChangedFile.IsTranslated && !(_selectedChangedFile?.IsDirectEditable ?? false);
+            CanForceTranslation = _selectedChangedFile != null
+                                   && !_selectedChangedFile.IsTranslated
+                                   && !(_selectedChangedFile?.IsDirectEditable ?? false)
+                                   && (_selectedChangedFile?.IsTranslatable ?? false);
             // Determine context by extension of EditorPath (or SnbtPath)
             var path = _selectedChangedFile?.EditorPath ?? _selectedChangedFile?.SnbtPath ?? _selectedChangedFile?.FullPath;
             var ext = string.IsNullOrEmpty(path) ? string.Empty : System.IO.Path.GetExtension(path).ToLowerInvariant();
@@ -143,6 +147,12 @@ public class SaveDetailViewModel : INotifyPropertyChanged
             _isCommitInProgress = value;
             OnPropertyChanged();
         }
+    }
+
+    public bool CanTranslate
+    {
+        get => _canTranslate;
+        set { _canTranslate = value; OnPropertyChanged(); }
     }
 
     public string FileContent

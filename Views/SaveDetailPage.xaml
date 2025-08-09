@@ -332,6 +332,21 @@
                                 Text="1" />
                         </Border>
                     </Grid>
+
+                    <!--  Translate Button (Primary action)  -->
+                    <Button
+                        x:Name="TranslatePrimaryButton"
+                        Click="TranslateButton_Click"
+                        Style="{StaticResource AccentButtonStyle}"
+                        IsEnabled="{x:Bind ViewModel.CanTranslate, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="16" Glyph="&#xE74E;" />
+                            <TextBlock Text="Translate" />
+                        </StackPanel>
+                        <ToolTipService.ToolTip>
+                            <ToolTip Content="Translate changed binary data to SNBT when the world is idle" />
+                        </ToolTipService.ToolTip>
+                    </Button>
                 </StackPanel>
 
                 <!--  Right Side Controls  -->
@@ -509,19 +524,14 @@
                                 <!--  Status InfoBar  -->
                                 <InfoBar
                                     x:Name="StatusInfoBar"
-                                        Title="Working tree clean"
+                                    Title="Working tree clean"
                                     IsClosable="False"
                                     IsOpen="True"
                                     Message="All changes are committed and synchronized"
                                     Severity="Success">
-                                    <InfoBar.ActionButton>
-                                            <Button x:Name="TranslateButton" Click="TranslateButton_Click" Visibility="Collapsed">
-                                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <FontIcon FontSize="14" Glyph="&#xE74E;" />
-                                                    <TextBlock FontSize="12" Text="Translate" />
-                                            </StackPanel>
-                                        </Button>
-                                    </InfoBar.ActionButton>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <HyperlinkButton Content="What is translation?" NavigateUri="https://github.com/NaughtyChas/GitMC/wiki/Translation" />
+                                    </StackPanel>
                                 </InfoBar>
 
                                 <!--  Status Grid - Two Columns with Enhanced Layout  -->

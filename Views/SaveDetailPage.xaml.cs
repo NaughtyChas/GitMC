@@ -1399,6 +1399,7 @@ namespace GitMC.Views
 
                         // Update UI elements with save info
                         UpdateSaveHeader(saveInfo);
+                        await RecomputeCanTranslateAsync();
                     }
                 }
             }
@@ -1534,6 +1535,7 @@ namespace GitMC.Views
                 }
 
                 ViewModel.CurrentTab = tabName;
+                _ = RecomputeCanTranslateAsync();
             }
             catch (Exception ex)
             {
@@ -1585,6 +1587,7 @@ namespace GitMC.Views
                     await LoadSaveDetailAsync();
                     await UpdateChangeDetectionDataAsync();
                     if (FindName("TranslationStepText") is TextBlock s) s.Text = "Translation complete";
+                    await RecomputeCanTranslateAsync();
                 }
             }
             catch (Exception ex)
@@ -1596,6 +1599,7 @@ namespace GitMC.Views
                 ViewModel.IsCommitInProgress = false;
                 _autoCommitInProgress = false;
                 UpdateStatusInfoBar();
+                await RecomputeCanTranslateAsync();
             }
         }
 
@@ -2247,6 +2251,7 @@ namespace GitMC.Views
                 UpdateSyncStatusBadge();
                 UpdateStatusInfoBar();
                 UpdateSyncProgressDisplay();
+                await RecomputeCanTranslateAsync();
             }
             catch (Exception ex)
             {
@@ -2831,8 +2836,10 @@ namespace GitMC.Views
                 // Determine if original file is directly editable (text-based)
                 // Common editable text formats
                 var directEditable = ext is ".txt" or ".json" or ".md" or ".log" or ".mcfunction" or ".mcmeta" or ".cfg" or ".ini" or ".csv" or ".yaml" or ".yml" or ".toml" or ".xml" or ".properties" or ".snbt";
-                // Treat zero-length extension but small file as possibly text? Keep conservative: require known extensions.
                 file.IsDirectEditable = directEditable;
+
+                // Whitelist-based translatability with light sniffing
+                file.IsTranslatable = IsKnownTranslatable(file.FullPath);
 
                 // Decide the effective editor path and editability
                 if (file.IsTranslated && !string.IsNullOrEmpty(file.SnbtPath))
@@ -2850,6 +2857,85 @@ namespace GitMC.Views
                 }
             }
             catch { /* ignore mapping errors */ }
+        }
+
+        // Whitelist + magic sniff helpers
+        private static bool HasKnownTranslatablePattern(string path)
+        {
+            var name = Path.GetFileName(path).ToLowerInvariant();
+            var dir = Path.GetDirectoryName(path)?.Replace('\\', '/').ToLowerInvariant() ?? string.Empty;
+
+            // Region files
+            if (name.EndsWith(".mca") || name.EndsWith(".mcc")) return true;
+
+            // Common NBT-bearing files/folders
+            if (name == "level.dat") return true;
+            if (dir.Contains("/playerdata") || dir.Contains("/entities") || dir.Contains("/data"))
+            {
+                // Common extensions that are likely NBT
+                if (name.EndsWith(".dat") || name.EndsWith(".mcr") || name.EndsWith(".nbt")) return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsLikelyNbtByMagic(string path)
+        {
+            try
+            {
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                if (fs.Length < 3) return false;
+                Span<byte> header = stackalloc byte[3];
+                var read = fs.Read(header);
+                if (read < 3) return false;
+                // GZip header: 1F 8B
+                if (header[0] == 0x1F && header[1] == 0x8B) return true;
+                // NBT uncompressed typically starts with a tag type (0-12). We check for plausible range
+                if (header[0] <= 0x0C) return true;
+            }
+            catch { }
+            return false;
+        }
+
+        private static bool IsKnownTranslatable(string path)
+        {
+            if (!File.Exists(path)) return false;
+            if (HasKnownTranslatablePattern(path)) return true;
+            // If extensionless or unknown but inside known dirs, sniff
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            if (string.IsNullOrEmpty(ext) || ext == ".dat" || ext == ".nbt" || ext == ".mcr")
+                return IsLikelyNbtByMagic(path);
+            return false;
+        }
+
+        private async Task RecomputeCanTranslateAsync()
+        {
+            try
+            {
+                var can = false;
+                var info = ViewModel.SaveInfo;
+                if (info?.Path != null && info.CurrentStatus == ManagedSaveInfo.SaveStatus.Modified && !ViewModel.IsCommitInProgress && !_autoCommitInProgress)
+                {
+                    var inUse = await IsSaveInUseAsync(info.Path);
+                    if (!inUse)
+                    {
+                        var status = await _gitService.GetStatusAsync(info.Path);
+                        var changed = status.ModifiedFiles.Concat(status.UntrackedFiles);
+                        foreach (var rel in changed)
+                        {
+                            var full = Path.Combine(info.Path, rel);
+                            // Skip direct-editable
+                            var ext = Path.GetExtension(full).ToLowerInvariant();
+                            var directEditable = ext is ".txt" or ".json" or ".md" or ".log" or ".mcfunction" or ".mcmeta" or ".cfg" or ".ini" or ".csv" or ".yaml" or ".yml" or ".toml" or ".xml" or ".properties" or ".snbt";
+                            if (directEditable) continue;
+
+                            if (IsKnownTranslatable(full)) { can = true; break; }
+                        }
+                    }
+                }
+                ViewModel.CanTranslate = can;
+            }
+            catch { ViewModel.CanTranslate = false; }
         }
 
         private async Task LoadSelectedFileEditorAsync()
@@ -3083,7 +3169,22 @@ namespace GitMC.Views
             {
                 if (ViewModel.SelectedChangedFile is not { } file || ViewModel.SaveInfo?.Path == null) return;
 
+                // Block when world/files are in use
+                var inUse = await IsSaveInUseAsync(ViewModel.SaveInfo.Path);
+                if (inUse)
+                {
+                    await ShowErrorDialogSafe("World Busy", "The world appears to be in use. Close Minecraft or any tools locking files and try again.");
+                    return;
+                }
+
+                // Only allow for known translatable types
                 var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
+                if (!file.IsTranslatable && ext != ".mca")
+                {
+                    await ShowErrorDialogSafe("Unsupported", "This file type isn't supported for translation. You can open it directly if it's a text-based file.");
+                    return;
+                }
+
                 if (ext == ".mca")
                 {
                     // Trigger translation for changed chunks in the save; simplest and consistent
@@ -3110,6 +3211,7 @@ namespace GitMC.Views
                 ViewModel.CanFormat = ViewModel.CanValidate;
                 ViewModel.CanMinify = ViewModel.CanValidate;
                 await LoadSelectedFileEditorAsync();
+                await RecomputeCanTranslateAsync();
             }
             catch (Exception ex)
             {
