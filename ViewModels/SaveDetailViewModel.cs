@@ -43,6 +43,7 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private ValidationStatusModel? _validationStatus;
     private bool _isSnbtContext;
     private bool _isJsonContext;
+    private bool _isRegionMapVisible;
 
     public ManagedSaveInfo? SaveInfo
     {
@@ -211,6 +212,12 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     {
         get => _editorLineBase;
         set { _editorLineBase = value; OnPropertyChanged(); }
+    }
+
+    public bool IsRegionMapVisible
+    {
+        get => _isRegionMapVisible;
+        set { _isRegionMapVisible = value; OnPropertyChanged(); }
     }
 
     public bool IsSidePanelVisible

@@ -2229,6 +2229,16 @@
                                                                 Text="{x:Bind ViewModel.CurrentCursorPosition, Mode=OneWay}"
                                                                 x:Name="CursorPositionDisplay" />
                                                         </StackPanel>
+
+                                                        <!-- Map button to return to region grid -->
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                            <Button x:Name="RegionMapButton" Visibility="Collapsed" Click="RegionMapButton_Click">
+                                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                    <FontIcon Glyph="&#xE707;"/>
+                                                                    <TextBlock Text="Map"/>
+                                                                </StackPanel>
+                                                            </Button>
+                                                        </StackPanel>
                                                     </Grid>
                                                 </Border>
 
@@ -2267,6 +2277,39 @@
                                                         <WebView2
                                                             x:Name="CodeWebView"
                                                             Visibility="Collapsed" />
+
+                                                        <!-- Region Chunk Map overlay (for translated .mca) -->
+                                                        <Border x:Name="RegionMapOverlay" Background="#1A000000" Visibility="Collapsed">
+                                                            <Grid>
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="*"/>
+                                                                </Grid.RowDefinitions>
+                                                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="12">
+                                                                    <FontIcon Glyph="&#xE707;"/>
+                                                                    <TextBlock Text="Region Chunk Map" FontWeight="SemiBold"/>
+                                                                </StackPanel>
+                                                                <ScrollViewer Grid.Row="1">
+                                                                    <GridView x:Name="RegionChunkGrid" SelectionMode="None" IsItemClickEnabled="False">
+                                                                        <GridView.ItemsPanel>
+                                                                            <ItemsPanelTemplate>
+                                                                                <ItemsWrapGrid Orientation="Horizontal"/>
+                                                                            </ItemsPanelTemplate>
+                                                                        </GridView.ItemsPanel>
+                                                                        <GridView.ItemTemplate>
+                                                                            <DataTemplate x:DataType="models:ChunkInfo">
+                                                                                <Button Padding="6" Margin="4" Click="ChunkCell_Click">
+                                                                                    <StackPanel>
+                                                                                        <TextBlock Text="{x:Bind ChunkId}" FontSize="10"/>
+                                                                                        <Border Height="26" Background="{x:Bind StatusColor}"/>
+                                                                                    </StackPanel>
+                                                                                </Button>
+                                                                            </DataTemplate>
+                                                                        </GridView.ItemTemplate>
+                                                                    </GridView>
+                                                                </ScrollViewer>
+                                                            </Grid>
+                                                        </Border>
                                                     </Grid>
                                                 </Border>
 
@@ -2352,14 +2395,14 @@
                                                 </Border>
                                             </Grid>
 
-                                            <!--  Translation Required State (when no editable path available)  -->
+                                            <!--  Translation Required State (only when not translated and not directly editable)  -->
                                             <Border
                                                 Background="#FFF8E1"
                                                 BorderBrush="#FFCC02"
                                                 BorderThickness="2"
                                                 CornerRadius="8"
                                                 Padding="32"
-                                                Visibility="{x:Bind ViewModel.SelectedChangedFile.EditorPath, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}">
+                                                Visibility="{x:Bind GetTranslationRequiredVisibility(ViewModel.SelectedChangedFile)}">
                                                 <StackPanel
                                                     HorizontalAlignment="Center"
                                                     Spacing="16"

@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using fNbt;
@@ -2661,42 +2663,45 @@ namespace GitMC.Views
                 // Group and categorize files
                 var fileGroups = new Dictionary<FileCategory, ChangedFileGroup>();
 
-                // Process .mca files (region files)
-                var regionFiles = gitStatus.ModifiedFiles
+                // Process .mca files by source folder (region, entities, poi)
+                var mcaFiles = gitStatus.ModifiedFiles
                     .Where(f => f.EndsWith(".mca", StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
-                if (regionFiles.Any())
+                foreach (var regionFile in mcaFiles)
                 {
-                    var regionGroup = GetOrCreateGroup(fileGroups, FileCategory.Region, "Region Files", "\uE8B7");
-
-                    foreach (var regionFile in regionFiles)
+                    var source = GetMcaSourceFolder(regionFile);
+                    (FileCategory cat, string name, string icon) groupMeta = source switch
                     {
-                        var fullPath = Path.Combine(ViewModel.SaveInfo.Path, regionFile);
-                        var fileInfo = new FileInfo(fullPath);
+                        "entities" => (FileCategory.Entity, "Entity Region Files", "\uE77B"),
+                        "poi" => (FileCategory.Data, "POI Region Files", "\uE8A5"),
+                        _ => (FileCategory.Region, "Region Files", "\uE8B7")
+                    };
 
-                        var changedFile = new ChangedFile
-                        {
-                            FileName = Path.GetFileName(regionFile),
-                            RelativePath = regionFile,
-                            FullPath = fullPath,
-                            Status = ChangeStatus.Modified,
-                            Category = FileCategory.Region,
-                            FileSizeBytes = fileInfo.Exists ? fileInfo.Length : 0,
-                            LastModified = fileInfo.Exists ? fileInfo.LastWriteTime : DateTime.Now,
-                            DisplaySize = FormatFileSize(fileInfo.Exists ? fileInfo.Length : 0),
-                            StatusText = "Modified",
-                            CategoryText = "Region",
-                            IconGlyph = "\uE8B7",
-                            StatusColor = "#FF9800",
-                            ChunkCount = changedChunks.Count(c => c.Contains(Path.GetFileNameWithoutExtension(regionFile)))
-                        };
+                    var group = GetOrCreateGroup(fileGroups, groupMeta.cat, groupMeta.name, groupMeta.icon);
 
-                        // Determine translation state (one translation, then use)
-                        TryPopulateTranslationInfo(changedFile);
+                    var fullPath = Path.Combine(ViewModel.SaveInfo.Path, regionFile);
+                    var fileInfo = new FileInfo(fullPath);
 
-                        regionGroup.Files.Add(changedFile);
-                    }
+                    var changedFile = new ChangedFile
+                    {
+                        FileName = Path.GetFileName(regionFile),
+                        RelativePath = regionFile,
+                        FullPath = fullPath,
+                        Status = ChangeStatus.Modified,
+                        Category = groupMeta.cat,
+                        FileSizeBytes = fileInfo.Exists ? fileInfo.Length : 0,
+                        LastModified = fileInfo.Exists ? fileInfo.LastWriteTime : DateTime.Now,
+                        DisplaySize = FormatFileSize(fileInfo.Exists ? fileInfo.Length : 0),
+                        StatusText = "Modified",
+                        CategoryText = groupMeta.name,
+                        IconGlyph = groupMeta.icon,
+                        StatusColor = "#FF9800",
+                        ChunkCount = changedChunks.Count(c => c.Contains(Path.GetFileNameWithoutExtension(regionFile)))
+                    };
+
+                    TryPopulateTranslationInfo(changedFile);
+                    group.Files.Add(changedFile);
                 }
 
                 // Process other modified files
@@ -2805,9 +2810,17 @@ namespace GitMC.Views
             var fileName = Path.GetFileName(filePath).ToLowerInvariant();
             var directory = Path.GetDirectoryName(filePath)?.ToLowerInvariant() ?? "";
 
-            // Region files
+            // Region-like files: split by source folder
             if (fileName.EndsWith(".mca") || fileName.EndsWith(".mcc"))
-                return (FileCategory.Region, "Region Files", "\uE8B7");
+            {
+                var src = GetMcaSourceFolder(filePath);
+                return src switch
+                {
+                    "entities" => (FileCategory.Entity, "Entity Region Files", "\uE77B"),
+                    "poi" => (FileCategory.Data, "POI Region Files", "\uE8A5"),
+                    _ => (FileCategory.Region, "Region Files", "\uE8B7")
+                };
+            }
 
             // Data files
             if (fileName.Contains("level.dat") || directory.Contains("data"))
@@ -3166,22 +3179,29 @@ namespace GitMC.Views
             return Path.Combine(gitMc, normalizedRel) + ".snbt";
         }
 
+        private static string GetMcaSourceFolder(string mcaRelativePath)
+        {
+            // Extract top-level source folder for .mca path like "region/r.x.z.mca" or "entities/r.x.z.mca" or "poi/r.x.z.mca"
+            var parts = mcaRelativePath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length > 0 ? parts[0].ToLowerInvariant() : "region";
+        }
+
+        private string GetRegionChunksFolder(string mcaRelativePath)
+        {
+            // GitMC/<source>/<r.x.z.mca>/
+            var source = GetMcaSourceFolder(mcaRelativePath);
+            var fileName = Path.GetFileNameWithoutExtension(mcaRelativePath);
+            var gitMc = GetGitMcFolder();
+            return Path.Combine(gitMc, source, fileName + ".mca");
+        }
+
         private string? GetAnyChunkSnbtForMca(string mcaRelativePath)
         {
             try
             {
-                // mcaRelativePath like "region/r.x.z.mca"
-                var fileName = Path.GetFileNameWithoutExtension(mcaRelativePath);
-                var parts = fileName.Split('.');
-                if (parts.Length >= 3 && parts[0] == "r" && int.TryParse(parts[1], out var rx) && int.TryParse(parts[2], out var rz))
-                {
-                    var dir = Path.Combine(GetGitMcFolder(), "region", $"r.{rx}.{rz}.mca");
-                    if (Directory.Exists(dir))
-                    {
-                        var first = Directory.EnumerateFiles(dir, "chunk_*_*.snbt").FirstOrDefault();
-                        return first;
-                    }
-                }
+                var dir = GetRegionChunksFolder(mcaRelativePath);
+                if (Directory.Exists(dir))
+                    return Directory.EnumerateFiles(dir, "chunk_*_*.snbt").FirstOrDefault();
             }
             catch { }
             return null;
@@ -3195,7 +3215,7 @@ namespace GitMC.Views
                 var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
                 if (ext == ".mca")
                 {
-                    // For region files, look for any chunk SNBT under GitMC/region/r.x.z.mca
+                    // For region-like files, look for any chunk SNBT under GitMC/<source>/r.x.z.mca
                     snbtPath = GetAnyChunkSnbtForMca(file.RelativePath);
                 }
                 else
@@ -3226,7 +3246,15 @@ namespace GitMC.Views
                 // Decide the effective editor path and editability
                 if (file.IsTranslated && !string.IsNullOrEmpty(file.SnbtPath))
                 {
-                    file.EditorPath = file.SnbtPath;
+                    // For region files (.mca), prefer showing the region map first instead of auto-opening an arbitrary chunk
+                    if (ext == ".mca")
+                    {
+                        file.EditorPath = null; // map-first UX
+                    }
+                    else
+                    {
+                        file.EditorPath = file.SnbtPath;
+                    }
                 }
                 else if (file.IsDirectEditable)
                 {
@@ -3319,17 +3347,29 @@ namespace GitMC.Views
             {
                 ViewModel.ValidationStatus = null;
                 var editorPath = ViewModel.SelectedChangedFile?.EditorPath;
-                // If MCA selected and not translated, show a hint text instead of empty editor
+                // Reset Region Map UI by default
+                if (FindName("RegionMapOverlay") is FrameworkElement _rmOverlayInit) _rmOverlayInit.Visibility = Visibility.Collapsed;
+                if (FindName("RegionMapButton") is FrameworkElement _rmButtonInit) _rmButtonInit.Visibility = Visibility.Collapsed;
+
+                // If MCA selected and no specific editor path yet, show region map if translated; else show hint
                 if (ViewModel.SelectedChangedFile is { } sel && string.IsNullOrEmpty(editorPath))
                 {
                     var ext = Path.GetExtension(sel.FullPath).ToLowerInvariant();
                     if (ext == ".mca")
                     {
-                        _originalFileContent = string.Empty;
-                        ViewModel.FileContent = "This region file is not translated yet. Click 'Translate' in the InfoBar or 'Force Translation' in Tools to generate SNBT for viewing.";
-                        ViewModel.IsFileModified = false;
-                        UpdateEditorMetrics();
-                        return;
+                        if (sel.IsTranslated)
+                        {
+                            await ShowRegionMapAsync();
+                            return;
+                        }
+                        else
+                        {
+                            _originalFileContent = string.Empty;
+                            ViewModel.FileContent = "This region file is not translated yet. Click 'Translate' in the InfoBar or 'Force Translation' in Tools to generate SNBT for viewing.";
+                            ViewModel.IsFileModified = false;
+                            UpdateEditorMetrics();
+                            return;
+                        }
                     }
                 }
                 if (!string.IsNullOrEmpty(editorPath))
@@ -3351,9 +3391,10 @@ namespace GitMC.Views
 
                     // Heuristic: if file > 1.5 MB or > 120k chars, prefer web-based code editor (with streaming) to reduce UI thread pressure
                     var info = new FileInfo(pathToLoad);
-                    var useWeb = info.Exists && info.Length > 1_500_000; // ~1.5MB threshold
+                    // Always use Monaco; choose between normal streaming vs. virtualized window for ultra-large files
+                    var ultraLarge = info.Exists && info.Length > 5_000_000; // ~5MB threshold for virtualization by lines
                     string text;
-                    if (!useWeb)
+                    if (!ultraLarge)
                     {
                         text = await File.ReadAllTextAsync(pathToLoad);
                         _originalFileContent = text;
@@ -3361,16 +3402,18 @@ namespace GitMC.Views
                         ViewModel.IsFileModified = false;
                         UpdateEditorMetrics();
 
-                        _useWebEditor = (ViewModel.FileContent?.Length ?? 0) > 120_000;
+                        _useWebEditor = true;
                         await EnsureEditorSurfaceAsync();
                         await RenderEditorContentAsync();
+                        UpdateRegionMapButtonVisibility();
                     }
                     else
                     {
-                        // Ultra-large: enable virtualized paging
+                        // Ultra-large: enable virtualized paging in Monaco (VS Code-like window)
                         _useWebEditor = true;
                         _virtualizedMode = true;
                         await InitializeVirtualizedWindowAsync(pathToLoad, info);
+                        UpdateRegionMapButtonVisibility();
                     }
                 }
                 else
@@ -3416,6 +3459,122 @@ namespace GitMC.Views
                 else col++;
             }
             return (line, col);
+        }
+
+        private void UpdateRegionMapButtonVisibility()
+        {
+            try
+            {
+                if (FindName("RegionMapButton") is FrameworkElement mapBtn)
+                {
+                    var isRegion = ViewModel.SelectedChangedFile?.FullPath.EndsWith(".mca", StringComparison.OrdinalIgnoreCase) == true;
+                    var translated = ViewModel.SelectedChangedFile?.IsTranslated == true;
+                    mapBtn.Visibility = (!ViewModel.IsRegionMapVisible && isRegion && translated) ? Visibility.Visible : Visibility.Collapsed;
+                }
+            }
+            catch { /* ignore */ }
+        }
+
+        private void ToggleRegionMap(bool show)
+        {
+            if (FindName("RegionMapOverlay") is FrameworkElement overlay)
+                overlay.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            ViewModel.IsRegionMapVisible = show;
+            UpdateRegionMapButtonVisibility();
+        }
+
+        private async Task ShowRegionMapAsync()
+        {
+            try
+            {
+                var sel = ViewModel.SelectedChangedFile;
+                if (sel == null) { ToggleRegionMap(false); return; }
+                var ext = Path.GetExtension(sel.FullPath).ToLowerInvariant();
+                if (ext != ".mca") { ToggleRegionMap(false); return; }
+
+                // chunks directory under GitMC: <source>/r.x.z.mca/
+                var fileName = Path.GetFileNameWithoutExtension(sel.FullPath);
+                var regionDir = GetRegionChunksFolder(sel.RelativePath);
+                var items = new List<GitMC.Models.ChunkInfo>();
+                if (Directory.Exists(regionDir))
+                {
+                    foreach (var file in Directory.EnumerateFiles(regionDir, "chunk_*_*.snbt"))
+                    {
+                        var name = Path.GetFileName(file);
+                        var m = System.Text.RegularExpressions.Regex.Match(name, @"chunk_(-?\d+)_(-?\d+)\.snbt");
+                        if (m.Success && int.TryParse(m.Groups[1].Value, out var cx) && int.TryParse(m.Groups[2].Value, out var cz))
+                        {
+                            items.Add(new GitMC.Models.ChunkInfo
+                            {
+                                ChunkX = cx,
+                                ChunkZ = cz,
+                                IsModified = false,
+                                IsNew = false,
+                                IsDeleted = false,
+                                SizeBytes = new FileInfo(file).Length
+                            });
+                        }
+                    }
+                }
+
+                // Sort rows by Z then X for stable presentation
+                items.Sort((a, b) =>
+                {
+                    var z = a.ChunkZ.CompareTo(b.ChunkZ);
+                    return z != 0 ? z : a.ChunkX.CompareTo(b.ChunkX);
+                });
+
+                if (FindName("RegionChunkGrid") is ItemsControl grid)
+                {
+                    grid.ItemsSource = items;
+                }
+
+                // Show map only when we actually have chunk files; otherwise fall back to Translation Required if not translated
+                ToggleRegionMap(items.Count > 0);
+                await Task.CompletedTask;
+            }
+            catch
+            {
+                ToggleRegionMap(false);
+            }
+        }
+
+        private async void RegionMapButton_Click(object sender, RoutedEventArgs e)
+        {
+            await ShowRegionMapAsync();
+        }
+
+        private async void ChunkCell_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is FrameworkElement fe && fe.DataContext is GitMC.Models.ChunkInfo chunk && ViewModel.SelectedChangedFile is { } sel)
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(sel.FullPath);
+                    var parts = fileName.Split('.');
+                    if (parts.Length >= 3 && parts[0] == "r" && int.TryParse(parts[1], out var rx) && int.TryParse(parts[2], out var rz))
+                    {
+                        var dir = GetRegionChunksFolder(sel.RelativePath);
+                        var chunkPath = Path.Combine(dir, $"chunk_{chunk.ChunkX}_{chunk.ChunkZ}.snbt");
+                        if (File.Exists(chunkPath))
+                        {
+                            sel.EditorPath = chunkPath;
+                            ToggleRegionMap(false);
+                            await LoadSelectedFileEditorAsync();
+                        }
+                    }
+                }
+            }
+            catch { /* ignore */ }
+        }
+
+        // XAML helper: when to show the Translation Required card
+        public Visibility GetTranslationRequiredVisibility(Models.ChangedFile? file)
+        {
+            if (file == null) return Visibility.Collapsed;
+            // show only if not translated AND not directly editable AND no editor path resolved
+            var show = !file.IsTranslated && !file.IsDirectEditable && string.IsNullOrEmpty(file.EditorPath);
+            return show ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void TextEditor_TextChanged(object sender, TextChangedEventArgs e)

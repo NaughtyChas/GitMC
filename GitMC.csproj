@@ -22,11 +22,11 @@
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <PublishProfile>win-$(Platform).pubxml</PublishProfile>
         <RuntimeIdentifiers
-                Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">
+            Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">
             win-x86;win-x64;win-arm64
         </RuntimeIdentifiers>
         <RuntimeIdentifiers
-                Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">
+            Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">
             win10-x86;win10-x64;win10-arm64
         </RuntimeIdentifiers>
 
@@ -35,31 +35,39 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Content Include="Assets\SplashScreen.scale-200.png"/>
-        <Content Include="Assets\LockScreenLogo.scale-200.png"/>
-        <Content Include="Assets\Square150x150Logo.scale-200.png"/>
-        <Content Include="Assets\Square44x44Logo.scale-200.png"/>
-        <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png"/>
-        <Content Include="Assets\StoreLogo.png"/>
-        <Content Include="Assets\Wide310x150Logo.scale-200.png"/>
+        <Content Include="Assets\SplashScreen.scale-200.png" />
+        <Content Include="Assets\LockScreenLogo.scale-200.png" />
+        <Content Include="Assets\Square150x150Logo.scale-200.png" />
+        <Content Include="Assets\Square44x44Logo.scale-200.png" />
+        <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+        <Content Include="Assets\StoreLogo.png" />
+        <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+    </ItemGroup>
+
+    <!-- Bundle Monaco static assets into output (place under monaco/vs) -->
+    <ItemGroup>
+        <Content Include="monaco\vs\**\*.*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
     <!-- Custom Fonts for Chinese characters -->
     <ItemGroup>
-        <Content Include="Fonts\**" CopyToOutputDirectory="PreserveNewest"/>
+        <Content Include="Fonts\**" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="CommunityToolkit.WinUI.Animations" Version="8.2.250402"/>
-        <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.250402"/>
-        <PackageReference Include="fNbt" Version="1.0.0"/>
-        <PackageReference Include="LibGit2Sharp" Version="0.31.0"/>
-        <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.*"/>
-        <PackageReference Include="Microsoft.Web.WebView2" Version="1.*"/>
-        <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.*"/>
-        <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0"/>
+        <PackageReference Include="CommunityToolkit.WinUI.Animations" Version="8.2.250402" />
+        <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls"
+            Version="8.2.250402" />
+        <PackageReference Include="fNbt" Version="1.0.0" />
+        <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
+        <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.*" />
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.*" />
+        <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.*" />
+        <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
 
-        <Manifest Include="$(ApplicationManifest)"/>
+        <Manifest Include="$(ApplicationManifest)" />
     </ItemGroup>
 
     <!-- Resources for Localization -->
@@ -76,18 +84,19 @@
         Tools extension to be activated for this project even if the Windows App SDK Nuget
         package has not yet been restored.
     -->
-    <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
-        <ProjectCapability Include="Msix"/>
+    <ItemGroup
+        Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+        <ProjectCapability Include="Msix" />
     </ItemGroup>
     <ItemGroup>
-        <Resource Remove="Controls\SaveCard.xaml"/>
-        <Resource Remove="Tests\UI\OnboardingTestWindow.xaml"/>
+        <Resource Remove="Controls\SaveCard.xaml" />
+        <Resource Remove="Tests\UI\OnboardingTestWindow.xaml" />
     </ItemGroup>
     <ItemGroup>
-        <Page Remove="Views\HomePageNew.xaml"/>
+        <Page Remove="Views\HomePageNew.xaml" />
     </ItemGroup>
     <ItemGroup>
-        <Compile Remove="Views\HomePageNew.xaml.cs"/>
+        <Compile Remove="Views\HomePageNew.xaml.cs" />
     </ItemGroup>
 
     <!--
@@ -96,7 +105,15 @@
         the Windows App SDK Nuget package has not yet been restored.
     -->
     <PropertyGroup
-            Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+        Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
         <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+    </PropertyGroup>
+
+    <!-- Single-file publish options and extraction to temp (so WebView2 can read files) -->
+    <PropertyGroup>
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>true</SelfContained>
+        <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     </PropertyGroup>
 </Project>
