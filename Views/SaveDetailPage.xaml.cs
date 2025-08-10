@@ -49,6 +49,8 @@ namespace GitMC.Views
         private string? _saveId;
         private Timer? _changeDetectionTimer;
         private string _originalFileContent = string.Empty;
+        private List<string> _availableBranches = new();
+        private bool _isBranchDropDownOpen;
 
         public SaveDetailPage()
         {
@@ -67,6 +69,9 @@ namespace GitMC.Views
 
             ViewModel = new SaveDetailViewModel();
             DataContext = this;
+
+            // Observe ViewModel changes for dynamic UI tweaks
+            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
 
         public SaveDetailViewModel ViewModel { get; }
@@ -96,7 +101,7 @@ namespace GitMC.Views
                 await LoadSaveDetailAsync();
 
                 // Load available branches
-                LoadBranches();
+                await LoadBranchesAsync();
 
                 // Navigate to the default tab (Overview)
                 NavigateToTab("Overview");
@@ -136,9 +141,9 @@ namespace GitMC.Views
         {
             try
             {
-                if (ViewModel.SaveInfo?.IsGitInitialized == true && !string.IsNullOrEmpty(ViewModel.SaveInfo.OriginalPath))
+                if (ViewModel.SaveInfo?.IsGitInitialized == true && !string.IsNullOrEmpty(ViewModel.SaveInfo.Path))
                 {
-                    var commits = await _gitService.GetCommitHistoryAsync(5, ViewModel.SaveInfo.OriginalPath);
+                    var commits = await _gitService.GetCommitHistoryAsync(5, ViewModel.SaveInfo.Path);
                     var commitInfos = commits.Select(commit => new CommitInfo
                     {
                         Sha = commit.Sha,
@@ -149,6 +154,7 @@ namespace GitMC.Views
 
                     ViewModel.RecentCommits.Clear();
                     foreach (var commit in commitInfos) ViewModel.RecentCommits.Add(commit);
+                    UpdateRecentActivityUI();
                 }
             }
             catch (Exception ex)
@@ -162,6 +168,7 @@ namespace GitMC.Views
                     Author = "User",
                     Timestamp = DateTime.Now.AddHours(-2)
                 });
+                UpdateRecentActivityUI();
             }
         }
 
@@ -1085,12 +1092,13 @@ namespace GitMC.Views
                 statusInfoBar.IsOpen = true;
 
                 // Show manual Translate action when there are uncommitted changes
-                if (FindName("TranslateButton") is Button tacButton)
+                if (FindName("TranslatePrimaryButton") is Button tacButton)
                 {
                     tacButton.Visibility = ViewModel.SaveInfo.CurrentStatus == ManagedSaveInfo.SaveStatus.Modified
                         ? Visibility.Visible
                         : Visibility.Collapsed;
-                    tacButton.IsEnabled = !ViewModel.IsCommitInProgress;
+                    tacButton.IsEnabled = ViewModel.CanTranslate;
+                    UpdateTranslateButtonStyle();
                 }
             }
         }
@@ -1154,7 +1162,7 @@ namespace GitMC.Views
             if (FindName("BranchTagsContainer") is StackPanel branchContainer && ViewModel.SaveInfo != null)
             {
                 branchContainer.Children.Clear();
-                var branches = GetAvailableBranches(ViewModel.SaveInfo);
+                var branches = _availableBranches ?? new List<string>();
 
                 foreach (var branch in branches.Take(3)) // Show max 3 branches
                 {
@@ -1351,11 +1359,7 @@ namespace GitMC.Views
             }
         }
 
-        private List<string> GetAvailableBranches(ManagedSaveInfo saveInfo)
-        {
-            // Mock implementation - in real scenario, this would query git branches
-            return new List<string> { "main", "feature/castle-wing", "hotfix/water-fix" };
-        }
+        private List<string> GetAvailableBranches(ManagedSaveInfo saveInfo) => _availableBranches ?? new List<string>();
 
         private void UpdateRemoteStatus()
         {
@@ -1768,7 +1772,7 @@ namespace GitMC.Views
             }
         }
 
-        private void BranchComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void BranchComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             try
             {
@@ -1776,26 +1780,37 @@ namespace GitMC.Views
                 {
                     if (selectedItem.IsCreateAction)
                     {
-                        // Handle "Create new branch" action
-                        CreateBranchButton_Click(sender, new RoutedEventArgs());
-
-                        // Reset selection to current branch to avoid showing "Create new branch" as selected
-                        var currentBranchItem = ((List<BranchComboBoxItem>)comboBox.ItemsSource)
-                            .FirstOrDefault(item => !item.IsSeparator && !item.IsCreateAction && item.BranchName == "main");
-                        comboBox.SelectedItem = currentBranchItem;
+                        await CreateBranchInteractiveAsync();
+                        await LoadBranchesAsync();
                     }
                     else if (!selectedItem.IsSeparator && !string.IsNullOrEmpty(selectedItem.BranchName))
                     {
-                        // Handle actual branch selection
-                        Debug.WriteLine($"Switching to branch: {selectedItem.BranchName}");
-                        // TODO: Implement branch switching functionality
+                        var branchName = selectedItem.BranchName;
+                        Debug.WriteLine($"Switching to branch: {branchName}");
+                        if (ViewModel.SaveInfo?.Path is string repoPath)
+                        {
+                            var result = await _gitService.CheckoutBranchAsync(branchName, repoPath);
+                            if (result.Success)
+                            {
+                                var status = await _gitService.GetStatusAsync(repoPath);
+                                ViewModel.SaveInfo.Branch = string.IsNullOrWhiteSpace(status.CurrentBranch) ? branchName : status.CurrentBranch;
+                                await LoadBranchesAsync();
+                                RefreshStatusDisplays();
+                                await LoadChangedFilesDataAsync();
+                                await LoadRecentCommitsAsync();
+                            }
+                            else
+                            {
+                                await ShowErrorDialogSafe("Checkout Failed", result.ErrorMessage);
+                            }
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error switching branch: {ex.Message}");
-                // TODO: Show error message to user
+                await ShowErrorDialogSafe("Error", $"Failed to switch branch: {ex.Message}");
             }
         }
 
@@ -2035,27 +2050,36 @@ namespace GitMC.Views
             }
         }
 
-        private void LoadBranches()
+        private async Task LoadBranchesAsync()
         {
             try
             {
                 if (!string.IsNullOrEmpty(ViewModel.SaveInfo?.Path) &&
                     FindName("BranchComboBox") is ComboBox branchComboBox)
                 {
-                    // TODO: Get actual branches from git service
-                    var branches = new List<string> { "main", "develop", "feature/new-feature" };
+                    // Don't refresh items while the dropdown is open; this causes it to retract immediately
+                    if (_isBranchDropDownOpen)
+                        return;
+
+                    var repoPath = ViewModel.SaveInfo.Path;
+                    var rawBranches = await _gitService.GetBranchesAsync(repoPath);
+                    var parsed = rawBranches
+                        .Select(b => new { Raw = b, IsCurrent = b.StartsWith("* "), Name = b.TrimStart('*', ' ') })
+                        .ToList();
+                    _availableBranches = parsed.Select(p => p.Name).Distinct().ToList();
 
                     var comboBoxItems = new List<BranchComboBoxItem>();
 
-                    // Add actual branches
-                    foreach (var branch in branches)
+                    foreach (var b in parsed)
+                    {
                         comboBoxItems.Add(new BranchComboBoxItem
                         {
-                            DisplayName = branch,
-                            BranchName = branch,
+                            DisplayName = b.Name,
+                            BranchName = b.Name,
                             IsSeparator = false,
                             IsCreateAction = false
                         });
+                    }
 
                     // Add separator
                     comboBoxItems.Add(new BranchComboBoxItem
@@ -2073,15 +2097,216 @@ namespace GitMC.Views
 
                     branchComboBox.ItemsSource = comboBoxItems;
 
-                    // Set selected item to current branch (main for now)
-                    var currentBranchItem = comboBoxItems.FirstOrDefault(item => item.BranchName == "main");
+                    var currentName = parsed.FirstOrDefault(p => p.IsCurrent)?.Name
+                                      ?? ViewModel.SaveInfo.Branch
+                                      ?? ViewModel.SaveInfo.GitHubDefaultBranch
+                                      ?? "main";
+                    var currentBranchItem = comboBoxItems.FirstOrDefault(item => item.BranchName == currentName)
+                                            ?? comboBoxItems.FirstOrDefault(item => item.BranchName == "main");
                     branchComboBox.SelectedItem = currentBranchItem;
+                    UpdateBranchTagsDisplay();
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error loading branches: {ex.Message}");
             }
+        }
+
+        private void BranchComboBox_DropDownOpened(object sender, object e)
+        {
+            _isBranchDropDownOpen = true;
+        }
+
+        private void BranchComboBox_DropDownClosed(object sender, object e)
+        {
+            _isBranchDropDownOpen = false;
+        }
+
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(SaveDetailViewModel.CanTranslate))
+            {
+                UpdateTranslateButtonStyle();
+            }
+        }
+
+        private void UpdateTranslateButtonStyle()
+        {
+            if (FindName("TranslatePrimaryButton") is Button btn)
+            {
+                // When enabled -> AccentButtonStyle; when disabled -> default style
+                btn.Style = ViewModel.CanTranslate
+                    ? Application.Current.Resources["AccentButtonStyle"] as Style
+                    : null;
+            }
+        }
+
+        private async Task CreateBranchInteractiveAsync()
+        {
+            try
+            {
+                var inputBox = new TextBox { PlaceholderText = "new-branch-name" };
+                var dialog = new ContentDialog
+                {
+                    Title = "Create new branch",
+                    PrimaryButtonText = "Create",
+                    CloseButtonText = "Cancel",
+                    Content = inputBox,
+                    XamlRoot = this.XamlRoot
+                };
+
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(inputBox.Text))
+                {
+                    var name = inputBox.Text.Trim();
+                    var repoPath = ViewModel.SaveInfo?.Path;
+                    if (!string.IsNullOrEmpty(repoPath))
+                    {
+                        var create = await _gitService.CreateBranchAsync(name, repoPath);
+                        if (!create.Success)
+                        {
+                            await ShowErrorDialogSafe("Create Branch Failed", create.ErrorMessage);
+                            return;
+                        }
+
+                        var checkout = await _gitService.CheckoutBranchAsync(name, repoPath);
+                        if (!checkout.Success)
+                        {
+                            await ShowErrorDialogSafe("Checkout Failed", checkout.ErrorMessage);
+                            return;
+                        }
+
+                        var status = await _gitService.GetStatusAsync(repoPath);
+                        ViewModel.SaveInfo!.Branch = status.CurrentBranch;
+
+                        await LoadBranchesAsync();
+                        RefreshStatusDisplays();
+                        await LoadRecentCommitsAsync();
+                        await LoadChangedFilesDataAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await ShowErrorDialogSafe("Error", $"Failed to create branch: {ex.Message}");
+            }
+        }
+
+        private void UpdateRecentActivityUI()
+        {
+            try
+            {
+                var container = FindName("RecentActivityContainer") as StackPanel;
+                if (container == null) return;
+
+                container.Children.Clear();
+
+                var commits = ViewModel.RecentCommits?.ToList() ?? new List<CommitInfo>();
+                if (commits.Count == 0)
+                {
+                    container.Children.Add(new TextBlock
+                    {
+                        Text = "No recent activity",
+                        Foreground = (SolidColorBrush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                        FontSize = 12
+                    });
+                    return;
+                }
+
+                foreach (var c in commits)
+                {
+                    container.Children.Add(CreateCommitActivityItem(c));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error updating Recent Activity UI: {ex.Message}");
+            }
+        }
+
+        private Border CreateCommitActivityItem(CommitInfo commit)
+        {
+            var card = new Border
+            {
+                Padding = new Thickness(12),
+                Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+                BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var left = new StackPanel { Spacing = 4 };
+
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            titleRow.Children.Add(new FontIcon
+            {
+                FontSize = 12,
+                Foreground = (Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"],
+                Glyph = "\uE73E"
+            });
+            titleRow.Children.Add(new TextBlock
+            {
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Text = string.IsNullOrWhiteSpace(commit.Message) ? "(no commit message)" : commit.Message,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            left.Children.Add(titleRow);
+
+            var metaRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var age = DateTime.Now - commit.Timestamp;
+            var ageText = age.TotalDays >= 1 ? $"{(int)age.TotalDays} day(s) ago" :
+                          age.TotalHours >= 1 ? $"{(int)age.TotalHours} hour(s) ago" :
+                          age.TotalMinutes >= 1 ? $"{(int)age.TotalMinutes} min ago" : "just now";
+            metaRow.Children.Add(new TextBlock
+            {
+                FontSize = 12,
+                Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Text = $"by {commit.Author} • {ageText}"
+            });
+            metaRow.Children.Add(new TextBlock { FontSize = 12, Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"], Text = "•" });
+            metaRow.Children.Add(new TextBlock
+            {
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 12,
+                Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Text = commit.Sha.Length > 7 ? commit.Sha[..7] : commit.Sha
+            });
+            left.Children.Add(metaRow);
+
+            Grid.SetColumn(left, 0);
+            grid.Children.Add(left);
+
+            var pill = new Border
+            {
+                Padding = new Thickness(8, 3, 8, 3),
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"],
+                CornerRadius = new CornerRadius(12)
+            };
+            var pillText = new TextBlock
+            {
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                Text = "commit"
+            };
+            // Prefer theme resource brush if available; fallback ignored
+            if (Application.Current.Resources.TryGetValue("TextOnAccentFillColorPrimaryBrush", out var brushObj) && brushObj is Brush onAccent)
+            {
+                pillText.Foreground = onAccent;
+            }
+            pill.Child = pillText;
+            Grid.SetColumn(pill, 1);
+            grid.Children.Add(pill);
+
+            card.Child = grid;
+            return card;
         }
 
         private async void ViewOnGitHub_Click(object sender, RoutedEventArgs e)
@@ -2551,9 +2776,17 @@ namespace GitMC.Views
 
             try
             {
+                // If editor has unsaved changes, save them first
+                if (ViewModel.IsFileModified && ViewModel.SelectedChangedFile?.EditorPath is string editorPath1)
+                {
+                    var abs1 = Path.IsPathRooted(editorPath1) ? editorPath1 : Path.Combine(ViewModel.SaveInfo.Path, editorPath1);
+                    await File.WriteAllTextAsync(abs1, ViewModel.FileContent ?? string.Empty);
+                    ViewModel.IsFileModified = false;
+                }
+
                 var progress = new Progress<SaveInitStep>(step =>
                 {
-                    // Could show progress in UI if needed
+                    ViewModel.CommitProgressMessage = step.Message;
                     Debug.WriteLine($"Commit progress: {step.Message}");
                 });
 
@@ -2615,6 +2848,7 @@ namespace GitMC.Views
             finally
             {
                 ViewModel.IsCommitInProgress = false;
+                ViewModel.CommitProgressMessage = string.Empty;
             }
         }
 
@@ -2640,9 +2874,17 @@ namespace GitMC.Views
 
             try
             {
+                // If editor has unsaved changes, save them first
+                if (ViewModel.IsFileModified && ViewModel.SelectedChangedFile?.EditorPath is string editorPath2)
+                {
+                    var abs2 = Path.IsPathRooted(editorPath2) ? editorPath2 : Path.Combine(ViewModel.SaveInfo.Path, editorPath2);
+                    await File.WriteAllTextAsync(abs2, ViewModel.FileContent ?? string.Empty);
+                    ViewModel.IsFileModified = false;
+                }
+
                 var progress = new Progress<SaveInitStep>(step =>
                 {
-                    // Could show progress in UI if needed
+                    ViewModel.CommitProgressMessage = step.Message;
                     Debug.WriteLine($"Commit & Push progress: {step.Message}");
                 });
 
@@ -2661,8 +2903,8 @@ namespace GitMC.Views
                 if (commitSuccess)
                 {
                     // Clear commit form after successful commit
-                    ViewModel.CommitMessage = "";
-                    ViewModel.CommitDescription = "";
+                    ViewModel.CommitMessage = string.Empty;
+                    ViewModel.CommitDescription = string.Empty;
 
                     // Then try to push
                     var gitMcPath = Path.Combine(ViewModel.SaveInfo.Path, "GitMC");
@@ -2727,6 +2969,7 @@ namespace GitMC.Views
             finally
             {
                 ViewModel.IsCommitInProgress = false;
+                ViewModel.CommitProgressMessage = string.Empty;
             }
         }
 
@@ -2744,25 +2987,30 @@ namespace GitMC.Views
         /// </summary>
         private void ToggleCommitSection_Click(object sender, RoutedEventArgs e)
         {
-            var isCollapsed = CommitFormContent.Visibility == Visibility.Collapsed;
+            var form = FindName("CommitFormContent") as FrameworkElement;
+            var actions = FindName("CommitActionsContent") as FrameworkElement;
+            var rotate = FindName("CommitSectionCollapseIconTransform") as RotateTransform;
+            if (form == null || actions == null || rotate == null) return;
+
+            var isCollapsed = form.Visibility == Visibility.Collapsed;
 
             if (isCollapsed)
             {
                 // Expand the commit section
-                CommitFormContent.Visibility = Visibility.Visible;
-                CommitActionsContent.Visibility = Visibility.Visible;
+                form.Visibility = Visibility.Visible;
+                actions.Visibility = Visibility.Visible;
 
                 // Rotate the icon to point up (expanded state)
-                CommitSectionCollapseIconTransform.Angle = 180;
+                rotate.Angle = 180;
             }
             else
             {
                 // Collapse the commit section
-                CommitFormContent.Visibility = Visibility.Collapsed;
-                CommitActionsContent.Visibility = Visibility.Collapsed;
+                form.Visibility = Visibility.Collapsed;
+                actions.Visibility = Visibility.Collapsed;
 
                 // Rotate the icon to point down (collapsed state)
-                CommitSectionCollapseIconTransform.Angle = 0;
+                rotate.Angle = 0;
             }
         }
 

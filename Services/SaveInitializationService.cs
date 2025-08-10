@@ -1008,35 +1008,80 @@ public class SaveInitializationService : ISaveInitializationService
     public async Task<bool> CommitOngoingChangesAsync(string savePath, string commitMessage, IProgress<SaveInitStep>? progress = null)
     {
         var step = new SaveInitStep { Name = "Committing Changes", Description = "Processing changes using partial storage" };
-        var totalOperations = 7; // Detect, Export, Update manifest, Stage, Commit, Update manifest, Cleanup
+        // Detect (save + GitMC), Export (save->SNBT), Manifest(pending), Stage(GitMC), Commit(GitMC), Manifest(update+amend),
+        // Rebuild MCA from SNBT (if any user-edited), Stage(save), Commit(save), Cleanup(SNBT)
+        var totalOperations = 10;
         var currentOperation = 0;
 
         try
         {
             var gitMcPath = Path.Combine(savePath, "GitMC");
 
-            // Step 1: Detect changed chunks
+            // Step 1: Detect changed chunks from save (MCA) and detect user-edited SNBT in GitMC
             currentOperation++;
             step.CurrentProgress = currentOperation;
             step.TotalProgress = totalOperations;
-            step.Message = "Detecting changed chunks...";
+            step.Message = "Detecting changed chunks (save + SNBT edits)...";
             progress?.Report(step);
 
-            var changedChunks = await DetectChangedChunksAsync(savePath);
-            if (changedChunks.Count == 0)
+            // Changes detected by comparing MCA files in save directory
+            var changedChunksFromSave = await DetectChangedChunksAsync(savePath);
+
+            // Changes coming from user-edited SNBT files in GitMC working directory
+            var changedChunksFromGitMc = new List<string>();
+            var gitMcStatus = await _gitService.GetStatusAsync(gitMcPath);
+            var snbtChangedRel = gitMcStatus.ModifiedFiles
+                .Concat(gitMcStatus.UntrackedFiles)
+                .Where(p => p.Replace('/', Path.DirectorySeparatorChar)
+                              .StartsWith($"region{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+                           && p.EndsWith(".snbt", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            foreach (var rel in snbtChangedRel)
+            {
+                var fileName = Path.GetFileName(rel);
+                if (!string.IsNullOrEmpty(fileName) && fileName.StartsWith("chunk_") && fileName.EndsWith(".snbt"))
+                {
+                    changedChunksFromGitMc.Add(fileName);
+                }
+            }
+            // Nothing to do if absolutely no changes detected in either place
+            if (changedChunksFromSave.Count == 0 && changedChunksFromGitMc.Count == 0)
             {
                 step.Message = "No changes detected - commit skipped";
                 progress?.Report(step);
-                return true; // No changes is considered success
+                return true;
             }
 
             // Step 2: Export only changed chunks to SNBT
             currentOperation++;
             step.CurrentProgress = currentOperation;
-            step.Message = $"Exporting {changedChunks.Count} changed chunks to SNBT...";
+            // Avoid overwriting user-edited SNBT: exclude those from export
+            var snbtChangedSet = new HashSet<string>(snbtChangedRel
+                .Select(rel => rel.Replace('/', Path.DirectorySeparatorChar)), StringComparer.OrdinalIgnoreCase);
+            // Build export list from save changes excluding SNBT already modified by user
+            var exportChunks = new List<string>();
+            foreach (var chunkFileName in changedChunksFromSave)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(chunkFileName, @"chunk_(-?\d+)_(-?\d+)\.snbt");
+                if (match.Success && int.TryParse(match.Groups[1].Value, out var cx) && int.TryParse(match.Groups[2].Value, out var cz))
+                {
+                    var rx = cx >> 5; var rz = cz >> 5;
+                    var relPath = Path.Combine("region", $"r.{rx}.{rz}.mca", chunkFileName);
+                    if (!snbtChangedSet.Contains(relPath))
+                    {
+                        exportChunks.Add(chunkFileName);
+                    }
+                }
+            }
+            step.Message = exportChunks.Count > 0
+                ? $"Exporting {exportChunks.Count} changed chunk(s) to SNBT..."
+                : "Skipping export (using user-edited SNBT)";
             progress?.Report(step);
 
-            await ExportChangedChunksToSnbt(savePath, changedChunks, step, progress);
+            if (exportChunks.Count > 0)
+            {
+                await ExportChangedChunksToSnbt(savePath, exportChunks, step, progress);
+            }
 
             // Step 3: Update manifest with pending entries
             currentOperation++;
@@ -1046,7 +1091,12 @@ public class SaveInitializationService : ISaveInitializationService
 
             // Build absolute paths to changed SNBT files so manifest normalizer can trim properly
             var changedSnbtAbsolute = new List<string>();
-            foreach (var chunkFileName in changedChunks)
+            // Use union of SNBT from save changes and user-edited ones
+            var allChangedChunks = changedChunksFromSave
+                .Concat(changedChunksFromGitMc)
+                .Distinct()
+                .ToList();
+            foreach (var chunkFileName in allChangedChunks)
             {
                 var match = System.Text.RegularExpressions.Regex.Match(chunkFileName, @"chunk_(-?\d+)_(-?\d+)\.snbt");
                 if (match.Success && int.TryParse(match.Groups[1].Value, out var cx) && int.TryParse(match.Groups[2].Value, out var cz))
@@ -1064,7 +1114,7 @@ public class SaveInitializationService : ISaveInitializationService
             step.Message = "Staging changed files...";
             progress?.Report(step);
 
-            await StageChangedFiles(gitMcPath, changedChunks);
+            await StageChangedFiles(gitMcPath, allChangedChunks);
 
             // Step 5: Commit
             currentOperation++;
@@ -1091,23 +1141,94 @@ public class SaveInitializationService : ISaveInitializationService
             if (updated > 0)
             {
                 // Stage manifest and amend commit so manifest is in the same commit
-                var manifestPath = Path.Combine(gitMcPath, "manifest.json");
-                await _gitService.StageFileAsync(manifestPath, gitMcPath);
+                // Use relative path for staging within working directory
+                await _gitService.StageFileAsync("manifest.json", gitMcPath);
                 var amend = await _gitService.AmendLastCommitAsync(null, gitMcPath);
                 if (!amend.Success)
                     throw new InvalidOperationException($"Failed to amend commit with manifest: {amend.ErrorMessage}");
             }
 
-            // Step 7: Cleanup working directory (remove committed SNBT files)
+            // Step 7: Rebuild MCA from user-edited SNBT (if any)
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = changedChunksFromGitMc.Count > 0
+                ? "Rebuilding MCA files from edited SNBT..."
+                : "No user-edited SNBT; skipping rebuild";
+            progress?.Report(step);
+
+            if (changedChunksFromGitMc.Count > 0)
+            {
+                // Group by region folder so we rebuild per-region
+                var regionFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var rel in snbtChangedRel)
+                {
+                    var dir = Path.GetDirectoryName(rel) ?? string.Empty; // e.g., region\r.x.z.mca
+                    if (!string.IsNullOrEmpty(dir)) regionFolders.Add(dir);
+                }
+
+                foreach (var regionFolder in regionFolders)
+                {
+                    try
+                    {
+                        var chunkFolderPath = Path.Combine(gitMcPath, regionFolder);
+                        // Extract region coords from folder name r.x.z.mca
+                        var folderName = Path.GetFileName(regionFolder);
+                        // Output path in save directory
+                        var outputDir = Path.Combine(savePath, "region");
+                        Directory.CreateDirectory(outputDir);
+                        var outputMcaPath = Path.Combine(outputDir, folderName);
+
+                        var rebuildProgress = new Progress<string>(msg => System.Diagnostics.Debug.WriteLine($"[Rebuild] {msg}"));
+                        await _nbtService.ConvertChunkFilesToMcaAsync(chunkFolderPath, outputMcaPath, rebuildProgress);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to rebuild MCA for {regionFolder}: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+
+            // Step 8: Stage all changes in save directory
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Staging save directory changes...";
+            progress?.Report(step);
+
+            var saveStageResult = await _gitService.StageAllAsync(savePath);
+            if (!saveStageResult.Success)
+                throw new InvalidOperationException($"Failed to stage files in save directory: {saveStageResult.ErrorMessage}");
+
+            // Step 9: Commit save directory changes (only if staged)
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Committing save directory changes...";
+            progress?.Report(step);
+
+            var saveStatus = await _gitService.GetStatusAsync(savePath);
+            if (saveStatus.StagedFiles.Length > 0)
+            {
+                var saveCommit = await _gitService.CommitAsync(commitMessage, savePath);
+                if (!saveCommit.Success)
+                    throw new InvalidOperationException($"Failed to commit save directory changes: {saveCommit.ErrorMessage}");
+            }
+            else
+            {
+                step.Message = "No staged changes in save directory";
+                progress?.Report(step);
+            }
+
+            // Step 10: Cleanup working directory (remove committed SNBT files)
             currentOperation++;
             step.CurrentProgress = currentOperation;
             step.Message = "Cleaning up working directory...";
             progress?.Report(step);
 
-            await CleanupCommittedSnbtFiles(gitMcPath, changedChunks, step, progress);
+            await CleanupCommittedSnbtFiles(gitMcPath, allChangedChunks, step, progress);
 
             step.CurrentProgress = totalOperations;
-            step.Message = $"Successfully committed {changedChunks.Count} changes";
+            var totalChanged = allChangedChunks.Count;
+            step.Message = $"Successfully committed {totalChanged} change(s)";
             progress?.Report(step);
 
             return true;

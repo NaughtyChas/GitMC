@@ -17,6 +17,7 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private string _commitMessage = string.Empty;
     private string _commitDescription = string.Empty;
     private bool _isCommitInProgress;
+    private string _commitProgressMessage = string.Empty;
     private bool _canTranslate;
 
     // Editor-related state for the Changes tab
@@ -34,6 +35,7 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private bool _canForceTranslation;
     private string _selectedFontFamily = "Consolas";
     private double _editorFontSize = 13;
+    private bool _canCommitAndPush;
     private bool _isSyntaxHighlightingEnabled;
     private bool _areLineNumbersVisible;
     private bool _isWordWrapEnabled;
@@ -48,6 +50,8 @@ public class SaveDetailViewModel : INotifyPropertyChanged
         {
             _saveInfo = value;
             OnPropertyChanged();
+            // Update dependent values
+            CanCommitAndPush = (_saveInfo?.IsGitHubLinked == true) && !IsCommitInProgress;
         }
     }
 
@@ -146,7 +150,15 @@ public class SaveDetailViewModel : INotifyPropertyChanged
         {
             _isCommitInProgress = value;
             OnPropertyChanged();
+            // Keep CanCommitAndPush in sync
+            CanCommitAndPush = (_saveInfo?.IsGitHubLinked == true) && !_isCommitInProgress;
         }
+    }
+
+    public string CommitProgressMessage
+    {
+        get => _commitProgressMessage;
+        set { _commitProgressMessage = value; OnPropertyChanged(); }
     }
 
     public bool CanTranslate
@@ -240,6 +252,13 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     {
         get => _editorFontSize;
         set { _editorFontSize = value; OnPropertyChanged(); }
+    }
+
+    // Commit & Push availability: requires linked repo and not committing
+    public bool CanCommitAndPush
+    {
+        get => _canCommitAndPush;
+        set { _canCommitAndPush = value; OnPropertyChanged(); }
     }
 
     public bool IsSyntaxHighlightingEnabled

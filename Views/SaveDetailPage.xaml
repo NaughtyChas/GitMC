@@ -229,7 +229,9 @@
                     <ComboBox
                         x:Name="BranchComboBox"
                         MinWidth="150"
-                        SelectionChanged="BranchComboBox_SelectionChanged">
+                        SelectionChanged="BranchComboBox_SelectionChanged"
+                        DropDownOpened="BranchComboBox_DropDownOpened"
+                        DropDownClosed="BranchComboBox_DropDownClosed">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" />
@@ -337,7 +339,6 @@
                     <Button
                         x:Name="TranslatePrimaryButton"
                         Click="TranslateButton_Click"
-                        Style="{StaticResource AccentButtonStyle}"
                         IsEnabled="{x:Bind ViewModel.CanTranslate, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="16" Glyph="&#xE74E;" />
@@ -1844,17 +1845,15 @@
                                     Grid.Row="1"
                                     Margin="12"
                                     Spacing="8"
-                                    Visibility="Visible">
+                                    Visibility="{x:Bind ViewModel.IsCommitInProgress, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                                     <TextBox
                                         x:Name="CommitMessageTextBox"
-                                        Header="Summary"
                                         PlaceholderText="Enter commit message..."
                                         Text="{x:Bind ViewModel.CommitMessage, Mode=TwoWay}" />
                                     <TextBox
                                         x:Name="CommitDescriptionTextBox"
                                         Height="72"
                                         AcceptsReturn="True"
-                                        Header="Description (optional)"
                                         PlaceholderText="Provide additional details about your changes..."
                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                                         Text="{x:Bind ViewModel.CommitDescription, Mode=TwoWay}"
@@ -1868,7 +1867,7 @@
                                     Padding="12,8"
                                     BorderBrush="#E1E1E1"
                                     BorderThickness="0,1,0,0"
-                                    Visibility="Visible">
+                                    Visibility="{x:Bind ViewModel.IsCommitInProgress, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -1897,16 +1896,29 @@
                                             Background="#4CAF50"
                                             Click="CommitAndPushChanges_Click"
                                             Foreground="White"
-                                            IsEnabled="{x:Bind ViewModel.IsCommitInProgress, Converter={StaticResource BoolNegationConverter}}">
+                                            IsEnabled="{x:Bind ViewModel.CanCommitAndPush, Mode=OneWay}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <FontIcon FontSize="16" Glyph="&#xE898;" />
                                                 <TextBlock Text="Commit &amp; Push" />
                                             </StackPanel>
                                         </Button>
-                                        <Button x:Name="CommitOptionsButton" Grid.Column="4">
-                                            <FontIcon FontSize="14" Glyph="&#xE712;" />
-                                        </Button>
+                                        <!-- Unused options button removed -->
                                     </Grid>
+                                </Border>
+
+                                <!--  Commit Progress Panel (shows when committing)  -->
+                <Border
+                                    Grid.Row="1"
+                                    Grid.RowSpan="2"
+                                    Padding="16"
+                                    Visibility="{x:Bind ViewModel.IsCommitInProgress, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <StackPanel Spacing="12">
+                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <ProgressRing IsActive="True" Width="18" Height="18" />
+                                            <TextBlock Text="Committing changes..." FontWeight="SemiBold" />
+                                        </StackPanel>
+                    <TextBlock Text="{x:Bind ViewModel.CommitProgressMessage, Mode=OneWay}" TextWrapping="Wrap" />
+                                    </StackPanel>
                                 </Border>
                             </Grid>
                         </Border>
@@ -1941,7 +1953,8 @@
                                 Background="White"
                                 BorderBrush="#E1E1E1"
                                 BorderThickness="1"
-                                CornerRadius="8,8,0,0">
+                                CornerRadius="8,8,0,0"
+                                Visibility="{x:Bind ViewModel.SelectedChangedFile, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />

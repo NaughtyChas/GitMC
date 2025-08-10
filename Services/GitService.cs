@@ -459,7 +459,16 @@ public class GitService : IGitService
                     throw new LibGit2SharpException(
                         "No changes added to commit (use \"git add\" and/or \"git commit -a\")");
 
-                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                // Build signature; if configuration is missing, fallback to a generic identity
+                Signature signature;
+                try
+                {
+                    signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                }
+                catch
+                {
+                    signature = new Signature("GitMC", "gitmc@example.invalid", DateTimeOffset.Now);
+                }
                 repo.Commit(message, signature, signature);
             });
             return GitOperationResult.CreateSuccess();
@@ -490,7 +499,15 @@ public class GitService : IGitService
                     throw new LibGit2SharpException("No staged changes to amend");
 
                 // Build signature and message
-                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                Signature signature;
+                try
+                {
+                    signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                }
+                catch
+                {
+                    signature = new Signature("GitMC", "gitmc@example.invalid", DateTimeOffset.Now);
+                }
                 var newMessage = message ?? repo.Head.Tip.Message;
 
                 // Amend commit
