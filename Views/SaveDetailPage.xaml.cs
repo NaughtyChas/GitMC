@@ -34,6 +34,7 @@ namespace GitMC.Views
         public bool IsSeparator { get; set; }
         public bool IsCreateAction { get; set; }
         public string? BranchName { get; set; }
+        public bool ShowNormal => !IsSeparator && !IsCreateAction;
     }
 
     public sealed partial class SaveDetailPage : Page, INotifyPropertyChanged
@@ -51,6 +52,8 @@ namespace GitMC.Views
         private string _originalFileContent = string.Empty;
         private List<string> _availableBranches = new();
         private bool _isBranchDropDownOpen;
+        private BranchComboBoxItem? _lastValidBranchItem;
+        private bool _isUpdatingBranchList;
 
         public SaveDetailPage()
         {
@@ -115,6 +118,7 @@ namespace GitMC.Views
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
         }
+
 
         private async Task LoadOverviewDataAsync()
         {
@@ -1776,12 +1780,37 @@ namespace GitMC.Views
         {
             try
             {
+                if (_isUpdatingBranchList)
+                    return;
                 if (sender is ComboBox comboBox && comboBox.SelectedItem is BranchComboBoxItem selectedItem)
                 {
+                    // Disallow selecting the separator visually by restoring last valid selection
+                    if (selectedItem.IsSeparator)
+                    {
+                        if (_lastValidBranchItem != null)
+                        {
+                            try
+                            {
+                                _isUpdatingBranchList = true;
+                                comboBox.SelectedItem = _lastValidBranchItem;
+                            }
+                            finally
+                            {
+                                _isUpdatingBranchList = false;
+                            }
+                        }
+                        return;
+                    }
+
                     if (selectedItem.IsCreateAction)
                     {
                         await CreateBranchInteractiveAsync();
+                        // After creating, reload list and restore selection to the current branch
                         await LoadBranchesAsync();
+                        if (comboBox.SelectedItem is BranchComboBoxItem cur && !cur.IsSeparator && !cur.IsCreateAction)
+                        {
+                            _lastValidBranchItem = cur;
+                        }
                     }
                     else if (!selectedItem.IsSeparator && !string.IsNullOrEmpty(selectedItem.BranchName))
                     {
@@ -1789,6 +1818,16 @@ namespace GitMC.Views
                         Debug.WriteLine($"Switching to branch: {branchName}");
                         if (ViewModel.SaveInfo?.Path is string repoPath)
                         {
+                            // If already on this branch, no-op to avoid redundant operations
+                            var currentBranch = ViewModel.SaveInfo.Branch ?? string.Empty;
+                            if (string.Equals(currentBranch, branchName, StringComparison.Ordinal))
+                            {
+                                if (comboBox.SelectedItem is BranchComboBoxItem cur && !cur.IsSeparator && !cur.IsCreateAction)
+                                {
+                                    _lastValidBranchItem = cur;
+                                }
+                                return;
+                            }
                             var result = await _gitService.CheckoutBranchAsync(branchName, repoPath);
                             if (result.Success)
                             {
@@ -1798,6 +1837,11 @@ namespace GitMC.Views
                                 RefreshStatusDisplays();
                                 await LoadChangedFilesDataAsync();
                                 await LoadRecentCommitsAsync();
+                                // Track last valid selection
+                                if (comboBox.SelectedItem is BranchComboBoxItem cur && !cur.IsSeparator && !cur.IsCreateAction)
+                                {
+                                    _lastValidBranchItem = cur;
+                                }
                             }
                             else
                             {
@@ -2095,16 +2139,25 @@ namespace GitMC.Views
                         IsSeparator = false
                     });
 
-                    branchComboBox.ItemsSource = comboBoxItems;
+                    try
+                    {
+                        _isUpdatingBranchList = true;
+                        branchComboBox.ItemsSource = comboBoxItems;
 
-                    var currentName = parsed.FirstOrDefault(p => p.IsCurrent)?.Name
-                                      ?? ViewModel.SaveInfo.Branch
-                                      ?? ViewModel.SaveInfo.GitHubDefaultBranch
-                                      ?? "main";
-                    var currentBranchItem = comboBoxItems.FirstOrDefault(item => item.BranchName == currentName)
-                                            ?? comboBoxItems.FirstOrDefault(item => item.BranchName == "main");
-                    branchComboBox.SelectedItem = currentBranchItem;
-                    UpdateBranchTagsDisplay();
+                        var currentName = parsed.FirstOrDefault(p => p.IsCurrent)?.Name
+                                          ?? ViewModel.SaveInfo.Branch
+                                          ?? ViewModel.SaveInfo.GitHubDefaultBranch
+                                          ?? "main";
+                        var currentBranchItem = comboBoxItems.FirstOrDefault(item => item.BranchName == currentName)
+                                                ?? comboBoxItems.FirstOrDefault(item => item.BranchName == "main");
+                        branchComboBox.SelectedItem = currentBranchItem;
+                        _lastValidBranchItem = currentBranchItem;
+                        UpdateBranchTagsDisplay();
+                    }
+                    finally
+                    {
+                        _isUpdatingBranchList = false;
+                    }
                 }
             }
             catch (Exception ex)
@@ -3160,25 +3213,18 @@ namespace GitMC.Views
         {
             try
             {
-                var can = false;
                 var info = ViewModel.SaveInfo;
-                if (info?.Path != null && info.CurrentStatus == ManagedSaveInfo.SaveStatus.Modified && !ViewModel.IsCommitInProgress && !_autoCommitInProgress)
+                var can = false;
+                if (info?.Path != null
+                    && info.CurrentStatus == ManagedSaveInfo.SaveStatus.Modified
+                    && !ViewModel.IsCommitInProgress
+                    && !_autoCommitInProgress)
                 {
                     var inUse = await IsSaveInUseAsync(info.Path);
                     if (!inUse)
                     {
-                        var status = await _gitService.GetStatusAsync(info.Path);
-                        var changed = status.ModifiedFiles.Concat(status.UntrackedFiles);
-                        foreach (var rel in changed)
-                        {
-                            var full = Path.Combine(info.Path, rel);
-                            // Skip direct-editable
-                            var ext = Path.GetExtension(full).ToLowerInvariant();
-                            var directEditable = ext is ".txt" or ".json" or ".md" or ".log" or ".mcfunction" or ".mcmeta" or ".cfg" or ".ini" or ".csv" or ".yaml" or ".yml" or ".toml" or ".xml" or ".properties" or ".snbt";
-                            if (directEditable) continue;
-
-                            if (IsKnownTranslatable(full)) { can = true; break; }
-                        }
+                        // Use service-level detector that considers LastUpdate-only filtering and non-region files
+                        can = await _saveInitializationService.HasPendingTranslationsAsync(info.Path);
                     }
                 }
                 ViewModel.CanTranslate = can;
@@ -3228,12 +3274,16 @@ namespace GitMC.Views
                     ViewModel.IsFileModified = false;
                     UpdateEditorMetrics();
 
-                    // Apply font settings to editor
+                    // Apply font settings to editor and lock state
                     if (FindName("FileTextEditor") is TextBox editor)
                     {
                         editor.FontFamily = new FontFamily(ViewModel.SelectedFontFamily);
                         editor.FontSize = ViewModel.EditorFontSize;
                         editor.TextWrapping = ViewModel.IsWordWrapEnabled ? TextWrapping.Wrap : TextWrapping.NoWrap;
+
+                        // While save is in use (locked), make the editor read-only for safety
+                        var inUse = ViewModel.SaveInfo?.Path is string sp && await IsSaveInUseAsync(sp);
+                        editor.IsReadOnly = inUse;
                     }
                 }
                 else

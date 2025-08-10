@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.Json;
+using fNbt;
 using GitMC.Models;
+using GitMC.Utils.Nbt;
 
 namespace GitMC.Services;
 
@@ -1008,8 +1010,8 @@ public class SaveInitializationService : ISaveInitializationService
     public async Task<bool> CommitOngoingChangesAsync(string savePath, string commitMessage, IProgress<SaveInitStep>? progress = null)
     {
         var step = new SaveInitStep { Name = "Committing Changes", Description = "Processing changes using partial storage" };
-        // Detect (save + GitMC), Export (save->SNBT), Manifest(pending), Stage(GitMC), Commit(GitMC), Manifest(update+amend),
-        // Rebuild MCA from SNBT (if any user-edited), Stage(save), Commit(save), Cleanup(SNBT)
+        // Detect (save + GitMC), Export/Copy (save->GitMC), Manifest(pending), Stage(GitMC), Commit(GitMC), Manifest(update+amend),
+        // Rebuild MCA from SNBT (if any user-edited), Stage(save), Commit(save), Cleanup(SNBT and copied files when needed)
         var totalOperations = 10;
         var currentOperation = 0;
 
@@ -1026,6 +1028,12 @@ public class SaveInitializationService : ISaveInitializationService
 
             // Changes detected by comparing MCA files in save directory
             var changedChunksFromSave = await DetectChangedChunksAsync(savePath);
+
+            // Filter out chunks that only have LastUpdate timestamp changes (no block/content changes)
+            if (changedChunksFromSave.Count > 0)
+            {
+                changedChunksFromSave = await FilterLastUpdateOnlyChangesAsync(savePath, changedChunksFromSave);
+            }
 
             // Changes coming from user-edited SNBT files in GitMC working directory
             var changedChunksFromGitMc = new List<string>();
@@ -1083,6 +1091,17 @@ public class SaveInitializationService : ISaveInitializationService
                 await ExportChangedChunksToSnbt(savePath, exportChunks, step, progress);
             }
 
+            // Also include non-region changed files in save repo:
+            // - .dat/.nbt: translate to SNBT under GitMC
+            // - .json/.txt and other small text assets: copy to GitMC (under a "misc" folder)
+            // This ensures "one translation, and use" covers all relevant files.
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Processing non-region changes (translate/copy)...";
+            progress?.Report(step);
+
+            await ProcessNonRegionChangesAsync(savePath, step, progress);
+
             // Step 3: Update manifest with pending entries
             currentOperation++;
             step.CurrentProgress = currentOperation;
@@ -1115,6 +1134,8 @@ public class SaveInitializationService : ISaveInitializationService
             progress?.Report(step);
 
             await StageChangedFiles(gitMcPath, allChangedChunks);
+            // Stage additional processed files under GitMC (misc, data etc.)
+            await _gitService.StageAllAsync(gitMcPath);
 
             // Step 5: Commit
             currentOperation++;
@@ -1247,7 +1268,7 @@ public class SaveInitializationService : ISaveInitializationService
     public async Task<bool> TranslateChangedAsync(string savePath, IProgress<SaveInitStep>? progress = null)
     {
         var step = new SaveInitStep { Name = "Translating Changes", Description = "Exporting changes to SNBT (no commit)" };
-        var totalOperations = 4; // Detect, Export, Update manifest (pending), Cleanup old temp
+        var totalOperations = 5; // Detect, Export, Process non-region, Update manifest (pending), Finalize
         var currentOperation = 0;
 
         try
@@ -1262,6 +1283,12 @@ public class SaveInitializationService : ISaveInitializationService
             progress?.Report(step);
 
             var changedChunks = await DetectChangedChunksAsync(savePath);
+
+            // Filter out timestamp-only changes before exporting
+            if (changedChunks.Count > 0)
+            {
+                changedChunks = await FilterLastUpdateOnlyChangesAsync(savePath, changedChunks);
+            }
             if (changedChunks.Count == 0)
             {
                 step.Message = "No changes detected - nothing to translate";
@@ -1277,7 +1304,15 @@ public class SaveInitializationService : ISaveInitializationService
 
             await ExportChangedChunksToSnbt(savePath, changedChunks, step, progress);
 
-            // Step 3: Update manifest with pending entries (no hash assigned yet)
+            // Step 3: Process non-region changes (translate .dat/.nbt, copy simple text)
+            currentOperation++;
+            step.CurrentProgress = currentOperation;
+            step.Message = "Processing non-region changes...";
+            progress?.Report(step);
+
+            await ProcessNonRegionChangesAsync(savePath, step, progress);
+
+            // Step 4: Update manifest with pending entries (no hash assigned yet)
             currentOperation++;
             step.CurrentProgress = currentOperation;
             step.Message = "Updating manifest (pending entries)...";
@@ -1296,7 +1331,7 @@ public class SaveInitializationService : ISaveInitializationService
             }
             await _manifestService.UpdateManifestForChangesAsync(gitMcPath, changedSnbtAbsolute);
 
-            // Step 4: Finalize
+            // Step 5: Finalize
             currentOperation++;
             step.CurrentProgress = currentOperation;
             step.Message = "Translation complete";
@@ -1309,6 +1344,55 @@ public class SaveInitializationService : ISaveInitializationService
             step.Message = $"Failed to translate changes: {ex.Message}";
             progress?.Report(step);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Determine if there are pending translations needed for current changes.
+    /// True when any changed translatable file in save directory doesn't have an up-to-date SNBT in GitMC.
+    /// </summary>
+    public async Task<bool> HasPendingTranslationsAsync(string savePath)
+    {
+        try
+        {
+            var status = await _gitService.GetStatusAsync(savePath);
+
+            // Region changes: if DetectChangedChunksAsync identifies any, translation is pending
+            var changedChunks = await DetectChangedChunksAsync(savePath);
+            if (changedChunks.Count > 0)
+                return true;
+
+            // Non-region .dat/.nbt: compare source mtime and existence with GitMC/data/*.snbt
+            var gitMcPath = Path.Combine(savePath, "GitMC");
+            var dataOut = Path.Combine(gitMcPath, "data");
+
+            var candidates = status.ModifiedFiles
+                .Concat(status.UntrackedFiles)
+                .Where(rel => !rel.StartsWith("GitMC/", StringComparison.OrdinalIgnoreCase)
+                              && !rel.StartsWith("GitMC\\", StringComparison.OrdinalIgnoreCase)
+                              && !rel.StartsWith("region/", StringComparison.OrdinalIgnoreCase)
+                              && !rel.StartsWith("region\\", StringComparison.OrdinalIgnoreCase))
+                .Distinct()
+                .ToList();
+
+            foreach (var rel in candidates)
+            {
+                var full = Path.Combine(savePath, rel);
+                if (!File.Exists(full)) continue;
+                var ext = Path.GetExtension(full).ToLowerInvariant();
+                if (ext is not (".dat" or ".nbt")) continue;
+
+                var snbtPath = Path.Combine(dataOut, Path.GetFileName(full) + ".snbt");
+                if (!File.Exists(snbtPath)) return true;
+                if (File.GetLastWriteTimeUtc(full) > File.GetLastWriteTimeUtc(snbtPath)) return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            // Be conservative
+            return true;
         }
     }
 
@@ -1366,6 +1450,154 @@ public class SaveInitializationService : ISaveInitializationService
         {
             System.Diagnostics.Debug.WriteLine($"Error detecting changed chunks: {ex.Message}");
             return new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Filter out chunks where the only difference from the last committed SNBT is LastUpdate timestamp.
+    /// Keeps chunks with real content changes.
+    /// </summary>
+    private async Task<List<string>> FilterLastUpdateOnlyChangesAsync(string savePath, List<string> candidateChunks)
+    {
+        var result = new List<string>();
+        try
+        {
+            if (candidateChunks.Count == 0) return result;
+
+            var gitMcPath = Path.Combine(savePath, "GitMC");
+            var manifest = await _manifestService.LoadManifestAsync(gitMcPath);
+
+            foreach (var chunkFileName in candidateChunks)
+            {
+                try
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(chunkFileName, @"chunk_(-?\d+)_(-?\d+)\.snbt");
+                    if (!match.Success ||
+                        !int.TryParse(match.Groups[1].Value, out var chunkX) ||
+                        !int.TryParse(match.Groups[2].Value, out var chunkZ))
+                    {
+                        // If parsing fails, keep the chunk to be safe
+                        result.Add(chunkFileName);
+                        continue;
+                    }
+
+                    var regionX = chunkX >> 5;
+                    var regionZ = chunkZ >> 5;
+                    var mcaName = $"r.{regionX}.{regionZ}.mca";
+                    var mcaPath = Path.Combine(savePath, "region", mcaName);
+
+                    // If MCA missing, treat as change
+                    if (!File.Exists(mcaPath))
+                    {
+                        result.Add(chunkFileName);
+                        continue;
+                    }
+
+                    // New/current SNBT (from live MCA)
+                    var newSnbt = await _nbtService.ExtractChunkDataAsync(mcaPath, chunkX, chunkZ);
+
+                    // Old SNBT from manifest's last commit
+                    var relSnbtPath = Path.Combine("region", mcaName, chunkFileName).Replace('\\', '/');
+                    if (!manifest.TryGetValue(relSnbtPath, out var entry) || string.IsNullOrWhiteSpace(entry.Commit) || entry.Commit == "pending")
+                    {
+                        // No prior commit to compare => keep
+                        result.Add(chunkFileName);
+                        continue;
+                    }
+
+                    var oldSnbt = await _manifestService.GetSnbtFileFromCommitAsync(gitMcPath, relSnbtPath, entry.Commit);
+                    if (string.IsNullOrEmpty(oldSnbt))
+                    {
+                        result.Add(chunkFileName);
+                        continue;
+                    }
+
+                    // Normalize both SNBTs by removing LastUpdate fields, then compare
+                    var normNew = NormalizeChunkSnbtForComparison(newSnbt);
+                    var normOld = NormalizeChunkSnbtForComparison(oldSnbt!);
+
+                    if (!string.Equals(normNew, normOld, StringComparison.Ordinal))
+                    {
+                        // Real content change
+                        result.Add(chunkFileName);
+                    }
+                    else
+                    {
+                        // Only LastUpdate (or ignorable fields) changed; skip
+                    }
+                }
+                catch
+                {
+                    // On any error, default to keeping the chunk to avoid losing changes
+                    result.Add(chunkFileName);
+                }
+            }
+        }
+        catch
+        {
+            // If filtering fails globally, return original candidates
+            return new List<string>(candidateChunks);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Parse SNBT to NBT and remove volatile fields (LastUpdate). Returns canonical SNBT string.
+    /// </summary>
+    private static string NormalizeChunkSnbtForComparison(string snbt)
+    {
+        try
+        {
+            var tag = SnbtParser.Parse(snbt, false);
+            RemoveFieldsRecursive(tag, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "LastUpdate" });
+            return (tag as NbtTag)!.ToSnbt(SnbtOptions.Default);
+        }
+        catch
+        {
+            // If parsing fails, fall back to raw content to avoid false negatives
+            return snbt;
+        }
+    }
+
+    private static void RemoveFieldsRecursive(NbtTag tag, HashSet<string> namesToStrip)
+    {
+        switch (tag)
+        {
+            case NbtCompound compound:
+                {
+                    // Collect keys to remove first to avoid modifying during enumeration
+                    var toRemove = new List<NbtTag>();
+                    foreach (var child in compound)
+                    {
+                        if (!string.IsNullOrEmpty(child.Name) && namesToStrip.Contains(child.Name))
+                        {
+                            toRemove.Add(child);
+                        }
+                    }
+                    foreach (var child in toRemove)
+                    {
+                        compound.Remove(child);
+                    }
+
+                    // Recurse into remaining children
+                    foreach (var child in compound)
+                    {
+                        RemoveFieldsRecursive(child, namesToStrip);
+                    }
+                    break;
+                }
+            case NbtList list:
+                {
+                    foreach (var child in list)
+                    {
+                        RemoveFieldsRecursive(child, namesToStrip);
+                    }
+                    break;
+                }
+            default:
+                // Primitives: nothing to strip
+                break;
         }
     }
 
@@ -1484,6 +1716,69 @@ public class SaveInitializationService : ISaveInitializationService
                 System.Diagnostics.Debug.WriteLine($"Failed to export chunk {chunkFileName}: {ex.Message}");
                 // Continue with other chunks
             }
+        }
+    }
+
+    /// <summary>
+    /// Process non-region changed files from the save repository:
+    /// - .dat/.nbt are translated to SNBT into GitMC/data
+    /// - .json/.txt and other simple text files are copied to GitMC/misc preserving relative paths
+    /// Updates manifest to track SNBT outputs.
+    /// </summary>
+    private async Task ProcessNonRegionChangesAsync(string savePath, SaveInitStep step, IProgress<SaveInitStep>? progress)
+    {
+        var gitMcPath = Path.Combine(savePath, "GitMC");
+        var dataOut = Path.Combine(gitMcPath, "data");
+        var miscOut = Path.Combine(gitMcPath, "misc");
+        Directory.CreateDirectory(dataOut);
+        Directory.CreateDirectory(miscOut);
+
+        var status = await _gitService.GetStatusAsync(savePath);
+        var candidates = status.ModifiedFiles
+            .Concat(status.UntrackedFiles)
+            .Where(rel => !rel.StartsWith("GitMC/", StringComparison.OrdinalIgnoreCase)
+                          && !rel.StartsWith("GitMC\\", StringComparison.OrdinalIgnoreCase)
+                          && !rel.StartsWith("region/", StringComparison.OrdinalIgnoreCase)
+                          && !rel.StartsWith("region\\", StringComparison.OrdinalIgnoreCase))
+            .Distinct()
+            .ToList();
+
+        if (candidates.Count == 0) return;
+
+        var snbtFilesForManifest = new List<string>();
+        foreach (var rel in candidates)
+        {
+            try
+            {
+                var full = Path.Combine(savePath, rel);
+                var ext = Path.GetExtension(full).ToLowerInvariant();
+                if (!File.Exists(full)) continue;
+
+                if (ext is ".dat" or ".nbt")
+                {
+                    // Translate to SNBT under GitMC/data preserving filename
+                    var fileName = Path.GetFileName(full) + ".snbt";
+                    var outPath = Path.Combine(dataOut, fileName);
+                    await _nbtService.ConvertToSnbtAsync(full, outPath, new Progress<string>(_ => { }));
+                    snbtFilesForManifest.Add(outPath);
+                }
+                else if (ext is ".json" or ".txt")
+                {
+                    // Copy to GitMC/misc keeping same relative file name
+                    var outPath = Path.Combine(miscOut, Path.GetFileName(full));
+                    Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
+                    File.Copy(full, outPath, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ProcessNonRegionChangesAsync failed for {rel}: {ex.Message}");
+            }
+        }
+
+        if (snbtFilesForManifest.Count > 0)
+        {
+            await _manifestService.UpdateManifestForChangesAsync(gitMcPath, snbtFilesForManifest);
         }
     }
 

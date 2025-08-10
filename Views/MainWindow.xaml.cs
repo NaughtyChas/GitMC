@@ -1,9 +1,9 @@
 using System.Diagnostics;
-using Windows.Graphics;
 using GitMC.Extensions;
 using GitMC.Services;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Graphics;
 
 namespace GitMC.Views;
 
@@ -138,6 +138,9 @@ public sealed partial class MainWindow : Window
             AppWindow.Resize(new SizeInt32(savedWidth, savedHeight));
             AppWindow.Move(new PointInt32(savedX, savedY));
 
+            // Ensure the restored window is visible on current displays
+            EnsureWindowIsVisible();
+
             // Restore maximized state if needed
             if (_configurationService.IsMaximized)
             {
@@ -148,6 +151,54 @@ public sealed partial class MainWindow : Window
 
         // Set up window size change monitoring to enforce minimum size
         AppWindow.Changed += AppWindow_Changed;
+    }
+
+    private void EnsureWindowIsVisible()
+    {
+        try
+        {
+            // Current saved rectangle
+            var size = AppWindow.Size;
+            var pos = AppWindow.Position;
+            var rect = new RectInt32(pos.X, pos.Y, size.Width, size.Height);
+
+            // Use nearest display area to validate bounds
+            var displayArea = DisplayArea.GetFromRect(rect, DisplayAreaFallback.Primary);
+            var work = displayArea.WorkArea;
+
+            // If window is larger than work area, clamp size
+            var newWidth = Math.Min(size.Width, work.Width);
+            var newHeight = Math.Min(size.Height, work.Height);
+            if (newWidth != size.Width || newHeight != size.Height)
+            {
+                AppWindow.Resize(new SizeInt32(newWidth, newHeight));
+                size = AppWindow.Size;
+                rect = new RectInt32(pos.X, pos.Y, size.Width, size.Height);
+            }
+
+            // Check intersection with a small threshold to avoid windows barely touching the edge off-screen
+            if (!IntersectsWithThreshold(rect, work, 50))
+            {
+                // Center in the working area
+                var centerX = work.X + (work.Width - size.Width) / 2;
+                var centerY = work.Y + (work.Height - size.Height) / 2;
+                // Make sure we don't go outside even with rounding
+                var newX = Math.Max(work.X, Math.Min(centerX, work.X + work.Width - size.Width));
+                var newY = Math.Max(work.Y, Math.Min(centerY, work.Y + work.Height - size.Height));
+                AppWindow.Move(new PointInt32(newX, newY));
+            }
+        }
+        catch
+        {
+            // Best-effort; ignore failures
+        }
+    }
+
+    private static bool IntersectsWithThreshold(RectInt32 a, RectInt32 b, int threshold)
+    {
+        var xOverlap = Math.Min(a.X + a.Width, b.X + b.Width) - Math.Max(a.X, b.X);
+        var yOverlap = Math.Min(a.Y + a.Height, b.Y + b.Height) - Math.Max(a.Y, b.Y);
+        return xOverlap >= threshold && yOverlap >= threshold;
     }
 
     public void NavigateToPage(Type pageType)

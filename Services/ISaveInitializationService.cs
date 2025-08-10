@@ -40,6 +40,13 @@ public interface ISaveInitializationService
     Task<bool> TranslateChangedAsync(string savePath, IProgress<SaveInitStep>? progress = null);
 
     /// <summary>
+    ///     Determine whether there are pending translations (missing or stale SNBT) for the save
+    /// </summary>
+    /// <param name="savePath">Path to the save directory</param>
+    /// <returns>True if translation should run to bring SNBT current</returns>
+    Task<bool> HasPendingTranslationsAsync(string savePath);
+
+    /// <summary>
     ///     Detect changed chunks compared to the last committed state
     /// </summary>
     /// <param name="savePath">Path to the save directory</param>
