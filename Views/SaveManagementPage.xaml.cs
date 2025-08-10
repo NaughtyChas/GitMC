@@ -3,8 +3,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using Windows.Storage.Pickers;
-using Windows.UI;
 using GitMC.Constants;
 using GitMC.Extensions;
 using GitMC.Helpers;
@@ -16,6 +14,8 @@ using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage.Pickers;
+using Windows.UI;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -36,6 +36,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
     public SaveManagementPage()
     {
         InitializeComponent();
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
 
         // Use ServiceFactory to get services
         _services = ServiceFactory.Services;

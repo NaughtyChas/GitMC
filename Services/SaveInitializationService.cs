@@ -16,6 +16,7 @@ public class SaveInitializationService : ISaveInitializationService
     private readonly IGitService _gitService;
     private readonly INbtService _nbtService;
     private readonly IManifestService _manifestService;
+    private readonly IOperationManager? _operations;
 
     public SaveInitializationService(
         IGitService gitService,
@@ -27,6 +28,7 @@ public class SaveInitializationService : ISaveInitializationService
         _nbtService = nbtService;
         _dataStorageService = dataStorageService;
         _manifestService = manifestService;
+        try { _operations = GitMC.Extensions.ServiceFactory.Services.Operations; } catch { }
     }
 
     public ObservableCollection<SaveInitStep> GetInitializationSteps()
@@ -58,6 +60,7 @@ public class SaveInitializationService : ISaveInitializationService
 
     public async Task<bool> InitializeSaveAsync(string savePath, IProgress<SaveInitStep>? progress = null)
     {
+        var op = _operations?.Start(savePath, Models.OperationType.Initialize, totalSteps: 7, message: "Initializing save");
         // Validate Git identity is configured before proceeding
         (var userName, var userEmail) = await _gitService.GetIdentityAsync();
         if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(userEmail))
@@ -273,6 +276,7 @@ public class SaveInitializationService : ISaveInitializationService
                 progressWrapper.Report(steps[6]);
                 return true;
             });
+            _operations?.Complete(op!, true, "Initialization complete");
             return true;
         }
         catch (Exception ex)
@@ -286,6 +290,7 @@ public class SaveInitializationService : ISaveInitializationService
                 progress?.Report(currentStep);
             }
 
+            _operations?.Complete(op!, false, $"Initialization failed: {ex.Message}");
             return false;
         }
     }
@@ -1010,6 +1015,7 @@ public class SaveInitializationService : ISaveInitializationService
     public async Task<bool> CommitOngoingChangesAsync(string savePath, string commitMessage, IProgress<SaveInitStep>? progress = null)
     {
         var step = new SaveInitStep { Name = "Committing Changes", Description = "Processing changes using partial storage" };
+        var op = _operations?.Start(savePath, Models.OperationType.Commit, totalSteps: 10, message: "Committing changes");
         // Detect (save + GitMC), Export/Copy (save->GitMC), Manifest(pending), Stage(GitMC), Commit(GitMC), Manifest(update+amend),
         // Rebuild MCA from SNBT (if any user-edited), Stage(save), Commit(save), Cleanup(SNBT and copied files when needed)
         var totalOperations = 10;
@@ -1252,12 +1258,14 @@ public class SaveInitializationService : ISaveInitializationService
             step.Message = $"Successfully committed {totalChanged} change(s)";
             progress?.Report(step);
 
+            _operations?.Complete(op!, true, step.Message);
             return true;
         }
         catch (Exception ex)
         {
             step.Message = $"Failed to commit changes: {ex.Message}";
             progress?.Report(step);
+            _operations?.Complete(op!, false, step.Message);
             return false;
         }
     }
@@ -1268,6 +1276,7 @@ public class SaveInitializationService : ISaveInitializationService
     public async Task<bool> TranslateChangedAsync(string savePath, IProgress<SaveInitStep>? progress = null)
     {
         var step = new SaveInitStep { Name = "Translating Changes", Description = "Exporting changes to SNBT (no commit)" };
+        var op = _operations?.Start(savePath, Models.OperationType.Translate, totalSteps: 5, message: "Translating changes");
         var totalOperations = 5; // Detect, Export, Process non-region, Update manifest (pending), Finalize
         var currentOperation = 0;
 
@@ -1337,12 +1346,14 @@ public class SaveInitializationService : ISaveInitializationService
             step.Message = "Translation complete";
             progress?.Report(step);
 
+            _operations?.Complete(op!, true, step.Message);
             return true;
         }
         catch (Exception ex)
         {
             step.Message = $"Failed to translate changes: {ex.Message}";
             progress?.Report(step);
+            _operations?.Complete(op!, false, step.Message);
             return false;
         }
     }

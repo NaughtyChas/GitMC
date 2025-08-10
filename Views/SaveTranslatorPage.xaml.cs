@@ -1,13 +1,13 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using Windows.Storage.Pickers;
 using GitMC.Services;
 using GitMC.Utils;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Storage.Pickers;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -30,6 +30,8 @@ public sealed partial class SaveTranslatorPage : Page
     public SaveTranslatorPage()
     {
         InitializeComponent();
+        // Keep page instance alive across navigation so any ongoing operations/UI state persists
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
         _nbtService = new NbtService();
         InitializePerformanceCounters();
     }

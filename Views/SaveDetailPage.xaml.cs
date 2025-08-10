@@ -47,6 +47,7 @@ namespace GitMC.Views
         private readonly IMinecraftAnalyzerService _minecraftAnalyzerService;
         private readonly NbtService _nbtService;
         private readonly ISaveInitializationService _saveInitializationService;
+        private readonly IOperationManager _operationManager;
         private string? _saveId;
         private Timer? _changeDetectionTimer;
         private string _originalFileContent = string.Empty;
@@ -58,6 +59,7 @@ namespace GitMC.Views
         public SaveDetailPage()
         {
             InitializeComponent();
+            NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
 
             // Use ServiceFactory to get shared service instances
             var services = ServiceFactory.Services;
@@ -66,6 +68,7 @@ namespace GitMC.Views
             _gitService = services.Git;
             _dataStorageService = services.DataStorage;
             _saveInitializationService = services.SaveInitialization;
+            _operationManager = services.Operations;
             _minecraftAnalyzerService = ServiceFactory.MinecraftAnalyzer;
             _managedSaveService = new ManagedSaveService(_dataStorageService);
             _gitHubAppsService = ServiceFactory.GitHubApps;
@@ -75,6 +78,12 @@ namespace GitMC.Views
 
             // Observe ViewModel changes for dynamic UI tweaks
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+            // Keep page instance alive across navigation to preserve progress UI
+            NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
+
+            // Sync operation state on demand
+            // (Periodic change detection will also sync during ticks)
         }
 
         public SaveDetailViewModel ViewModel { get; }
@@ -111,12 +120,32 @@ namespace GitMC.Views
 
                 // Start periodic change detection updates
                 StartChangeDetectionUpdates();
+
+                // Sync operation state if there is an ongoing op for this save
+                SyncOperationStatusWithManager();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error in InitializePageAsync: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
+        }
+
+        private void SyncOperationStatusWithManager()
+        {
+            try
+            {
+                var path = ViewModel.SaveInfo?.Path;
+                if (string.IsNullOrEmpty(path)) return;
+                var active = _operationManager.GetActive(path);
+                var running = active != null;
+                if (ViewModel.IsCommitInProgress != running)
+                {
+                    ViewModel.IsCommitInProgress = running;
+                    _ = RecomputeCanTranslateAsync();
+                }
+            }
+            catch { }
         }
 
 
