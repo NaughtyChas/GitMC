@@ -13,11 +13,13 @@ using GitMC.Services;
 using GitMC.Utils.Nbt;
 using GitMC.ViewModels;
 using Microsoft.UI.Text;
+using Microsoft.UI.Xaml.Controls; // WebView2
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
+using Microsoft.Web.WebView2.Core; // CoreWebView2 events
 using Windows.Foundation;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -50,11 +52,26 @@ namespace GitMC.Views
         private readonly IOperationManager _operationManager;
         private string? _saveId;
         private Timer? _changeDetectionTimer;
+        private Timer? _opProgressTimer;
         private string _originalFileContent = string.Empty;
         private List<string> _availableBranches = new();
         private bool _isBranchDropDownOpen;
         private BranchComboBoxItem? _lastValidBranchItem;
         private bool _isUpdatingBranchList;
+        private bool _useWebEditor;
+        // Large-file streaming state for WebView2
+        private StreamReader? _editorStreamReader;
+        private string? _editorStreamingPath;
+        private bool _editorStreamingCompleted;
+        private bool _webMessageHooked;
+        private const int StreamingChunkChars = 200_000;
+        // Virtualized paging (VS Code-like) for ultra-large files
+        private bool _virtualizedMode;
+        private readonly List<string> _virtualPages = new();
+        private readonly List<int> _virtualPageLineCounts = new();
+        private int _virtualLineBase; // number of lines logically before the first loaded page
+        private const int VirtualPageLines = 2000; // lines per page
+        private const int VirtualMaxPagesInMemory = 6; // keep a sliding window of pages
 
         public SaveDetailPage()
         {
@@ -144,10 +161,45 @@ namespace GitMC.Views
                     ViewModel.IsCommitInProgress = running;
                     _ = RecomputeCanTranslateAsync();
                 }
+
+                // Mirror translation progress UI when active translate op exists
+                if (active != null && active.Type == OperationType.Translate)
+                {
+                    var pct = active.TotalSteps > 0 ? Math.Max(0, Math.Min(100, (double)active.CurrentStep / active.TotalSteps * 100.0)) : 0;
+                    if (FindName("TranslationProgressBar") is ProgressBar p1) p1.Value = pct;
+                    if (FindName("TranslationProgressText") is TextBlock t1) t1.Text = $"{pct:F0}%";
+                    if (FindName("TranslationStepText") is TextBlock s1) s1.Text = active.Message;
+
+                    if (FindName("TranslateRequiredProgressBar") is ProgressBar p2) p2.Value = pct;
+                    if (FindName("TranslateRequiredProgressText") is TextBlock t2) t2.Text = $"{pct:F0}%";
+                    if (FindName("TranslateRequiredStepText") is TextBlock s2) s2.Text = active.Message;
+
+                    // Ensure a lightweight polling timer runs while translation is active
+                    StartOperationProgressPolling();
+                }
+                else
+                {
+                    StopOperationProgressPolling();
+                }
             }
             catch { }
         }
 
+
+        private void StartOperationProgressPolling()
+        {
+            if (_opProgressTimer != null) return;
+            _opProgressTimer = new Timer(_ =>
+            {
+                try { DispatcherQueue.TryEnqueue(() => SyncOperationStatusWithManager()); } catch { }
+            }, null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+        }
+
+        private void StopOperationProgressPolling()
+        {
+            _opProgressTimer?.Dispose();
+            _opProgressTimer = null;
+        }
 
         private async Task LoadOverviewDataAsync()
         {
@@ -3297,22 +3349,28 @@ namespace GitMC.Views
                         return;
                     }
 
-                    var text = await File.ReadAllTextAsync(pathToLoad);
-                    _originalFileContent = text;
-                    ViewModel.FileContent = text;
-                    ViewModel.IsFileModified = false;
-                    UpdateEditorMetrics();
-
-                    // Apply font settings to editor and lock state
-                    if (FindName("FileTextEditor") is TextBox editor)
+                    // Heuristic: if file > 1.5 MB or > 120k chars, prefer web-based code editor (with streaming) to reduce UI thread pressure
+                    var info = new FileInfo(pathToLoad);
+                    var useWeb = info.Exists && info.Length > 1_500_000; // ~1.5MB threshold
+                    string text;
+                    if (!useWeb)
                     {
-                        editor.FontFamily = new FontFamily(ViewModel.SelectedFontFamily);
-                        editor.FontSize = ViewModel.EditorFontSize;
-                        editor.TextWrapping = ViewModel.IsWordWrapEnabled ? TextWrapping.Wrap : TextWrapping.NoWrap;
+                        text = await File.ReadAllTextAsync(pathToLoad);
+                        _originalFileContent = text;
+                        ViewModel.FileContent = text;
+                        ViewModel.IsFileModified = false;
+                        UpdateEditorMetrics();
 
-                        // While save is in use (locked), make the editor read-only for safety
-                        var inUse = ViewModel.SaveInfo?.Path is string sp && await IsSaveInUseAsync(sp);
-                        editor.IsReadOnly = inUse;
+                        _useWebEditor = (ViewModel.FileContent?.Length ?? 0) > 120_000;
+                        await EnsureEditorSurfaceAsync();
+                        await RenderEditorContentAsync();
+                    }
+                    else
+                    {
+                        // Ultra-large: enable virtualized paging
+                        _useWebEditor = true;
+                        _virtualizedMode = true;
+                        await InitializeVirtualizedWindowAsync(pathToLoad, info);
                     }
                 }
                 else
@@ -3362,6 +3420,7 @@ namespace GitMC.Views
 
         private void TextEditor_TextChanged(object sender, TextChangedEventArgs e)
         {
+            if (_useWebEditor) return; // Web editor changes flow via JS -> host bridge
             // Keep ViewModel.FileContent in sync via x:Bind TwoWay; just update metrics and modified state
             try
             {
@@ -3549,8 +3608,15 @@ namespace GitMC.Views
 
         private void WordWrapToggle_Toggled(object sender, RoutedEventArgs e)
         {
-            if (FindName("FileTextEditor") is TextBox editor)
-                editor.TextWrapping = ViewModel.IsWordWrapEnabled ? TextWrapping.Wrap : TextWrapping.NoWrap;
+            if (!_useWebEditor)
+            {
+                if (FindName("FileTextEditor") is TextBox editor)
+                    editor.TextWrapping = ViewModel.IsWordWrapEnabled ? TextWrapping.Wrap : TextWrapping.NoWrap;
+            }
+            else
+            {
+                _ = InvokeWebEditor("setWordWrap", ViewModel.IsWordWrapEnabled ? "true" : "false");
+            }
         }
 
         private void FontFamilyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -3560,7 +3626,9 @@ namespace GitMC.Views
                 if (!string.Equals(ViewModel.SelectedFontFamily, family, StringComparison.Ordinal))
                 {
                     ViewModel.SelectedFontFamily = family;
-                    if (FindName("FileTextEditor") is TextBox editor)
+                    if (_useWebEditor)
+                        _ = InvokeWebEditor("setFontFamily", family);
+                    else if (FindName("FileTextEditor") is TextBox editor)
                         editor.FontFamily = new FontFamily(family);
                 }
             }
@@ -3568,7 +3636,9 @@ namespace GitMC.Views
 
         private void FontSizeSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
-            if (FindName("FileTextEditor") is TextBox editor)
+            if (_useWebEditor)
+                _ = InvokeWebEditor("setFontSize", ViewModel.EditorFontSize.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            else if (FindName("FileTextEditor") is TextBox editor)
                 editor.FontSize = ViewModel.EditorFontSize;
         }
 
@@ -3579,7 +3649,9 @@ namespace GitMC.Views
                 if (Math.Abs(ViewModel.EditorFontSize - d) > double.Epsilon)
                 {
                     ViewModel.EditorFontSize = d;
-                    if (FindName("FileTextEditor") is TextBox editor)
+                    if (_useWebEditor)
+                        _ = InvokeWebEditor("setFontSize", d.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    else if (FindName("FileTextEditor") is TextBox editor)
                         editor.FontSize = d;
                 }
             }
@@ -3661,6 +3733,8 @@ namespace GitMC.Views
             try
             {
                 ViewModel.FileContent = _originalFileContent;
+                if (_useWebEditor)
+                    _ = RenderEditorContentAsync();
                 ViewModel.IsFileModified = false;
                 UpdateEditorMetrics();
             }
@@ -3702,6 +3776,22 @@ namespace GitMC.Views
 
         private async void FindReplace_Click(object sender, RoutedEventArgs e)
         {
+            if (_useWebEditor)
+            {
+                // Open simple prompt then delegate to web editor replace-next
+                var webGrid = new Grid { RowDefinitions = { new RowDefinition(), new RowDefinition() }, RowSpacing = 8 };
+                var webFindBox = new TextBox { PlaceholderText = "Find..." };
+                var webReplaceBox = new TextBox { PlaceholderText = "Replace with..." };
+                Grid.SetRow(webFindBox, 0); Grid.SetRow(webReplaceBox, 1);
+                webGrid.Children.Add(webFindBox); webGrid.Children.Add(webReplaceBox);
+                var webDialog = new ContentDialog { Title = "Find / Replace", Content = webGrid, PrimaryButtonText = "Replace Next", SecondaryButtonText = "Find Next", CloseButtonText = "Close", XamlRoot = XamlRoot };
+                var webResult = await webDialog.ShowAsync();
+                if (webResult == ContentDialogResult.Primary)
+                    await InvokeWebEditor("replaceNext", System.Text.Json.JsonSerializer.Serialize(new { find = webFindBox.Text, replace = webReplaceBox.Text }));
+                else if (webResult == ContentDialogResult.Secondary)
+                    await InvokeWebEditor("findNext", webFindBox.Text ?? "");
+                return;
+            }
             var grid = new Grid { RowDefinitions = { new RowDefinition(), new RowDefinition() }, RowSpacing = 8 };
             var findBox = new TextBox { PlaceholderText = "Find..." };
             var replaceBox = new TextBox { PlaceholderText = "Replace with..." };
@@ -3788,6 +3878,11 @@ namespace GitMC.Views
 
         private void MinifyDocument_Click(object sender, RoutedEventArgs e)
         {
+            if (_useWebEditor)
+            {
+                _ = InvokeWebEditor("minify", "");
+                return;
+            }
             try
             {
                 var text = ViewModel.FileContent ?? string.Empty;
@@ -3827,6 +3922,420 @@ namespace GitMC.Views
             }
         }
 
+        #endregion
+
+        #region WebView2 Monaco Editor (large file optimization)
+        private async Task EnsureEditorSurfaceAsync()
+        {
+            if (_useWebEditor)
+            {
+                if (FindName("CodeWebView") is WebView2 web && FindName("FileTextEditorContainer") is FrameworkElement box)
+                {
+                    box.Visibility = Visibility.Collapsed;
+                    web.Visibility = Visibility.Visible;
+                    if (web.Source == null)
+                    {
+                        // Load an embedded minimal Monaco host; prefer static assets if present
+                        await web.EnsureCoreWebView2Async();
+                        // Map app:// to local app folder; expect Monaco at app://monaco/vs/*
+                        var baseDir = AppContext.BaseDirectory;
+                        web.CoreWebView2.SetVirtualHostNameToFolderMapping("app", baseDir, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+                        var useStatic = System.IO.Directory.Exists(System.IO.Path.Combine(baseDir, "monaco", "vs"));
+                        var html = GetMonacoHostHtml(useStatic);
+                        HookWebMessageBridge(web);
+                        web.NavigateToString(html);
+                    }
+                    else if (!_webMessageHooked)
+                    {
+                        await web.EnsureCoreWebView2Async();
+                        HookWebMessageBridge(web);
+                    }
+                }
+            }
+            else
+            {
+                if (FindName("CodeWebView") is WebView2 web && FindName("FileTextEditorContainer") is FrameworkElement box)
+                {
+                    web.Visibility = Visibility.Collapsed;
+                    box.Visibility = Visibility.Visible;
+                }
+            }
+        }
+
+        private async Task RenderEditorContentAsync()
+        {
+            if (_useWebEditor)
+            {
+                await EnsureEditorSurfaceAsync();
+                // If we have an open streaming reader, just ensure surface and return (streaming handles delivery)
+                if (_editorStreamReader != null)
+                {
+                    return;
+                }
+                if (_virtualizedMode)
+                {
+                    // Virtualized mode handles content through its own pipeline
+                    return;
+                }
+                var content = ViewModel.FileContent ?? string.Empty;
+                await SendContentToWebViewAsync(content);
+                await InvokeWebEditor("setLanguage", ViewModel.IsJsonContext ? "json" : "plaintext");
+                await InvokeWebEditor("setFontFamily", ViewModel.SelectedFontFamily);
+                await InvokeWebEditor("setFontSize", ViewModel.EditorFontSize.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                await InvokeWebEditor("setWordWrap", ViewModel.IsWordWrapEnabled ? "true" : "false");
+            }
+            else
+            {
+                // Apply font settings to TextBox and lock state
+                if (FindName("FileTextEditor") is TextBox editor)
+                {
+                    editor.FontFamily = new FontFamily(ViewModel.SelectedFontFamily);
+                    editor.FontSize = ViewModel.EditorFontSize;
+                    editor.TextWrapping = ViewModel.IsWordWrapEnabled ? TextWrapping.Wrap : TextWrapping.NoWrap;
+                    var inUse = ViewModel.SaveInfo?.Path is string sp && await IsSaveInUseAsync(sp);
+                    editor.IsReadOnly = inUse;
+                }
+            }
+        }
+
+        private async Task InvokeWebEditor(string command, string arg)
+        {
+            if (FindName("CodeWebView") is WebView2 web && web.CoreWebView2 != null)
+            {
+                var script = $"window.__editorCommand && window.__editorCommand('{command}', {System.Text.Json.JsonSerializer.Serialize(arg)});";
+                await web.ExecuteScriptAsync(script);
+            }
+        }
+
+        // Stream very large content into Monaco via WebMessage to avoid ExecuteScript limits
+        private async Task SendContentToWebViewAsync(string content)
+        {
+            if (FindName("CodeWebView") is not WebView2 web) return;
+            await web.EnsureCoreWebView2Async();
+
+            // Begin message with basic options so Monaco can prepare a buffer
+            var begin = new
+            {
+                type = "content-begin",
+                totalLength = content.Length,
+                readOnly = true
+            };
+            web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(begin));
+
+            const int chunkSize = 200_000; // ~200k chars per chunk to keep JSON size reasonable
+            for (int i = 0; i < content.Length; i += chunkSize)
+            {
+                var chunk = i + chunkSize <= content.Length
+                    ? content.AsSpan(i, chunkSize).ToString()
+                    : content.AsSpan(i, content.Length - i).ToString();
+
+                var msg = new { type = "content-chunk", data = chunk };
+                web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(msg));
+                // Yield occasionally to keep UI responsive when sending many chunks
+                await Task.Yield();
+            }
+
+            var end = new { type = "content-end" };
+            web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(end));
+        }
+
+        private void HookWebMessageBridge(WebView2 web)
+        {
+            if (_webMessageHooked) return;
+            _webMessageHooked = true;
+            web.CoreWebView2.WebMessageReceived += async (_, args) =>
+            {
+                try
+                {
+                    var json = args.WebMessageAsJson;
+                    if (string.IsNullOrEmpty(json)) return;
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (!doc.RootElement.TryGetProperty("type", out var typeEl)) return;
+                    var type = typeEl.GetString();
+                    if (type == "request-next")
+                    {
+                        if (_editorStreamReader != null)
+                        {
+                            var buf = new char[StreamingChunkChars];
+                            var read = await _editorStreamReader.ReadBlockAsync(buf, 0, buf.Length);
+                            if (read > 0)
+                            {
+                                var chunk = new string(buf, 0, read);
+                                var msg = new { type = "content-chunk", data = chunk };
+                                web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(msg));
+                            }
+                            if (read == 0)
+                            {
+                                _editorStreamingCompleted = true;
+                                var end = new { type = "content-end" };
+                                web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(end));
+                                _editorStreamReader.Dispose();
+                                _editorStreamReader = null;
+                                _editorStreamingPath = null;
+                            }
+                        }
+                        else if (_virtualizedMode)
+                        {
+                            await SendNextVirtualPageAsync(web);
+                        }
+                    }
+                    else if (type == "request-reset")
+                    {
+                        CleanupEditorStreaming();
+                    }
+                    else if (type == "scroll-top")
+                    {
+                        if (_virtualizedMode)
+                        {
+                            await PrependVirtualPageIfNeededAsync(web);
+                        }
+                    }
+                }
+                catch { }
+            };
+        }
+
+        private void CleanupEditorStreaming()
+        {
+            try { _editorStreamReader?.Dispose(); } catch { }
+            _editorStreamReader = null;
+            _editorStreamingPath = null;
+            _editorStreamingCompleted = false;
+            _virtualizedMode = false; _virtualPages.Clear(); _virtualPageLineCounts.Clear(); _virtualLineBase = 0;
+        }
+
+        // Initialize virtualized window: read initial N pages and send to web
+        private async Task InitializeVirtualizedWindowAsync(string pathToLoad, FileInfo info)
+        {
+            try
+            {
+                CleanupEditorStreaming();
+                await EnsureEditorSurfaceAsync();
+                if (FindName("CodeWebView") is not WebView2 web) return;
+                await web.EnsureCoreWebView2Async();
+
+                using var fs = new FileStream(pathToLoad, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var sr = new StreamReader(fs);
+                _virtualPages.Clear(); _virtualPageLineCounts.Clear(); _virtualLineBase = 0;
+
+                var pageBuilder = new System.Text.StringBuilder(256 * 1024);
+                int lineInPage = 0;
+                string? line;
+                while ((line = await sr.ReadLineAsync()) != null)
+                {
+                    pageBuilder.AppendLine(line);
+                    lineInPage++;
+                    if (lineInPage >= VirtualPageLines)
+                    {
+                        _virtualPages.Add(pageBuilder.ToString());
+                        _virtualPageLineCounts.Add(lineInPage);
+                        pageBuilder.Clear(); lineInPage = 0;
+                        if (_virtualPages.Count >= VirtualMaxPagesInMemory) break;
+                    }
+                }
+                if (lineInPage > 0)
+                {
+                    _virtualPages.Add(pageBuilder.ToString());
+                    _virtualPageLineCounts.Add(lineInPage);
+                }
+
+                var begin = new { type = "virt-begin", readOnly = true, lineBase = _virtualLineBase };
+                web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(begin));
+                foreach (var page in _virtualPages)
+                {
+                    var msg = new { type = "virt-append", data = page };
+                    web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(msg));
+                }
+                var end = new { type = "virt-end" };
+                web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(end));
+
+                // If file还有剩余行，保持一个流会话以便后续 request-next 拉取更多页面
+                if (!sr.EndOfStream)
+                {
+                    var fs2 = new FileStream(pathToLoad, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    _editorStreamReader = new StreamReader(fs2);
+                    // 快速跳过我们已经加载的部分
+                    foreach (var page in _virtualPages)
+                    {
+                        // 跳过相同字节数不可靠（编码换行），这里逐行跳过
+                        for (int i = 0; i < _virtualPageLineCounts[_virtualPages.IndexOf(page)]; i++)
+                        {
+                            await _editorStreamReader.ReadLineAsync();
+                        }
+                    }
+                }
+
+                // 更新UI统计：字符数用文件大小估计，行数近似为 lineBase + 已加载行
+                _originalFileContent = string.Empty;
+                ViewModel.FileContent = string.Empty;
+                ViewModel.IsFileModified = false;
+                var loadedLines = _virtualPageLineCounts.Sum();
+                ViewModel.EditorLineCount = $"Lines: ~{loadedLines}+";
+                ViewModel.EditorCharCount = $"Chars: {info.Length}";
+                ViewModel.CurrentCursorPosition = "";
+                ViewModel.EditorLineBase = _virtualLineBase > 0 ? $"Base: {_virtualLineBase}" : string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error initializing virtualized window: {ex.Message}");
+                _virtualizedMode = false;
+            }
+        }
+
+        private async Task SendNextVirtualPageAsync(WebView2 web)
+        {
+            if (_editorStreamReader == null) return;
+            try
+            {
+                var sb = new System.Text.StringBuilder(256 * 1024);
+                int count = 0;
+                string? line;
+                while (count < VirtualPageLines && (line = await _editorStreamReader.ReadLineAsync()) != null)
+                {
+                    sb.AppendLine(line);
+                    count++;
+                }
+                if (count > 0)
+                {
+                    _virtualPages.Add(sb.ToString());
+                    _virtualPageLineCounts.Add(count);
+                    var msg = new { type = "virt-append", data = sb.ToString() };
+                    web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(msg));
+
+                    // 维持滑动窗口
+                    if (_virtualPages.Count > VirtualMaxPagesInMemory)
+                    {
+                        var removedLines = _virtualPageLineCounts[0];
+                        _virtualPages.RemoveAt(0);
+                        _virtualPageLineCounts.RemoveAt(0);
+                        _virtualLineBase += removedLines;
+                        var evict = new { type = "virt-evict-top", lines = removedLines };
+                        web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(evict));
+                        // update status bar base line
+                        ViewModel.EditorLineBase = _virtualLineBase > 0 ? $"Base: {_virtualLineBase}" : string.Empty;
+                    }
+                }
+                else
+                {
+                    var end = new { type = "virt-end" };
+                    web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(end));
+                    _editorStreamReader.Dispose();
+                    _editorStreamReader = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error sending next virtual page: {ex.Message}");
+            }
+        }
+
+        private async Task PrependVirtualPageIfNeededAsync(WebView2 web)
+        {
+            // 简化实现：当前不支持从头部回卷加载（需要维护反向读取），后续可扩展
+            await Task.CompletedTask;
+        }
+
+        private static string GetMonacoHostHtml(bool useStatic)
+        {
+            // Build HTML using a verbatim string with placeholders to avoid C# interpolation/brace issues
+            // When using static assets, we rely on WebView2's virtual host mapping: SetVirtualHostNameToFolderMapping("app", baseDir, ...)
+            // Thus the URLs must be https://app/... not app://...
+            var loaderSrc = useStatic ? "https://app/monaco/vs/loader.js" : "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.48.0/min/vs/loader.min.js";
+            var vsPath = useStatic ? "https://app/monaco/vs" : "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.48.0/min/vs";
+
+            var html = @"<!DOCTYPE html>
+<html>
+<head>
+<meta charset='utf-8'>
+<style>html,body,#c{height:100%;margin:0;padding:0;overflow:hidden}</style>
+<script src='__LOADER__'></script>
+</head>
+<body>
+<div id='c'></div>
+<script>
+let editor; let __buffer = []; let __expected = 0; let __received = 0; let __requesting = false;
+// Virtualized mode buffers
+let __virtMode = false; let __virtLinesBase = 0;
+function init(){
+    require.config({ paths: { 'vs': '__VSPATH__' } });
+    require(['vs/editor/editor.main'], function(){
+        editor = monaco.editor.create(document.getElementById('c'), { value: '', language: 'plaintext', theme: 'vs', automaticLayout: true, readOnly: true });
+        window.__editorCommand = function(cmd, arg){
+            if(cmd==='setLanguage') monaco.editor.setModelLanguage(editor.getModel(), arg);
+            if(cmd==='setFontFamily') editor.updateOptions({ fontFamily: arg });
+            if(cmd==='setFontSize') editor.updateOptions({ fontSize: parseFloat(arg) });
+            if(cmd==='setWordWrap') editor.updateOptions({ wordWrap: (arg==='true'?'on':'off') });
+            if(cmd==='findNext'){ editor.getAction('actions.find').run(); }
+            if(cmd==='replaceNext'){ editor.getAction('editor.action.startFindReplaceAction').run(); }
+            if(cmd==='minify'){ /* no-op placeholder */ }
+        };
+
+        function requestNext(){
+            if(!window.chrome || !window.chrome.webview) return;
+            if(__requesting) return; __requesting = true;
+            window.chrome.webview.postMessage({ type: 'request-next' });
+            // allow next request after a tiny delay to debounce
+            setTimeout(()=>{ __requesting = false; }, 50);
+        }
+
+        if(window.chrome && window.chrome.webview){
+            window.chrome.webview.addEventListener('message', e => {
+                const msg = e.data;
+                if(!msg || !msg.type) return;
+                if(msg.type==='content-begin'){
+                    __buffer = []; __expected = msg.totalLength||0; __received = 0;
+                    if(typeof msg.readOnly==='boolean') editor.updateOptions({readOnly: msg.readOnly});
+                } else if(msg.type==='content-chunk'){
+                    if(typeof msg.data==='string'){ __buffer.push(msg.data); __received += msg.data.length; }
+                } else if(msg.type==='content-end'){
+                    const text = __buffer.join('');
+                    editor.setValue(text);
+                    __buffer = []; __expected = 0; __received = 0;
+                } else if(msg.type==='virt-begin'){
+                    __virtMode = true; __buffer = []; __expected = 0; __received = 0; __virtLinesBase = msg.lineBase||0;
+                    editor.setValue('');
+                    if(typeof msg.readOnly==='boolean') editor.updateOptions({readOnly: msg.readOnly});
+                } else if(msg.type==='virt-append'){
+                    if(__virtMode){
+                        const current = editor.getValue();
+                        editor.setValue(current + msg.data);
+                        setTimeout(()=>{ requestNext(); }, 0);
+                    }
+                } else if(msg.type==='virt-evict-top'){
+                    if(__virtMode){
+                        const toRemove = msg.lines||0; if(toRemove>0){
+                            // Remove first N lines using applyEdits
+                            const model = editor.getModel();
+                            // Build a range from line 1, column 1 to line (toRemove+1) column 1
+                            const endLine = Math.min(model.getLineCount(), toRemove+1);
+                            const range = new monaco.Range(1,1, endLine, 1);
+                            editor.executeEdits('virt-evict', [{ range, text: '' }]);
+                            __virtLinesBase += toRemove;
+                        }
+                    }
+                } else if(msg.type==='virt-end'){
+                    // no-op
+                }
+            });
+            // Request the next chunk after first paint to kick off streaming
+            requestNext();
+            // Also request more when scrolled near bottom
+            editor.onDidScrollChange((e)=>{
+                const view = editor.getScrollTop();
+                const max = editor.getScrollHeight() - editor.getLayoutInfo().height;
+                if(max - view < 200) requestNext();
+                if(view < 200 && window.chrome && window.chrome.webview){ window.chrome.webview.postMessage({ type: 'scroll-top' }); }
+            });
+        }
+    });
+}
+if(document.readyState==='complete') init(); else window.addEventListener('load', init);
+</script>
+</body>
+</html>";
+
+            return html.Replace("__LOADER__", loaderSrc).Replace("__VSPATH__", vsPath);
+        }
         #endregion
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)

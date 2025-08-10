@@ -26,6 +26,7 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private string _editorLineCount = string.Empty;
     private string _editorCharCount = string.Empty;
     private string _currentCursorPosition = string.Empty;
+    private string _editorLineBase = string.Empty;
     // Start with tools panel hidden to maximize editor space by default
     private bool _isSidePanelVisible = false;
     private bool _canSaveFile;
@@ -204,6 +205,12 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     {
         get => _currentCursorPosition;
         set { _currentCursorPosition = value; OnPropertyChanged(); }
+    }
+
+    public string EditorLineBase
+    {
+        get => _editorLineBase;
+        set { _editorLineBase = value; OnPropertyChanged(); }
     }
 
     public bool IsSidePanelVisible

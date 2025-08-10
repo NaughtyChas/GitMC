@@ -2216,6 +2216,11 @@
                                                             <TextBlock
                                                                 FontSize="11"
                                                                 Foreground="#666666"
+                                                                Text="{x:Bind ViewModel.EditorLineBase, Mode=OneWay}"
+                                                                x:Name="LineBaseDisplay" />
+                                                            <TextBlock
+                                                                FontSize="11"
+                                                                Foreground="#666666"
                                                                 Text="{x:Bind ViewModel.EditorCharCount, Mode=OneWay}"
                                                                 x:Name="CharCountDisplay" />
                                                             <TextBlock
@@ -2233,27 +2238,36 @@
                                                     BorderBrush="#E1E1E1"
                                                     BorderThickness="1,0,1,0"
                                                     Grid.Row="1">
-                                                    <ScrollViewer
-                                                        HorizontalScrollBarVisibility="Auto"
-                                                        VerticalScrollBarVisibility="Auto"
-                                                        ZoomMode="Enabled">
-                                                        <TextBox
-                                                            AcceptsReturn="True"
-                                                            Background="Transparent"
-                                                            BorderThickness="0"
-                                                            FontFamily="Consolas"
-                                                            FontSize="13"
-                                                            IsSpellCheckEnabled="False"
-                                                            MinHeight="400"
-                                                            Padding="16"
-                                                            PlaceholderText="File content will appear here when loaded..."
-                                                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                                            SelectionChanged="TextEditor_SelectionChanged"
-                                                            Text="{x:Bind ViewModel.FileContent, Mode=TwoWay}"
-                                                            TextChanged="TextEditor_TextChanged"
-                                                            TextWrapping="NoWrap"
-                                                            x:Name="FileTextEditor" />
-                                                    </ScrollViewer>
+                                                    <Grid>
+                                                        <!-- Default TextBox editor -->
+                                                        <ScrollViewer
+                                                            x:Name="FileTextEditorContainer"
+                                                            HorizontalScrollBarVisibility="Auto"
+                                                            VerticalScrollBarVisibility="Auto"
+                                                            ZoomMode="Enabled">
+                                                            <TextBox
+                                                                AcceptsReturn="True"
+                                                                Background="Transparent"
+                                                                BorderThickness="0"
+                                                                FontFamily="Consolas"
+                                                                FontSize="13"
+                                                                IsSpellCheckEnabled="False"
+                                                                MinHeight="400"
+                                                                Padding="16"
+                                                                PlaceholderText="File content will appear here when loaded..."
+                                                                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                                SelectionChanged="TextEditor_SelectionChanged"
+                                                                Text="{x:Bind ViewModel.FileContent, Mode=TwoWay}"
+                                                                TextChanged="TextEditor_TextChanged"
+                                                                TextWrapping="NoWrap"
+                                                                x:Name="FileTextEditor" />
+                                                        </ScrollViewer>
+
+                                                        <!-- High-performance editor for large files -->
+                                                        <WebView2
+                                                            x:Name="CodeWebView"
+                                                            Visibility="Collapsed" />
+                                                    </Grid>
                                                 </Border>
 
                                                 <!--  Editor Actions  -->
@@ -2372,6 +2386,32 @@
                                                         HorizontalAlignment="Center"
                                                         Text="Files are automatically translated after gameplay sessions."
                                                         TextAlignment="Center" />
+                                                    <!-- Inline translation progress when a translation is running -->
+                                                    <StackPanel Spacing="6">
+                                                        <Grid ColumnSpacing="8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <ProgressBar
+                                                                Height="4"
+                                                                Minimum="0"
+                                                                Maximum="100"
+                                                                Value="0"
+                                                                x:Name="TranslateRequiredProgressBar" />
+                                                            <TextBlock
+                                                                Grid.Column="1"
+                                                                FontSize="11"
+                                                                Foreground="#666666"
+                                                                Text="Idle"
+                                                                x:Name="TranslateRequiredProgressText" />
+                                                        </Grid>
+                                                        <TextBlock
+                                                            FontSize="11"
+                                                            Foreground="#999999"
+                                                            Text="Waiting..."
+                                                            x:Name="TranslateRequiredStepText" />
+                                                    </StackPanel>
                                                     <Button
                                                         Background="#FF9800"
                                                         Click="ForceTranslation_Click"

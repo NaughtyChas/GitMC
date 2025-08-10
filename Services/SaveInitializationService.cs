@@ -1033,6 +1033,7 @@ public class SaveInitializationService : ISaveInitializationService
             progress?.Report(step);
 
             // Changes detected by comparing MCA files in save directory
+            _operations?.Update(op!, current: 1, total: 10, message: "Detecting and filtering changes...");
             var changedChunksFromSave = await DetectChangedChunksAsync(savePath);
 
             // Filter out chunks that only have LastUpdate timestamp changes (no block/content changes)
@@ -1073,6 +1074,7 @@ public class SaveInitializationService : ISaveInitializationService
             var snbtChangedSet = new HashSet<string>(snbtChangedRel
                 .Select(rel => rel.Replace('/', Path.DirectorySeparatorChar)), StringComparer.OrdinalIgnoreCase);
             // Build export list from save changes excluding SNBT already modified by user
+            _operations?.Update(op!, current: 2, total: 10, message: "Preparing export list for region changes...");
             var exportChunks = new List<string>();
             foreach (var chunkFileName in changedChunksFromSave)
             {
@@ -1104,6 +1106,7 @@ public class SaveInitializationService : ISaveInitializationService
             currentOperation++;
             step.CurrentProgress = currentOperation;
             step.Message = "Processing non-region changes (translate/copy)...";
+            _operations?.Update(op!, current: 3, total: 10, message: step.Message);
             progress?.Report(step);
 
             await ProcessNonRegionChangesAsync(savePath, step, progress);
@@ -1132,6 +1135,7 @@ public class SaveInitializationService : ISaveInitializationService
                 }
             }
             await _manifestService.UpdateManifestForChangesAsync(gitMcPath, changedSnbtAbsolute);
+            _operations?.Update(op!, current: 4, total: 10, message: "Updating manifest for changes...");
 
             // Step 4: Stage changed SNBT files and manifest
             currentOperation++;
@@ -1217,6 +1221,7 @@ public class SaveInitializationService : ISaveInitializationService
             }
 
             // Step 8: Stage all changes in save directory
+            _operations?.Update(op!, current: 8, total: 10, message: "Staging and committing changes...");
             currentOperation++;
             step.CurrentProgress = currentOperation;
             step.Message = "Staging save directory changes...";
@@ -1292,6 +1297,7 @@ public class SaveInitializationService : ISaveInitializationService
             progress?.Report(step);
 
             var changedChunks = await DetectChangedChunksAsync(savePath);
+            _operations?.Update(op!, current: currentOperation, total: totalOperations, message: step.Message);
 
             // Filter out timestamp-only changes before exporting
             if (changedChunks.Count > 0)
@@ -1302,6 +1308,7 @@ public class SaveInitializationService : ISaveInitializationService
             {
                 step.Message = "No changes detected - nothing to translate";
                 progress?.Report(step);
+                _operations?.Complete(op!, true, step.Message);
                 return true;
             }
 
@@ -1311,6 +1318,7 @@ public class SaveInitializationService : ISaveInitializationService
             step.Message = $"Exporting {changedChunks.Count} chunk(s) to SNBT...";
             progress?.Report(step);
 
+            _operations?.Update(op!, current: currentOperation, total: totalOperations, message: step.Message);
             await ExportChangedChunksToSnbt(savePath, changedChunks, step, progress);
 
             // Step 3: Process non-region changes (translate .dat/.nbt, copy simple text)
@@ -1319,6 +1327,7 @@ public class SaveInitializationService : ISaveInitializationService
             step.Message = "Processing non-region changes...";
             progress?.Report(step);
 
+            _operations?.Update(op!, current: currentOperation, total: totalOperations, message: step.Message);
             await ProcessNonRegionChangesAsync(savePath, step, progress);
 
             // Step 4: Update manifest with pending entries (no hash assigned yet)
@@ -1339,6 +1348,7 @@ public class SaveInitializationService : ISaveInitializationService
                 }
             }
             await _manifestService.UpdateManifestForChangesAsync(gitMcPath, changedSnbtAbsolute);
+            _operations?.Update(op!, current: currentOperation, total: totalOperations, message: step.Message);
 
             // Step 5: Finalize
             currentOperation++;
