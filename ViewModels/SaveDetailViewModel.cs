@@ -44,6 +44,12 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private bool _isSnbtContext;
     private bool _isJsonContext;
     private bool _isRegionMapVisible;
+    private bool _isRegionMapLoading;
+    private bool _isRegionMapEmpty;
+    private bool _isChangesLoading;
+    private bool _hasChangedFiles;
+    // Derived flags for UI states
+    public bool ShowChangesEmptyState => !_isChangesLoading && !_hasChangedFiles;
 
     public ManagedSaveInfo? SaveInfo
     {
@@ -218,6 +224,30 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     {
         get => _isRegionMapVisible;
         set { _isRegionMapVisible = value; OnPropertyChanged(); }
+    }
+
+    public bool IsRegionMapLoading
+    {
+        get => _isRegionMapLoading;
+        set { _isRegionMapLoading = value; OnPropertyChanged(); }
+    }
+
+    public bool IsRegionMapEmpty
+    {
+        get => _isRegionMapEmpty;
+        set { _isRegionMapEmpty = value; OnPropertyChanged(); }
+    }
+
+    public bool IsChangesLoading
+    {
+        get => _isChangesLoading;
+    set { _isChangesLoading = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowChangesEmptyState)); }
+    }
+
+    public bool HasChangedFiles
+    {
+        get => _hasChangedFiles;
+    set { _hasChangedFiles = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowChangesEmptyState)); }
     }
 
     public bool IsSidePanelVisible

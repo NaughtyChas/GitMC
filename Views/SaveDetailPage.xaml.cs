@@ -2656,6 +2656,7 @@ namespace GitMC.Views
 
             try
             {
+                ViewModel.IsChangesLoading = true;
                 // Get changed chunks using our detection service
                 var changedChunks = await _saveInitializationService.DetectChangedChunksAsync(ViewModel.SaveInfo.Path);
                 var gitStatus = await _gitService.GetStatusAsync(ViewModel.SaveInfo.Path);
@@ -2782,10 +2783,15 @@ namespace GitMC.Views
                 {
                     ViewModel.ChangedFileGroups.Add(group);
                 }
+                ViewModel.HasChangedFiles = ViewModel.ChangedFileGroups.Any() && ViewModel.ChangedFileGroups.SelectMany(g => g.Files).Any();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error loading changed files: {ex.Message}");
+            }
+            finally
+            {
+                ViewModel.IsChangesLoading = false;
             }
         }
 
@@ -2896,9 +2902,38 @@ namespace GitMC.Views
         {
             if (sender is ListView listView && listView.SelectedItem is ChangedFile selectedFile)
             {
+                // Clear selections from other groups so a file can be re-selected later
+                if (FindName("ChangedFilesScrollViewer") is ScrollViewer sv && sv.Content is DependencyObject contentRoot)
+                {
+                    var groups = FindDescendant<ItemsControl>(contentRoot);
+                    if (groups != null)
+                    {
+                        foreach (var container in groups.Items.Select(item => groups.ContainerFromItem(item)).OfType<FrameworkElement>())
+                        {
+                            var list = FindDescendant<ListView>(container);
+                            if (list != null && !ReferenceEquals(list, listView))
+                            {
+                                list.SelectedItem = null;
+                            }
+                        }
+                    }
+                }
                 ViewModel.SelectedChangedFile = selectedFile;
                 _ = LoadSelectedFileEditorAsync();
             }
+        }
+
+        private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+        {
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T match) return match;
+                var deeper = FindDescendant<T>(child);
+                if (deeper != null) return deeper;
+            }
+            return null;
         }
 
         /// <summary>
@@ -3487,6 +3522,7 @@ namespace GitMC.Views
         {
             try
             {
+                ViewModel.IsRegionMapLoading = true;
                 var sel = ViewModel.SelectedChangedFile;
                 if (sel == null) { ToggleRegionMap(false); return; }
                 var ext = Path.GetExtension(sel.FullPath).ToLowerInvariant();
@@ -3530,12 +3566,17 @@ namespace GitMC.Views
                 }
 
                 // Show map only when we actually have chunk files; otherwise fall back to Translation Required if not translated
-                ToggleRegionMap(items.Count > 0);
+                ViewModel.IsRegionMapEmpty = items.Count == 0;
+                ToggleRegionMap(true);
                 await Task.CompletedTask;
             }
             catch
             {
                 ToggleRegionMap(false);
+            }
+            finally
+            {
+                ViewModel.IsRegionMapLoading = false;
             }
         }
 
@@ -3544,28 +3585,42 @@ namespace GitMC.Views
             await ShowRegionMapAsync();
         }
 
+        private async void RegionChunkGrid_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e?.ClickedItem is GitMC.Models.ChunkInfo chunk)
+            {
+                await LoadChunkSnbtAsync(chunk);
+            }
+        }
+
         private async void ChunkCell_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                if (sender is FrameworkElement fe && fe.DataContext is GitMC.Models.ChunkInfo chunk && ViewModel.SelectedChangedFile is { } sel)
+                if (sender is FrameworkElement fe && fe.DataContext is GitMC.Models.ChunkInfo chunk)
                 {
-                    var fileName = Path.GetFileNameWithoutExtension(sel.FullPath);
-                    var parts = fileName.Split('.');
-                    if (parts.Length >= 3 && parts[0] == "r" && int.TryParse(parts[1], out var rx) && int.TryParse(parts[2], out var rz))
-                    {
-                        var dir = GetRegionChunksFolder(sel.RelativePath);
-                        var chunkPath = Path.Combine(dir, $"chunk_{chunk.ChunkX}_{chunk.ChunkZ}.snbt");
-                        if (File.Exists(chunkPath))
-                        {
-                            sel.EditorPath = chunkPath;
-                            ToggleRegionMap(false);
-                            await LoadSelectedFileEditorAsync();
-                        }
-                    }
+                    await LoadChunkSnbtAsync(chunk);
                 }
             }
             catch { /* ignore */ }
+        }
+
+        private async Task LoadChunkSnbtAsync(GitMC.Models.ChunkInfo chunk)
+        {
+            if (ViewModel.SelectedChangedFile is not { } sel) return;
+            var fileName = Path.GetFileNameWithoutExtension(sel.FullPath);
+            var parts = fileName.Split('.');
+            if (parts.Length >= 3 && parts[0] == "r" && int.TryParse(parts[1], out var rx) && int.TryParse(parts[2], out var rz))
+            {
+                var dir = GetRegionChunksFolder(sel.RelativePath);
+                var chunkPath = Path.Combine(dir, $"chunk_{chunk.ChunkX}_{chunk.ChunkZ}.snbt");
+                if (File.Exists(chunkPath))
+                {
+                    sel.EditorPath = chunkPath;
+                    ToggleRegionMap(false);
+                    await LoadSelectedFileEditorAsync();
+                }
+            }
         }
 
         // XAML helper: when to show the Translation Required card
