@@ -44,6 +44,12 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private bool _isSnbtContext;
     private bool _isJsonContext;
     private bool _isRegionMapVisible;
+    private bool _isRegionMapLoading;
+    private bool _isRegionMapEmpty;
+    private bool _isChangesLoading;
+    private bool _hasChangedFiles;
+    // Derived flags for UI states
+    public bool ShowChangesEmptyState => !_isChangesLoading && !_hasChangedFiles;
 
     public ManagedSaveInfo? SaveInfo
     {
