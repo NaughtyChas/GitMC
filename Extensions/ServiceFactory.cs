@@ -50,6 +50,7 @@ public static class ServiceFactory
         var manifestService = new ManifestService(gitService);
         var onboardingService = new OnboardingService(gitService, configurationService);
         var saveInitializationService = new SaveInitializationService(gitService, nbtService, dataStorageService, manifestService);
+        var sessionLockMonitorService = new SessionLockMonitorService();
         var operationManager = new OperationManager();
 
         // Create service aggregator
@@ -61,6 +62,7 @@ public static class ServiceFactory
             localizationService,
             nbtService,
             saveInitializationService,
+            sessionLockMonitorService,
             operationManager
         );
     }

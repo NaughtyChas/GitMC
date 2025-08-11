@@ -14,6 +14,7 @@ public interface IServiceAggregator
     ILocalizationService Localization { get; }
     INbtService Nbt { get; }
     ISaveInitializationService SaveInitialization { get; }
+    ISessionLockMonitorService SessionLockMonitor { get; }
     IOperationManager Operations { get; }
 }
 
@@ -30,6 +31,7 @@ internal class ServiceAggregator : IServiceAggregator
         ILocalizationService localizationService,
         INbtService nbtService,
     ISaveInitializationService saveInitializationService,
+    ISessionLockMonitorService sessionLockMonitorService,
     IOperationManager operationManager)
     {
         Configuration = configurationService;
@@ -39,6 +41,7 @@ internal class ServiceAggregator : IServiceAggregator
         Localization = localizationService;
         Nbt = nbtService;
         SaveInitialization = saveInitializationService;
+        SessionLockMonitor = sessionLockMonitorService;
         Operations = operationManager;
     }
 
@@ -49,5 +52,6 @@ internal class ServiceAggregator : IServiceAggregator
     public ILocalizationService Localization { get; }
     public INbtService Nbt { get; }
     public ISaveInitializationService SaveInitialization { get; }
+    public ISessionLockMonitorService SessionLockMonitor { get; }
     public IOperationManager Operations { get; }
 }

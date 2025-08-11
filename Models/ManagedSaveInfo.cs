@@ -50,6 +50,9 @@ public class ManagedSaveInfo
     // Preferences (persisted per save)
     public bool AutoTranslateOnIdle { get; set; } = false;
 
+    // Last session end timestamp (UTC) detected via session.lock monitor
+    public DateTime LastSessionEndUtc { get; set; }
+
     // Computed properties
     [JsonIgnore] public string SizeFormatted => CommonHelpers.FormatFileSize(Size);
 

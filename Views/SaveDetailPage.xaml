@@ -377,7 +377,6 @@
                     <!--  Translate Button (Primary action)  -->
                     <Button
                         Click="TranslateButton_Click"
-                        IsEnabled="{x:Bind ViewModel.CanTranslate, Mode=OneWay}"
                         x:Name="TranslatePrimaryButton">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon FontSize="16" Glyph="&#xE74E;" />
@@ -573,6 +572,15 @@
                                         <HyperlinkButton Content="What is translation?" NavigateUri="https://github.com/NaughtyChas/GitMC/wiki/Translation" />
                                     </StackPanel>
                                 </InfoBar>
+
+                                <!--  Session Lock InfoBar  -->
+                                <InfoBar
+                                    IsClosable="False"
+                                    IsOpen="False"
+                                    Message="The save seems to be using by an Minecraft instance, or other program. To make GitMC work, you must close these applications."
+                                    Severity="Warning"
+                                    Title="Save is currently in use"
+                                    x:Name="SessionLockInfoBar" />
 
                                 <!--  Status Grid - Two Columns with Enhanced Layout  -->
                                 <Grid>

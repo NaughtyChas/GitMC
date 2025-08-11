@@ -52,6 +52,7 @@ namespace GitMC.Views
         private readonly NbtService _nbtService;
         private readonly ISaveInitializationService _saveInitializationService;
         private readonly IOperationManager _operationManager;
+        private readonly ISessionLockMonitorService _sessionLockMonitorService;
         private string? _saveId;
         private Timer? _changeDetectionTimer;
         private Timer? _opProgressTimer;
@@ -87,6 +88,7 @@ namespace GitMC.Views
             _gitService = services.Git;
             _dataStorageService = services.DataStorage;
             _saveInitializationService = services.SaveInitialization;
+            _sessionLockMonitorService = services.SessionLockMonitor;
             _operationManager = services.Operations;
             _minecraftAnalyzerService = ServiceFactory.MinecraftAnalyzer;
             _managedSaveService = new ManagedSaveService(_dataStorageService);
@@ -140,6 +142,23 @@ namespace GitMC.Views
                 // Start periodic change detection updates
                 StartChangeDetectionUpdates();
 
+                // Start session.lock monitoring for this save and subscribe to events
+                if (ViewModel.SaveInfo?.Path is string sp)
+                {
+                    _sessionLockMonitorService.SessionEnded -= OnSessionEnded;
+                    _sessionLockMonitorService.SessionInUseChanged -= OnSessionInUseChanged;
+                    _sessionLockMonitorService.StartMonitoring(sp);
+                    _sessionLockMonitorService.SessionEnded += OnSessionEnded;
+                    _sessionLockMonitorService.SessionInUseChanged += OnSessionInUseChanged;
+
+                    // Initialize InfoBar state based on current in-use status
+                    if (!_sessionLockMonitorService.TryGetInUse(sp, out var inUse))
+                    {
+                        inUse = await IsSaveInUseAsync(sp);
+                    }
+                    UpdateSessionLockInfoBar(inUse);
+                }
+
                 // Sync operation state if there is an ongoing op for this save
                 SyncOperationStatusWithManager();
             }
@@ -148,6 +167,58 @@ namespace GitMC.Views
                 Debug.WriteLine($"Error in InitializePageAsync: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             }
+        }
+
+        private void OnSessionEnded(object? sender, SessionEndedEventArgs e)
+        {
+            try
+            {
+                var currentPath = ViewModel.SaveInfo?.Path;
+                if (string.IsNullOrEmpty(currentPath) || !string.Equals(currentPath, e.SavePath, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                if (_autoCommitInProgress || ViewModel.IsCommitInProgress)
+                    return;
+
+                // Run on UI thread: refresh change detection and, if eligible, kick translation
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    try
+                    {
+                        await UpdateChangeDetectionDataAsync();
+
+                        if (ViewModel.SaveInfo?.AutoTranslateOnIdle == true)
+                        {
+                            var since = ViewModel.SaveInfo.LastSessionEndUtc;
+                            // Update last session end to now for next cycle
+                            ViewModel.SaveInfo.LastSessionEndUtc = DateTime.UtcNow;
+                            await _managedSaveService.UpdateManagedSave(ViewModel.SaveInfo);
+
+                            var progress = new Progress<SaveInitStep>(step =>
+                            {
+                                if (FindName("TranslationStepText") is TextBlock s) s.Text = step.Message ?? string.Empty;
+                                if (FindName("TranslationProgressBar") is ProgressBar p && step.TotalProgress > 0)
+                                {
+                                    var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
+                                    p.Value = value;
+                                }
+                                if (FindName("TranslationProgressText") is TextBlock t && step.TotalProgress > 0)
+                                {
+                                    var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
+                                    t.Text = $"{value:F0}%";
+                                }
+                            });
+
+                            await _saveInitializationService.TranslateSinceAsync(currentPath!, since == default ? DateTimeOffset.UtcNow.AddMinutes(-30) : since, progress);
+                            await LoadSaveDetailAsync();
+                            await UpdateChangeDetectionDataAsync();
+                            await RecomputeCanTranslateAsync();
+                        }
+                    }
+                    catch { }
+                });
+            }
+            catch { }
         }
 
         private void SyncOperationStatusWithManager()
@@ -2271,10 +2342,13 @@ namespace GitMC.Views
         {
             if (FindName("TranslatePrimaryButton") is Button btn)
             {
-                // When enabled -> AccentButtonStyle; when disabled -> default style
+                // Semantics:
+                // - AccentButtonStyle: GitMC 未最新（需要翻译）
+                // - Default style: GitMC 已与保存一致（无需翻译）
                 btn.Style = ViewModel.CanTranslate
                     ? Application.Current.Resources["AccentButtonStyle"] as Style
-                    : null;
+                    : null; // null = default style
+                btn.IsEnabled = true; // 始终可点击，样式指示状态
             }
         }
 
@@ -2513,26 +2587,10 @@ namespace GitMC.Views
         {
             try
             {
-                // Simple heuristic: try to open common files exclusively to detect locks
-                var candidates = new[]
-                {
-                    System.IO.Path.Combine(savePath, "level.dat"),
-                    System.IO.Path.Combine(savePath, "region"),
-                    System.IO.Path.Combine(savePath, "region2"),
-                };
-
-                foreach (var candidate in candidates)
-                {
-                    if (Directory.Exists(candidate))
-                    {
-                        var mca = Directory.EnumerateFiles(candidate, "*.mca").FirstOrDefault();
-                        if (mca != null && IsFileLocked(mca)) return true;
-                    }
-                    else if (File.Exists(candidate) && IsFileLocked(candidate))
-                    {
-                        return true;
-                    }
-                }
+                // 1.17+ semantics: session.lock exists and is exclusively locked while the world is open
+                var sessionLock = System.IO.Path.Combine(savePath, "session.lock");
+                if (!File.Exists(sessionLock)) return false;
+                if (IsFileLocked(sessionLock)) return true;
             }
             catch { /* ignore */ }
 
@@ -2656,8 +2714,9 @@ namespace GitMC.Views
 
             try
             {
-                // Get changed chunks using our detection service
-                var changedChunks = await _saveInitializationService.DetectChangedChunksAsync(ViewModel.SaveInfo.Path);
+                ViewModel.IsChangesLoading = true;
+                // Get region-level real changes (filtering out timestamp-only diffs)
+                var changedChunks = await _saveInitializationService.DetectRealChangedChunksAsync(ViewModel.SaveInfo.Path);
                 var gitStatus = await _gitService.GetStatusAsync(ViewModel.SaveInfo.Path);
 
                 // Group and categorize files
@@ -2697,7 +2756,7 @@ namespace GitMC.Views
                         CategoryText = groupMeta.name,
                         IconGlyph = groupMeta.icon,
                         StatusColor = "#FF9800",
-                        ChunkCount = changedChunks.Count(c => c.Contains(Path.GetFileNameWithoutExtension(regionFile)))
+                        ChunkCount = await CountRegionChunkSnbtAsync(ViewModel.SaveInfo.Path, regionFile)
                     };
 
                     TryPopulateTranslationInfo(changedFile);
@@ -3337,6 +3396,7 @@ namespace GitMC.Views
                     }
                 }
                 ViewModel.CanTranslate = can;
+                UpdateTranslateButtonStyle();
             }
             catch { ViewModel.CanTranslate = false; }
         }
@@ -4500,6 +4560,16 @@ if(document.readyState==='complete') init(); else window.addEventListener('load'
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
+            try
+            {
+                if (ViewModel.SaveInfo?.Path is string sp)
+                {
+                    _sessionLockMonitorService.SessionEnded -= OnSessionEnded;
+                    _sessionLockMonitorService.SessionInUseChanged -= OnSessionInUseChanged;
+                    _sessionLockMonitorService.StopMonitoring(sp);
+                }
+            }
+            catch { }
 
             // Clean up timer when leaving the page
             StopChangeDetectionUpdates();
@@ -4508,6 +4578,49 @@ if(document.readyState==='complete') init(); else window.addEventListener('load'
         private void OnPropertyChanged(string propertyName = "")
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private void OnSessionInUseChanged(object? sender, SessionInUseChangedEventArgs e)
+        {
+            var currentPath = ViewModel.SaveInfo?.Path;
+            if (string.IsNullOrEmpty(currentPath) || !string.Equals(currentPath, e.SavePath, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            DispatcherQueue.TryEnqueue(() => UpdateSessionLockInfoBar(e.InUse));
+        }
+
+        private void UpdateSessionLockInfoBar(bool inUse)
+        {
+            if (FindName("SessionLockInfoBar") is InfoBar ib)
+            {
+                ib.IsOpen = inUse;
+            }
+        }
+
+        private async Task<int> CountRegionChunkSnbtAsync(string savePath, string relativeMcaPath)
+        {
+            try
+            {
+                var rxrz = Path.GetFileNameWithoutExtension(relativeMcaPath); // e.g., r.x.z
+                var outDir = Path.Combine(savePath, "GitMC", "region", rxrz + ".mca");
+                if (!Directory.Exists(outDir))
+                {
+                    // Fallback: if SNBT not yet exported, estimate using chunk listing
+                    var fullMca = Path.Combine(savePath, relativeMcaPath);
+                    if (File.Exists(fullMca))
+                    {
+                        try
+                        {
+                            var chunks = await ServiceFactory.Services.Nbt.ListChunksInRegionAsync(fullMca);
+                            return chunks.Count(c => c.IsValid);
+                        }
+                        catch { }
+                    }
+                    return 0;
+                }
+                return Directory.GetFiles(outDir, "chunk_*.snbt", SearchOption.TopDirectoryOnly).Length;
+            }
+            catch { return 0; }
         }
 
         private void EditorAreaGrid_Loaded(object sender, RoutedEventArgs e)
