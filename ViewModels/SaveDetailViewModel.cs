@@ -1,5 +1,7 @@
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 using GitMC.Models;
 
@@ -110,6 +112,8 @@ public class SaveDetailViewModel : INotifyPropertyChanged
         {
             _selectedChangedFile = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedFileLastModifiedText));
+            OnPropertyChanged(nameof(SelectedFileTranslatedAtText));
             // Update feature toggles based on selection
             CanForceTranslation = _selectedChangedFile != null
                                    && !_selectedChangedFile.IsTranslated
@@ -128,6 +132,35 @@ public class SaveDetailViewModel : INotifyPropertyChanged
             CanMinify = IsSnbtContext || IsJsonContext;
             // Save allowed when editor has a path (translated SNBT or direct-editable) and content modified
             CanSaveFile = !string.IsNullOrEmpty(_selectedChangedFile?.EditorPath) && IsFileModified;
+        }
+    }
+
+    // Display-only: formatted last modified time for the selected file
+    public string? SelectedFileLastModifiedText
+    {
+        get
+        {
+            var dt = _selectedChangedFile?.LastModified;
+            if (dt == null || dt == default) return null;
+
+            // Normalize to local time if stored as UTC
+            var local = dt.Value.Kind == DateTimeKind.Utc ? dt.Value.ToLocalTime() : dt.Value;
+            return $"Last modified: {local:yyyy-MM-dd HH:mm}";
+        }
+    }
+
+    // Display-only: formatted translated-at time (SNBT file's last write time)
+    public string? SelectedFileTranslatedAtText
+    {
+        get
+        {
+            var snbtPath = _selectedChangedFile?.SnbtPath;
+            if (string.IsNullOrWhiteSpace(snbtPath) || !File.Exists(snbtPath)) return null;
+
+            var dt = File.GetLastWriteTime(snbtPath);
+            if (dt == default) return null;
+            var local = dt.Kind == DateTimeKind.Utc ? dt.ToLocalTime() : dt;
+            return $"Translated at: {local:yyyy-MM-dd HH:mm}";
         }
     }
 

@@ -2043,7 +2043,7 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <!--  File Editor Header (no outer border; subtle divider only)  -->
+                            <!--  File Editor Header  -->
                             <Border
                                 Background="White"
                                 BorderBrush="#E1E1E1"
@@ -2083,6 +2083,16 @@
                                                 FontSize="10"
                                                 Foreground="#666666"
                                                 Text="{x:Bind ViewModel.SelectedChangedFile.DisplaySize, Mode=OneWay}" />
+                                            <TextBlock
+                                                FontSize="10"
+                                                Foreground="#666666"
+                                                Text="{x:Bind ViewModel.SelectedFileLastModifiedText, Mode=OneWay}"
+                                                Visibility="{x:Bind ViewModel.SelectedFileLastModifiedText, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}" />
+                                            <TextBlock
+                                                FontSize="10"
+                                                Foreground="#666666"
+                                                Text="{x:Bind ViewModel.SelectedFileTranslatedAtText, Mode=OneWay}"
+                                                Visibility="{x:Bind ViewModel.SelectedFileTranslatedAtText, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}" />
                                         </StackPanel>
                                     </StackPanel>
 
