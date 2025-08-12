@@ -1280,6 +1280,7 @@ public class SaveInitializationService : ISaveInitializationService
     /// </summary>
     public async Task<bool> TranslateChangedAsync(string savePath, IProgress<SaveInitStep>? progress = null)
     {
+        System.Diagnostics.Debug.WriteLine($"=== TranslateChangedAsync STARTED for path: {savePath} ===");
         var step = new SaveInitStep { Name = "Translating Changes", Description = "Exporting changes to SNBT (no commit)" };
         var op = _operations?.Start(savePath, Models.OperationType.Translate, totalSteps: 5, message: "Translating changes");
         var totalOperations = 5; // Detect, Export, Process non-region, Update manifest (pending), Finalize
@@ -1288,6 +1289,7 @@ public class SaveInitializationService : ISaveInitializationService
         try
         {
             var gitMcPath = Path.Combine(savePath, "GitMC");
+            System.Diagnostics.Debug.WriteLine($"GitMC path: {gitMcPath}");
 
             // Step 1: Detect changed chunks
             currentOperation++;
@@ -1295,20 +1297,25 @@ public class SaveInitializationService : ISaveInitializationService
             step.TotalProgress = totalOperations;
             step.Message = "Detecting changed chunks...";
             progress?.Report(step);
+            System.Diagnostics.Debug.WriteLine($"Step 1: Detecting changed chunks...");
 
             var changedChunks = await DetectChangedChunksAsync(savePath);
+            System.Diagnostics.Debug.WriteLine($"DetectChangedChunksAsync returned {changedChunks.Count} chunks");
             _operations?.Update(op!, current: currentOperation, total: totalOperations, message: step.Message);
 
             // Filter out timestamp-only changes before exporting
             if (changedChunks.Count > 0)
             {
+                System.Diagnostics.Debug.WriteLine($"Filtering timestamp-only changes from {changedChunks.Count} chunks...");
                 changedChunks = await FilterLastUpdateOnlyChangesAsync(savePath, changedChunks);
+                System.Diagnostics.Debug.WriteLine($"After filtering: {changedChunks.Count} chunks remain");
             }
             if (changedChunks.Count == 0)
             {
                 step.Message = "No changes detected - nothing to translate";
                 progress?.Report(step);
                 _operations?.Complete(op!, true, step.Message);
+                System.Diagnostics.Debug.WriteLine("No changes detected after filtering - translation complete");
                 return true;
             }
 
@@ -1604,11 +1611,10 @@ public class SaveInitializationService : ISaveInitializationService
     /// <returns>List of changed chunk file paths</returns>
     public async Task<List<string>> DetectChangedChunksAsync(string savePath)
     {
+        System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Detecting changed chunks for save: {savePath}");
         var changedChunks = new List<string>();
-
         try
         {
-            // Get Git status to find modified .mca files
             var gitStatus = await _gitService.GetStatusAsync(savePath);
             var modifiedMcaFiles = gitStatus.ModifiedFiles
                 .Concat(gitStatus.UntrackedFiles)
@@ -1620,11 +1626,8 @@ public class SaveInitializationService : ISaveInitializationService
             foreach (var mcaFile in modifiedMcaFiles)
             {
                 var fullMcaPath = Path.Combine(savePath, mcaFile);
-
-                // Use file hash comparison to determine if the .mca file actually changed
                 if (await IsFileActuallyChanged(savePath, mcaFile))
                 {
-                    // Try to list actual chunks from file; if file missing (deleted), skip export here
                     if (File.Exists(fullMcaPath))
                     {
                         try
@@ -1637,19 +1640,20 @@ public class SaveInitializationService : ISaveInitializationService
                         }
                         catch
                         {
-                            // Fallback to coarse 32x32 if listing fails
                             var fallback = await GetChunksFromMcaFile(fullMcaPath);
                             changedChunks.AddRange(fallback);
                         }
                     }
                 }
             }
-
+            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Detected {changedChunks.Count} changed chunks.");
+            if (changedChunks.Count > 0)
+                System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Changed chunks: {string.Join(", ", changedChunks)}");
             return changedChunks;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error detecting changed chunks: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Error: {ex.Message}");
             return new List<string>();
         }
     }
@@ -1660,6 +1664,7 @@ public class SaveInitializationService : ISaveInitializationService
     /// </summary>
     private async Task<List<string>> FilterLastUpdateOnlyChangesAsync(string savePath, List<string> candidateChunks)
     {
+        System.Diagnostics.Debug.WriteLine($"[FilterLastUpdateOnlyChangesAsync] Filtering {candidateChunks.Count} candidate chunks...");
         var result = new List<string>();
         try
         {
@@ -1722,20 +1727,22 @@ public class SaveInitializationService : ISaveInitializationService
                         // Real content change
                         result.Add(chunkFileName);
                     }
-                    else
-                    {
-                        // Only LastUpdate (or ignorable fields) changed; skip
-                    }
+                    // else: Only LastUpdate (or ignorable fields) changed; skip
                 }
-                catch
+                catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[FilterLastUpdateOnlyChangesAsync] Exception processing {chunkFileName}: {ex.Message}");
                     // On any error, default to keeping the chunk to avoid losing changes
                     result.Add(chunkFileName);
                 }
             }
+            System.Diagnostics.Debug.WriteLine($"[FilterLastUpdateOnlyChangesAsync] Filtered result: {result.Count} chunks with real changes");
+            if (result.Count > 0)
+                System.Diagnostics.Debug.WriteLine($"[FilterLastUpdateOnlyChangesAsync] Changed chunks: {string.Join(", ", result)}");
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[FilterLastUpdateOnlyChangesAsync] Global exception: {ex.Message}");
             // If filtering fails globally, return original candidates
             return new List<string>(candidateChunks);
         }
@@ -1817,15 +1824,19 @@ public class SaveInitializationService : ISaveInitializationService
             // Get the hash from the last commit using git show command
             var gitResult = await _gitService.ExecuteCommandAsync($"git show HEAD:{relativePath}", savePath);
             if (!gitResult.Success || gitResult.OutputLines.Length == 0)
+            {
                 return true; // File is new or couldn't get last commit version
+            }
 
             var lastCommittedContent = Encoding.UTF8.GetBytes(string.Join("\n", gitResult.OutputLines));
             var lastCommittedHash = ComputeContentHash(lastCommittedContent);
 
-            return currentHash != lastCommittedHash;
+            var isChanged = currentHash != lastCommittedHash;
+            return isChanged;
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[IsFileActuallyChanged] Exception checking {relativePath}: {ex.Message}");
             // If we can't determine, assume it changed
             return true;
         }
@@ -1873,6 +1884,7 @@ public class SaveInitializationService : ISaveInitializationService
     /// </summary>
     private async Task ExportChangedChunksToSnbt(string savePath, List<string> changedChunks, SaveInitStep step, IProgress<SaveInitStep>? progress)
     {
+        System.Diagnostics.Debug.WriteLine($"[ExportChangedChunksToSnbt] Exporting {changedChunks.Count} chunks to SNBT");
         var gitMcPath = Path.Combine(savePath, "GitMC");
         var regionPath = Path.Combine(gitMcPath, "region");
 
@@ -1909,15 +1921,18 @@ public class SaveInitializationService : ISaveInitializationService
                 }
 
                 processedChunks++;
+                /*
                 step.Message = $"Exported {processedChunks}/{totalChunks} chunks to SNBT...";
+                */
                 progress?.Report(step);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to export chunk {chunkFileName}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ExportChangedChunksToSnbt] Failed to export chunk {chunkFileName}: {ex.Message}");
                 // Continue with other chunks
             }
         }
+        System.Diagnostics.Debug.WriteLine($"[ExportChangedChunksToSnbt] Completed export of {processedChunks}/{totalChunks} chunks");
     }
 
     /// <summary>
@@ -1928,11 +1943,8 @@ public class SaveInitializationService : ISaveInitializationService
     /// </summary>
     private async Task ProcessNonRegionChangesAsync(string savePath, SaveInitStep step, IProgress<SaveInitStep>? progress)
     {
+        System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Processing non-region changes for: {savePath}");
         var gitMcPath = Path.Combine(savePath, "GitMC");
-        var dataOut = Path.Combine(gitMcPath, "data");
-        var miscOut = Path.Combine(gitMcPath, "misc");
-        Directory.CreateDirectory(dataOut);
-        Directory.CreateDirectory(miscOut);
 
         var status = await _gitService.GetStatusAsync(savePath);
         var candidates = status.ModifiedFiles
@@ -1943,6 +1955,10 @@ public class SaveInitializationService : ISaveInitializationService
                           && !rel.StartsWith("region\\", StringComparison.OrdinalIgnoreCase))
             .Distinct()
             .ToList();
+
+        System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Found {candidates.Count} non-region candidate files");
+        if (candidates.Count > 0)
+            System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Candidates: {string.Join(", ", candidates)}");
 
         if (candidates.Count == 0) return;
 
@@ -1955,32 +1971,74 @@ public class SaveInitializationService : ISaveInitializationService
                 var ext = Path.GetExtension(full).ToLowerInvariant();
                 if (!File.Exists(full)) continue;
 
+                System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Processing file: {rel} (ext: {ext})");
+
                 if (ext is ".dat" or ".nbt")
                 {
-                    // Translate to SNBT under GitMC/data preserving filename
+                    // Translate to SNBT preserving directory structure
+                    var relativeDir = Path.GetDirectoryName(rel) ?? "";
                     var fileName = Path.GetFileName(full) + ".snbt";
-                    var outPath = Path.Combine(dataOut, fileName);
-                    await _nbtService.ConvertToSnbtAsync(full, outPath, new Progress<string>(_ => { }));
-                    snbtFilesForManifest.Add(outPath);
+                    var targetDir = Path.Combine(gitMcPath, relativeDir);
+                    Directory.CreateDirectory(targetDir);
+                    var outPath = Path.Combine(targetDir, fileName);
+                    System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Converting {rel} to SNBT: {outPath}");
+
+                    // Check file timestamps before conversion
+                    var beforeConversion = File.Exists(outPath) ? File.GetLastWriteTime(outPath) : DateTime.MinValue;
+                    System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Target file before conversion: {(File.Exists(outPath) ? $"exists, modified {beforeConversion}" : "does not exist")}");
+
+                    try
+                    {
+                        await _nbtService.ConvertToSnbtAsync(full, outPath, new Progress<string>(_ => { }));
+
+                        // Check if file was actually updated
+                        if (File.Exists(outPath))
+                        {
+                            var afterConversion = File.GetLastWriteTime(outPath);
+                            var fileSize = new FileInfo(outPath).Length;
+                            System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Conversion completed. File modified: {afterConversion}, Size: {fileSize} bytes");
+
+                            if (beforeConversion != DateTime.MinValue && Math.Abs((afterConversion - beforeConversion).TotalSeconds) < 1)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] WARNING: File timestamp barely changed - conversion may have failed or content identical");
+                            }
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] ERROR: Target file does not exist after conversion!");
+                        }
+
+                        snbtFilesForManifest.Add(outPath);
+                    }
+                    catch (Exception conversionEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] CONVERSION FAILED for {rel}: {conversionEx.Message}");
+                        System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Stack trace: {conversionEx.StackTrace}");
+                    }
                 }
                 else if (ext is ".json" or ".txt")
                 {
-                    // Copy to GitMC/misc keeping same relative file name
-                    var outPath = Path.Combine(miscOut, Path.GetFileName(full));
-                    Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
+                    // Copy to GitMC preserving directory structure
+                    var relativeDir = Path.GetDirectoryName(rel) ?? "";
+                    var targetDir = Path.Combine(gitMcPath, relativeDir);
+                    Directory.CreateDirectory(targetDir);
+                    var outPath = Path.Combine(targetDir, Path.GetFileName(full));
+                    System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Copying {rel} to: {outPath}");
                     File.Copy(full, outPath, true);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"ProcessNonRegionChangesAsync failed for {rel}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Failed for {rel}: {ex.Message}");
             }
         }
 
         if (snbtFilesForManifest.Count > 0)
         {
+            System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Updating manifest for {snbtFilesForManifest.Count} SNBT files");
             await _manifestService.UpdateManifestForChangesAsync(gitMcPath, snbtFilesForManifest);
         }
+        System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Completed processing non-region changes");
     }
 
     /// <summary>

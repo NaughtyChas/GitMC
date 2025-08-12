@@ -1713,7 +1713,6 @@ namespace GitMC.Views
 
             try
             {
-                ViewModel.IsCommitInProgress = true;
                 _autoCommitInProgress = true;
 
                 // Wire up translation progress to the Translation Status UI
@@ -1758,7 +1757,6 @@ namespace GitMC.Views
             }
             finally
             {
-                ViewModel.IsCommitInProgress = false;
                 _autoCommitInProgress = false;
                 UpdateStatusInfoBar();
                 await RecomputeCanTranslateAsync();
