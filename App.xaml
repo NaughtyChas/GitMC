@@ -23,6 +23,7 @@
             <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
             <converters:BoolNegationConverter x:Key="BoolNegationConverter" />
             <converters:NullToBoolConverter x:Key="NullToBoolConverter" />
+            <converters:DoubleToPercentageConverter x:Key="DoubleToPercentageConverter" />
 
             <Color x:Key="Primary">#512BD4</Color>
 

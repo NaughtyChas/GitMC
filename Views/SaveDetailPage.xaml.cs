@@ -109,6 +109,11 @@ namespace GitMC.Views
 
         public SaveDetailViewModel ViewModel { get; }
 
+        // Expose translation progress properties for data binding
+        public bool ShowTranslationInProgress => ViewModel.ShowTranslationInProgress;
+        public double TranslationProgressValue => ViewModel.TranslationProgressValue;
+        public string TranslationProgressMessage => ViewModel.TranslationProgressMessage;
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -194,8 +199,36 @@ namespace GitMC.Views
                             ViewModel.SaveInfo.LastSessionEndUtc = DateTime.UtcNow;
                             await _managedSaveService.UpdateManagedSave(ViewModel.SaveInfo);
 
+                            // Immediately reflect translation-in-progress in UI and start polling on UI thread
+                            DispatcherQueue.TryEnqueue(() =>
+                            {
+                                ViewModel.IsTranslationInProgress = true;
+                                ViewModel.TranslationProgressMessage = "Starting translation...";
+                                ViewModel.TranslationProgressValue = 0;
+
+                                // Force property change notifications
+                                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                            });
+
+                            StartOperationProgressPolling();
+
                             var progress = new Progress<SaveInitStep>(step =>
                             {
+                                // Update ViewModel properties for new UI binding
+                                if (step.TotalProgress > 0)
+                                {
+                                    var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
+                                    ViewModel.TranslationProgressValue = value;
+                                    ViewModel.TranslationProgressMessage = step.Message ?? "Processing...";
+                                }
+                                else
+                                {
+                                    ViewModel.TranslationProgressMessage = step.Message ?? "Processing...";
+                                }
+
+                                // Update legacy UI elements for backwards compatibility
                                 if (FindName("TranslationStepText") is TextBlock s) s.Text = step.Message ?? string.Empty;
                                 if (FindName("TranslationProgressBar") is ProgressBar p && step.TotalProgress > 0)
                                 {
@@ -213,6 +246,21 @@ namespace GitMC.Views
                             await LoadSaveDetailAsync();
                             await UpdateChangeDetectionDataAsync();
                             await RecomputeCanTranslateAsync();
+
+                            // Translation finished; reset UI and stop polling on UI thread
+                            DispatcherQueue.TryEnqueue(() =>
+                            {
+                                ViewModel.IsTranslationInProgress = false;
+                                ViewModel.TranslationProgressMessage = string.Empty;
+                                ViewModel.TranslationProgressValue = 0;
+
+                                // Force property change notifications
+                                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                            });
+
+                            StopOperationProgressPolling();
                         }
                     }
                     catch { }
@@ -239,20 +287,59 @@ namespace GitMC.Views
                 if (active != null && active.Type == OperationType.Translate)
                 {
                     var pct = active.TotalSteps > 0 ? Math.Max(0, Math.Min(100, (double)active.CurrentStep / active.TotalSteps * 100.0)) : 0;
-                    if (FindName("TranslationProgressBar") is ProgressBar p1) p1.Value = pct;
-                    if (FindName("TranslationProgressText") is TextBlock t1) t1.Text = $"{pct:F0}%";
-                    if (FindName("TranslationStepText") is TextBlock s1) s1.Text = active.Message;
 
-                    if (FindName("TranslateRequiredProgressBar") is ProgressBar p2) p2.Value = pct;
-                    if (FindName("TranslateRequiredProgressText") is TextBlock t2) t2.Text = $"{pct:F0}%";
-                    if (FindName("TranslateRequiredStepText") is TextBlock s2) s2.Text = active.Message;
+                    // Update ViewModel translation state on UI thread
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        System.Diagnostics.Debug.WriteLine($"SyncOperationStatusWithManager: Setting IsTranslationInProgress = true, Progress = {pct}%, Message = {active.Message}");
+                        ViewModel.IsTranslationInProgress = true;
+                        ViewModel.TranslationProgressValue = pct;
+                        ViewModel.TranslationProgressMessage = active.Message ?? "Processing...";
+
+                        // Force property change notifications
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+
+                        // Update existing UI elements for backward compatibility
+                        if (FindName("TranslationProgressBar") is ProgressBar p1) p1.Value = pct;
+                        if (FindName("TranslationProgressText") is TextBlock t1) t1.Text = $"{pct:F0}%";
+                        if (FindName("TranslationStepText") is TextBlock s1) s1.Text = active.Message;
+
+                        if (FindName("TranslateRequiredProgressBar") is ProgressBar p2) p2.Value = pct;
+                        if (FindName("TranslateRequiredProgressText") is TextBlock t2) t2.Text = $"{pct:F0}%";
+                        if (FindName("TranslateRequiredStepText") is TextBlock s2) s2.Text = active.Message;
+                    });
 
                     // Ensure a lightweight polling timer runs while translation is active
                     StartOperationProgressPolling();
                 }
                 else
                 {
-                    StopOperationProgressPolling();
+                    // Only reset translation state if we're not in a manual translation operation
+                    // _autoCommitInProgress indicates manual translation is in progress
+                    if (!_autoCommitInProgress)
+                    {
+                        // Translation completed or not running - update on UI thread
+                        DispatcherQueue.TryEnqueue(() =>
+                        {
+                            System.Diagnostics.Debug.WriteLine("SyncOperationStatusWithManager: Setting IsTranslationInProgress = false");
+                            ViewModel.IsTranslationInProgress = false;
+                            ViewModel.TranslationProgressValue = 0.0;
+                            ViewModel.TranslationProgressMessage = "";
+
+                            // Force property change notifications
+                            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                        });
+
+                        StopOperationProgressPolling();
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("SyncOperationStatusWithManager: Manual translation in progress, not resetting translation state");
+                    }
                 }
             }
             catch { }
@@ -1715,7 +1802,25 @@ namespace GitMC.Views
             {
                 _autoCommitInProgress = true;
 
-                // Wire up translation progress to the Translation Status UI
+                // Ensure UI updates happen on UI thread immediately
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    // Immediately switch UI to translation-in-progress and start polling
+                    ViewModel.IsTranslationInProgress = true;
+                    ViewModel.TranslationProgressMessage = "Starting translation...";
+                    ViewModel.TranslationProgressValue = 0;
+
+                    // Force immediate property change notification
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+
+                    Debug.WriteLine("TranslateButton: UI state set to translation in progress");
+                });
+
+                StartOperationProgressPolling();
+
+                // Wire up translation progress to the Translation Status UI (legacy support)
                 if (FindName("TranslationStepText") is TextBlock stepText &&
                     FindName("TranslationProgressBar") is ProgressBar pb &&
                     FindName("TranslationProgressText") is TextBlock pct)
@@ -1725,41 +1830,114 @@ namespace GitMC.Views
                     pct.Text = "0%";
                 }
 
+                // Add a minimum delay to ensure UI is visible
+                await Task.Delay(500);
+
                 var progress = new Progress<SaveInitStep>(step =>
                 {
-                    Debug.WriteLine($"Translate: {step.Message}");
-                    if (FindName("TranslationStepText") is TextBlock s) s.Text = step.Message ?? string.Empty;
-                    if (FindName("TranslationProgressBar") is ProgressBar p && step.TotalProgress > 0)
+                    Debug.WriteLine($"TranslateButton Progress: {step.Message}");
+
+                    // Ensure all UI updates happen on UI thread
+                    DispatcherQueue.TryEnqueue(() =>
                     {
-                        var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
-                        p.Value = value;
-                    }
-                    if (FindName("TranslationProgressText") is TextBlock t && step.TotalProgress > 0)
-                    {
-                        var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
-                        t.Text = $"{value:F0}%";
-                    }
+                        // Update ViewModel properties for new UI binding
+                        if (step.TotalProgress > 0)
+                        {
+                            var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
+                            ViewModel.TranslationProgressValue = value;
+                            ViewModel.TranslationProgressMessage = step.Message ?? "Processing...";
+                            Debug.WriteLine($"TranslateButton: Progress updated to {value}% - {step.Message}");
+                        }
+                        else
+                        {
+                            ViewModel.TranslationProgressMessage = step.Message ?? "Processing...";
+                            Debug.WriteLine($"TranslateButton: Message updated to {step.Message}");
+                        }
+
+                        // Force property change notifications
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+
+                        // Update legacy UI elements for backwards compatibility
+                        if (FindName("TranslationStepText") is TextBlock s) s.Text = step.Message ?? string.Empty;
+                        if (FindName("TranslationProgressBar") is ProgressBar p && step.TotalProgress > 0)
+                        {
+                            var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
+                            p.Value = value;
+                        }
+                        if (FindName("TranslationProgressText") is TextBlock t && step.TotalProgress > 0)
+                        {
+                            var value = Math.Min(100, Math.Max(0, (double)step.CurrentProgress / step.TotalProgress * 100.0));
+                            t.Text = $"{value:F0}%";
+                        }
+                    });
                 });
 
+                Debug.WriteLine("TranslateButton: Starting TranslateChangedAsync...");
                 var ok = await _saveInitializationService.TranslateChangedAsync(ViewModel.SaveInfo.Path, progress);
+                Debug.WriteLine($"TranslateButton: TranslateChangedAsync completed with result: {ok}");
 
                 if (ok)
                 {
+                    // Set completion status on UI thread
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        ViewModel.TranslationProgressMessage = "Translation complete";
+                        ViewModel.TranslationProgressValue = 100;
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+
+                        if (FindName("TranslationStepText") is TextBlock s) s.Text = "Translation complete";
+                        Debug.WriteLine("TranslateButton: Set completion status");
+                    });
+
                     await LoadSaveDetailAsync();
                     await UpdateChangeDetectionDataAsync();
-                    if (FindName("TranslationStepText") is TextBlock s) s.Text = "Translation complete";
                     await RecomputeCanTranslateAsync();
+
+                    // Allow user to see completion status for a moment
+                    Debug.WriteLine("TranslateButton: Waiting 1.5s before cleanup...");
+                    await Task.Delay(1500);
+                }
+                else
+                {
+                    Debug.WriteLine("TranslateButton: Translation returned false, waiting 2s before cleanup...");
+                    await Task.Delay(2000);
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"TranslateButton_Click error: {ex.Message}");
+                // Set error status on UI thread
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    ViewModel.TranslationProgressMessage = "Translation failed";
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                });
+                await Task.Delay(2000);
             }
             finally
             {
                 _autoCommitInProgress = false;
                 UpdateStatusInfoBar();
                 await RecomputeCanTranslateAsync();
+
+                Debug.WriteLine("TranslateButton: Resetting translation UI state...");
+                // Reset translation-in-progress UI and stop polling on UI thread
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    ViewModel.IsTranslationInProgress = false;
+                    ViewModel.TranslationProgressMessage = string.Empty;
+                    ViewModel.TranslationProgressValue = 0;
+
+                    // Force property change notifications
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                    Debug.WriteLine("TranslateButton: Translation UI state reset to normal");
+                });
+
+                StopOperationProgressPolling();
             }
         }
 
@@ -2334,6 +2512,19 @@ namespace GitMC.Views
             {
                 UpdateTranslateButtonStyle();
             }
+            else if (e.PropertyName == nameof(SaveDetailViewModel.ShowTranslationInProgress) ||
+                     e.PropertyName == nameof(SaveDetailViewModel.IsTranslationInProgress))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+            }
+            else if (e.PropertyName == nameof(SaveDetailViewModel.TranslationProgressValue))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+            }
+            else if (e.PropertyName == nameof(SaveDetailViewModel.TranslationProgressMessage))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+            }
         }
 
         private void UpdateTranslateButtonStyle()
@@ -2341,12 +2532,12 @@ namespace GitMC.Views
             if (FindName("TranslatePrimaryButton") is Button btn)
             {
                 // Semantics:
-                // - AccentButtonStyle: GitMC 未最新（需要翻译）
-                // - Default style: GitMC 已与保存一致（无需翻译）
+                // - AccentButtonStyle: GitMC is out of date (needs translation)
+                // - Default style: GitMC is consistent with save (no translation needed)
                 btn.Style = ViewModel.CanTranslate
                     ? Application.Current.Resources["AccentButtonStyle"] as Style
                     : null; // null = default style
-                btn.IsEnabled = true; // 始终可点击，样式指示状态
+                btn.IsEnabled = true; // Always clickable, style indicates status
             }
         }
 
@@ -3842,17 +4033,48 @@ namespace GitMC.Views
                     return;
                 }
 
+                // Show translation overlay while we perform the operation on UI thread
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    ViewModel.IsTranslationInProgress = true;
+                    ViewModel.TranslationProgressMessage = "Translating...";
+                    ViewModel.TranslationProgressValue = 0;
+
+                    // Force immediate property change notifications
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                });
+
+                StartOperationProgressPolling();
+
                 if (ext == ".mca")
                 {
                     // Trigger translation for changed chunks in the save; simplest and consistent
-                    var stepProgress = new Progress<SaveInitStep>(s => Debug.WriteLine($"Translate: {s.Message}"));
+                    var stepProgress = new Progress<SaveInitStep>(s =>
+                    {
+                        Debug.WriteLine($"Translate: {s.Message}");
+                        DispatcherQueue.TryEnqueue(() =>
+                        {
+                            ViewModel.TranslationProgressMessage = s.Message ?? "Processing...";
+                            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                        });
+                    });
                     await _saveInitializationService.TranslateChangedAsync(ViewModel.SaveInfo.Path, stepProgress);
                 }
                 else
                 {
                     var snbtPath = GetSnbtPathForRelative(file.RelativePath);
                     Directory.CreateDirectory(Path.GetDirectoryName(snbtPath)!);
-                    var progress = new Progress<string>(msg => Debug.WriteLine($"Translation: {msg}"));
+                    var progress = new Progress<string>(msg =>
+                    {
+                        Debug.WriteLine($"Translation: {msg}");
+                        DispatcherQueue.TryEnqueue(() =>
+                        {
+                            ViewModel.TranslationProgressMessage = msg;
+                            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                        });
+                    });
                     await _nbtService.ConvertToSnbtAsync(file.FullPath, snbtPath, progress);
                 }
 
@@ -3874,6 +4096,23 @@ namespace GitMC.Views
             {
                 Debug.WriteLine($"Force translation failed: {ex.Message}");
                 await ShowErrorDialogSafe("Translation Error", ex.Message);
+            }
+            finally
+            {
+                // Reset overlay and stop polling on UI thread
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    ViewModel.IsTranslationInProgress = false;
+                    ViewModel.TranslationProgressMessage = string.Empty;
+                    ViewModel.TranslationProgressValue = 0;
+
+                    // Force property change notifications
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                });
+
+                StopOperationProgressPolling();
             }
         }
 
@@ -4420,15 +4659,15 @@ namespace GitMC.Views
                 var end = new { type = "virt-end" };
                 web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(end));
 
-                // If file还有剩余行，保持一个流会话以便后续 request-next 拉取更多页面
+                // If file has remaining lines, keep a stream session for subsequent request-next to fetch more pages
                 if (!sr.EndOfStream)
                 {
                     var fs2 = new FileStream(pathToLoad, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                     _editorStreamReader = new StreamReader(fs2);
-                    // 快速跳过我们已经加载的部分
+                    // Quickly skip the part we've already loaded
                     foreach (var page in _virtualPages)
                     {
-                        // 跳过相同字节数不可靠（编码换行），这里逐行跳过
+                        // Skipping same byte count is unreliable (encoding newlines), skip line by line here
                         for (int i = 0; i < _virtualPageLineCounts[_virtualPages.IndexOf(page)]; i++)
                         {
                             await _editorStreamReader.ReadLineAsync();
@@ -4436,7 +4675,7 @@ namespace GitMC.Views
                     }
                 }
 
-                // 更新UI统计：字符数用文件大小估计，行数近似为 lineBase + 已加载行
+                // Update UI statistics: character count estimated using file size, line count approximated as lineBase + loaded lines
                 _originalFileContent = string.Empty;
                 ViewModel.FileContent = string.Empty;
                 ViewModel.IsFileModified = false;
@@ -4473,7 +4712,7 @@ namespace GitMC.Views
                     var msg = new { type = "virt-append", data = sb.ToString() };
                     web.CoreWebView2.PostWebMessageAsJson(System.Text.Json.JsonSerializer.Serialize(msg));
 
-                    // 维持滑动窗口
+                    // Maintain sliding window
                     if (_virtualPages.Count > VirtualMaxPagesInMemory)
                     {
                         var removedLines = _virtualPageLineCounts[0];
@@ -4502,7 +4741,7 @@ namespace GitMC.Views
 
         private async Task PrependVirtualPageIfNeededAsync(WebView2 web)
         {
-            // 简化实现：当前不支持从头部回卷加载（需要维护反向读取），后续可扩展
+            // Simplified implementation: currently does not support prepending from head (needs reverse reading maintenance), can be extended later
             await Task.CompletedTask;
         }
 

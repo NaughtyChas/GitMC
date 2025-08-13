@@ -1699,11 +1699,13 @@
 
                     <!--  Left Panel: Changed Files and Commit Panel  -->
                     <Grid Grid.Column="0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" x:Name="ChangedFilesRowDefinition" />
-                            <RowDefinition Height="8" />
-                            <RowDefinition Height="Auto" x:Name="CommitSectionRowDefinition" />
-                        </Grid.RowDefinitions>
+                        <!-- Normal Content -->
+                        <Grid Visibility="{Binding ShowTranslationInProgress, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" x:Name="ChangedFilesRowDefinition" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="Auto" x:Name="CommitSectionRowDefinition" />
+                            </Grid.RowDefinitions>
                         <!--  Changed Files List with Flexible Height  -->
                         <Border
                             Background="White"
@@ -2019,6 +2021,159 @@
                                 </Border>
                             </Grid>
                         </Border>
+                        </Grid>
+
+                <!-- Left Panel Translation Progress Overlay (disabled; replaced by full-width overlay) -->
+                <Grid Visibility="Collapsed"
+                    Background="White">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Header -->
+                            <Border
+                                Background="#F8F9FA"
+                                BorderBrush="#E1E1E1"
+                                BorderThickness="0,0,0,1"
+                                Grid.Row="0"
+                                Padding="16,12">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <Border
+                                        Background="#E3F2FD"
+                                        BorderBrush="#C8E6FA"
+                                        BorderThickness="2"
+                                        CornerRadius="20"
+                                        Height="40"
+                                        Width="40">
+                                        <FontIcon
+                                            FontSize="20"
+                                            Foreground="#2196F3"
+                                            Glyph="&#xE8AB;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontSize="16"
+                                            FontWeight="SemiBold"
+                                            Text="Processing Files" />
+                                        <TextBlock
+                                            FontSize="12"
+                                            Foreground="#666666"
+                                            Text="Converting files to SNBT format..." />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Processing Content Area -->
+                            <ScrollViewer Grid.Row="1" Padding="16">
+                                <StackPanel Spacing="16" VerticalAlignment="Center">
+                                    <!-- Progress Information -->
+                                    <StackPanel Spacing="12">
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Text="Current Progress" />
+
+                                        <StackPanel Spacing="8">
+                                            <ProgressBar
+                                                Height="6"
+                                                Value="{Binding TranslationProgressValue, Mode=OneWay}"
+                                                Maximum="100"
+                                                Minimum="0" />
+
+                                            <Grid>
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    Foreground="#666666"
+                                                    HorizontalAlignment="Left"
+                                                    Text="{Binding TranslationProgressMessage, Mode=OneWay}" />
+
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    Foreground="#666666"
+                                                    HorizontalAlignment="Right"
+                                                    Text="{Binding TranslationProgressValue, Mode=OneWay, Converter={StaticResource DoubleToPercentageConverter}}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Status Information -->
+                                    <Border
+                                        Background="#FFF8E1"
+                                        BorderBrush="#FFE082"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="12">
+                                        <StackPanel Spacing="8">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon
+                                                    FontSize="16"
+                                                    Foreground="#FF8F00"
+                                                    Glyph="&#xE946;" />
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    FontWeight="SemiBold"
+                                                    Text="What's happening?" />
+                                            </StackPanel>
+
+                                            <TextBlock
+                                                FontSize="12"
+                                                Foreground="#666666"
+                                                TextWrapping="Wrap"
+                                                Text="GitMC is processing changed files and converting them from binary NBT to human-readable SNBT format. This makes your Minecraft save data version-controllable with Git." />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- File Processing Status -->
+                                    <StackPanel Spacing="8">
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Text="Processing Status" />
+
+                                        <Border
+                                            Background="#F0F8FF"
+                                            BorderBrush="#B8D4F1"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="12,8">
+                                            <StackPanel Spacing="6">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon
+                                                        FontSize="14"
+                                                        Foreground="#0066CC"
+                                                        Glyph="&#xE8F4;" />
+                                                    <TextBlock
+                                                        FontSize="12"
+                                                        Text="Files are being analyzed and converted" />
+                                                </StackPanel>
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="#666666"
+                                                    Text="Please wait while the translation process completes..." />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- Footer with Status -->
+                            <Border
+                                Background="#F8F9FA"
+                                BorderBrush="#E1E1E1"
+                                BorderThickness="0,1,0,0"
+                                Grid.Row="2"
+                                Padding="16,8">
+                                <TextBlock
+                                    FontSize="11"
+                                    Foreground="#666666"
+                                    HorizontalAlignment="Center"
+                                    Text="Changed files will appear here once processing is complete" />
+                            </Border>
+                        </Grid>
                     </Grid>
 
                     <!--  Splitter  -->
@@ -2029,14 +2184,16 @@
 
                     <!--  Right Panel: File Content Editor  -->
                     <Grid Grid.Column="2" Loaded="EditorAreaGrid_Loaded">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <!--  Start collapsed; code-behind will toggle between 0 and 280 based on IsSidePanelVisible  -->
-                            <ColumnDefinition Width="0" x:Name="SidePanelColumn" />
-                        </Grid.ColumnDefinitions>
+                        <!-- Normal Editor Content -->
+                        <Grid Visibility="{Binding ShowTranslationInProgress, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <!--  Start collapsed; code-behind will toggle between 0 and 280 based on IsSidePanelVisible  -->
+                                <ColumnDefinition Width="0" x:Name="SidePanelColumn" />
+                            </Grid.ColumnDefinitions>
 
-                        <!--  Main Content Area  -->
+                            <!--  Main Content Area  -->
                         <Grid Grid.Column="0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -2843,8 +3000,287 @@
                                 </Grid>
                             </Border>
                         </Grid>
+
+                <!-- Translation In Progress Overlay for Right Panel (disabled; replaced by full-width overlay) -->
+                <Grid Visibility="Collapsed"
+                    Background="White">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Header -->
+                            <Border
+                                Background="#F8F9FA"
+                                BorderBrush="#E1E1E1"
+                                BorderThickness="0,0,0,1"
+                                Grid.Row="0"
+                                Padding="16,12">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <Border
+                                        Background="#FFE4E1"
+                                        BorderBrush="#FFA07A"
+                                        BorderThickness="2"
+                                        CornerRadius="20"
+                                        Height="40"
+                                        Width="40">
+                                        <FontIcon
+                                            FontSize="20"
+                                            Foreground="#DC143C"
+                                            Glyph="&#xE7BA;"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock
+                                            FontSize="16"
+                                            FontWeight="SemiBold"
+                                            Text="Editor Unavailable" />
+                                        <TextBlock
+                                            FontSize="12"
+                                            Foreground="#666666"
+                                            Text="Waiting for file processing to complete..." />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Processing Content Area -->
+                            <ScrollViewer Grid.Row="1" Padding="16">
+                                <StackPanel Spacing="20">
+                                    <!-- Processing Status -->
+                                    <Border
+                                        Background="#FFF5F5"
+                                        BorderBrush="#FEB2B2"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="16">
+                                        <StackPanel Spacing="12">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon
+                                                    FontSize="16"
+                                                    Foreground="#DC143C"
+                                                    Glyph="&#xE946;" />
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    FontWeight="SemiBold"
+                                                    Text="File Editor Temporarily Disabled" />
+                                            </StackPanel>
+
+                                            <TextBlock
+                                                FontSize="12"
+                                                Foreground="#666666"
+                                                TextWrapping="Wrap"
+                                                Text="The file editor is temporarily unavailable while GitMC processes and converts files to SNBT format. Once the translation process is complete, you'll be able to view and edit files here." />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Progress Information -->
+                                    <StackPanel Spacing="12">
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Text="Processing Progress" />
+
+                                        <StackPanel Spacing="8">
+                                            <ProgressBar
+                                                Height="8"
+                                                Value="{Binding TranslationProgressValue, Mode=OneWay}"
+                                                Maximum="100"
+                                                Minimum="0" />
+
+                                            <Grid>
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    Foreground="#666666"
+                                                    HorizontalAlignment="Left"
+                                                    Text="{Binding TranslationProgressMessage, Mode=OneWay}" />
+
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    Foreground="#666666"
+                                                    HorizontalAlignment="Right"
+                                                    Text="{Binding TranslationProgressValue, Mode=OneWay, Converter={StaticResource DoubleToPercentageConverter}}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Editor Features Preview -->
+                                    <StackPanel Spacing="12">
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Text="Available Editor Features" />
+
+                                        <Border
+                                            Background="#F0F8FF"
+                                            BorderBrush="#B8D4F1"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="16">
+                                            <StackPanel Spacing="12">
+                                                <TextBlock
+                                                    FontSize="12"
+                                                    FontWeight="SemiBold"
+                                                    Text="Once processing is complete, you'll have access to:" />
+                                                <StackPanel Spacing="8">
+                                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                                        <FontIcon FontSize="14" Foreground="#0066CC" Glyph="&#xE73E;" />
+                                                        <StackPanel>
+                                                            <TextBlock FontSize="12" FontWeight="SemiBold" Text="Syntax Highlighting" />
+                                                            <TextBlock FontSize="11" Foreground="#666666" Text="Color-coded SNBT syntax for better readability" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                                        <FontIcon FontSize="14" Foreground="#0066CC" Glyph="&#xE8E2;" />
+                                                        <StackPanel>
+                                                            <TextBlock FontSize="12" FontWeight="SemiBold" Text="Code Formatting" />
+                                                            <TextBlock FontSize="11" Foreground="#666666" Text="Auto-format and validate SNBT structures" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                                        <FontIcon FontSize="14" Foreground="#0066CC" Glyph="&#xE8C5;" />
+                                                        <StackPanel>
+                                                            <TextBlock FontSize="12" FontWeight="SemiBold" Text="Import/Export" />
+                                                            <TextBlock FontSize="11" Foreground="#666666" Text="Save and load SNBT files for external editing" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                                        <FontIcon FontSize="14" Foreground="#0066CC" Glyph="&#xE8CB;" />
+                                                        <StackPanel>
+                                                            <TextBlock FontSize="12" FontWeight="SemiBold" Text="Code Tools" />
+                                                            <TextBlock FontSize="11" Foreground="#666666" Text="Minify, beautify, and validate your code" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Processing Details -->
+                                    <StackPanel Spacing="12">
+                                        <TextBlock
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            Text="What's Being Processed" />
+
+                                        <Border
+                                            Background="#F8F9FA"
+                                            BorderBrush="#E1E1E1"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="16">
+                                            <StackPanel Spacing="10">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon FontSize="12" Foreground="#28A745" Glyph="&#xE930;" />
+                                                    <TextBlock FontSize="11" Text="Binary NBT files → Human-readable SNBT format" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon FontSize="12" Foreground="#28A745" Glyph="&#xE930;" />
+                                                    <TextBlock FontSize="11" Text="File metadata and structure analysis" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon FontSize="12" Foreground="#28A745" Glyph="&#xE930;" />
+                                                    <TextBlock FontSize="11" Text="Validation and integrity checking" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon FontSize="12" Foreground="#28A745" Glyph="&#xE930;" />
+                                                    <TextBlock FontSize="11" Text="Git-friendly formatting optimization" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Tips Section -->
+                                    <Border
+                                        Background="#E8F5E8"
+                                        BorderBrush="#C3E6CB"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="16">
+                                        <StackPanel Spacing="8">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon
+                                                    FontSize="16"
+                                                    Foreground="#155724"
+                                                    Glyph="&#xE946;" />
+                                                <TextBlock
+                                                    FontSize="14"
+                                                    FontWeight="SemiBold"
+                                                    Foreground="#155724"
+                                                    Text="Pro Tip" />
+                                            </StackPanel>
+
+                                            <TextBlock
+                                                FontSize="12"
+                                                Foreground="#155724"
+                                                TextWrapping="Wrap"
+                                                Text="The conversion process makes your Minecraft save files version-controllable with Git, allowing you to track changes, create backups, and collaborate on world modifications more effectively." />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>                            <!-- Footer with Status -->
+                            <Border
+                                Background="#F8F9FA"
+                                BorderBrush="#E1E1E1"
+                                BorderThickness="0,1,0,0"
+                                Grid.Row="2"
+                                Padding="16,8">
+                                <TextBlock
+                                    FontSize="11"
+                                    Foreground="#666666"
+                                    HorizontalAlignment="Center"
+                                    Text="File content will be loaded automatically once processing is complete" />
+                            </Border>
+                        </Grid>
                     </Grid>
 
+                    <!-- Full-width Translation Overlay spanning both columns -->
+                    <Grid Grid.ColumnSpan="3"
+                          Visibility="{Binding ShowTranslationInProgress, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                          Background="White">
+                        <!-- Centered content container -->
+                        <Border HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="600" Padding="32">
+                            <StackPanel Spacing="24">
+                                <!-- Header with icon -->
+                                <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center">
+                                    <Border Background="#E3F2FD" BorderBrush="#C8E6FA" BorderThickness="2" CornerRadius="24" Height="48" Width="48">
+                                        <FontIcon FontSize="24" Foreground="#2196F3" Glyph="&#xE8AB;" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock FontSize="20" FontWeight="SemiBold" Text="Processing Files" />
+                                        <TextBlock FontSize="14" Foreground="#666666" Text="Converting files to SNBT format..." />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Progress Information -->
+                                <StackPanel Spacing="12">
+                                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Current Progress" HorizontalAlignment="Center" />
+                                    <ProgressBar Height="8" Value="{Binding TranslationProgressValue, Mode=OneWay}" Maximum="100" Minimum="0" />
+                                    <Grid>
+                                        <TextBlock FontSize="12" Foreground="#666666" HorizontalAlignment="Left" Text="{Binding TranslationProgressMessage, Mode=OneWay}" />
+                                        <TextBlock FontSize="12" Foreground="#666666" HorizontalAlignment="Right" Text="{Binding TranslationProgressValue, Mode=OneWay, Converter={StaticResource DoubleToPercentageConverter}}" />
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Status Information -->
+                                <Border Background="#FFF8E1" BorderBrush="#FFE082" BorderThickness="1" CornerRadius="8" Padding="16">
+                                    <StackPanel Spacing="12">
+                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                            <FontIcon FontSize="16" Foreground="#FF8F00" Glyph="&#xE946;" />
+                                            <TextBlock FontSize="14" FontWeight="SemiBold" Text="What's happening?" />
+                                        </StackPanel>
+                                        <TextBlock FontSize="13" Foreground="#666666" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"
+                                                   Text="GitMC is processing changed files and converting them from binary NBT to human-readable SNBT format. This makes your Minecraft save data version-controllable with Git." />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Footer Note -->
+                                <TextBlock FontSize="12" Foreground="#666666" HorizontalAlignment="Center" TextAlignment="Center"
+                                           Text="Changed files and editor will be available once processing is complete" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                     <TextBlock
                         HorizontalAlignment="Center"
                         Text="Analytics tab content - Coming soon"
@@ -2882,5 +3318,5 @@
                 </Grid>
             </Grid>
         </Grid>
-    </Grid>
+    </Grid></Grid>
 </Page>

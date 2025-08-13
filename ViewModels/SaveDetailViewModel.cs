@@ -50,8 +50,13 @@ public class SaveDetailViewModel : INotifyPropertyChanged
     private bool _isRegionMapEmpty;
     private bool _isChangesLoading;
     private bool _hasChangedFiles;
+    private bool _isTranslationInProgress;
+    private string _translationProgressMessage = string.Empty;
+    private double _translationProgressValue = 0.0;
+
     // Derived flags for UI states
     public bool ShowChangesEmptyState => !_isChangesLoading && !_hasChangedFiles;
+    public bool ShowTranslationInProgress => _isTranslationInProgress;
 
     public ManagedSaveInfo? SaveInfo
     {
@@ -383,6 +388,37 @@ public class SaveDetailViewModel : INotifyPropertyChanged
         set
         {
             _remoteUrl = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsTranslationInProgress
+    {
+        get => _isTranslationInProgress;
+        set
+        {
+            _isTranslationInProgress = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowTranslationInProgress));
+        }
+    }
+
+    public string TranslationProgressMessage
+    {
+        get => _translationProgressMessage;
+        set
+        {
+            _translationProgressMessage = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public double TranslationProgressValue
+    {
+        get => _translationProgressValue;
+        set
+        {
+            _translationProgressValue = value;
             OnPropertyChanged();
         }
     }
