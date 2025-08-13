@@ -364,6 +364,9 @@ public class SaveInitializationService : ISaveInitializationService
                                # Ignore processing artifacts
                                *.processing
                                *.error
+                               
+                               # Ignore save session lock
+                               session.lock
 
                                # Keep all SNBT files and chunk directories
                                !*.snbt
@@ -601,12 +604,13 @@ public class SaveInitializationService : ISaveInitializationService
             if (extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
                 extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase))
             {
-                // Create chunk folder structure for empty MCA files
-                var chunkFolderPath = Path.ChangeExtension(filePath, ".chunks");
-                Directory.CreateDirectory(chunkFolderPath);
+                // Use folder named exactly like the MCA file (e.g., r.x.z.mca)
+                var finalDir = filePath;                 // desired target folder
+                var tempDir = filePath + ".tmp_chunks"; // temporary during conversion to avoid file/folder name collision
+                Directory.CreateDirectory(tempDir);
 
                 // Create region_info.snbt file with metadata about the empty MCA file
-                var regionInfoPath = Path.Combine(chunkFolderPath, "region_info.snbt");
+                var regionInfoPath = Path.Combine(tempDir, "region_info.snbt");
                 var regionInfoContent = $@"// Empty MCA file: {fileName}
 // File size: 0 bytes
 // Original path: {filePath}
@@ -625,9 +629,42 @@ public class SaveInitializationService : ISaveInitializationService
 
                 await File.WriteAllTextAsync(regionInfoPath, regionInfoContent, Encoding.UTF8);
 
-                // Create a marker file to indicate this is chunk-based output (compatible with SaveTranslatorPage)
-                var markerPath = filePath + ".snbt.chunk_mode";
-                await File.WriteAllTextAsync(markerPath, chunkFolderPath, Encoding.UTF8);
+                // Promote tempDir -> finalDir (requires original file be gone)
+                try
+                {
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+
+                    if (Directory.Exists(finalDir))
+                    {
+                        // Merge temp into existing
+                        foreach (var p in Directory.EnumerateFileSystemEntries(tempDir, "*", SearchOption.AllDirectories))
+                        {
+                            var rel = Path.GetRelativePath(tempDir, p);
+                            var dest = Path.Combine(finalDir, rel);
+                            var destDir = Path.GetDirectoryName(dest);
+                            if (!string.IsNullOrEmpty(destDir)) Directory.CreateDirectory(destDir);
+                            if (Directory.Exists(p)) { Directory.CreateDirectory(dest); }
+                            else { File.Copy(p, dest, true); }
+                        }
+                        Directory.Delete(tempDir, true);
+                    }
+                    else
+                    {
+                        Directory.Move(tempDir, finalDir);
+                    }
+                }
+                catch { /* best-effort; leave temp if move fails */ }
+
+                // Create/Update marker file to point to final directory
+                try
+                {
+                    var markerPath = filePath + ".snbt.chunk_mode";
+                    await File.WriteAllTextAsync(markerPath, finalDir, Encoding.UTF8);
+                }
+                catch { }
 
                 // Empty MCA files are treated as multi-chunk structure but with 0 chunks
                 return (true, 0);
@@ -662,19 +699,19 @@ public class SaveInitializationService : ISaveInitializationService
             if (extension.Equals(".mca", StringComparison.OrdinalIgnoreCase) ||
                 extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase))
             {
-                // For MCA files, try to create minimal chunk structure
+                // For MCA files, try to create minimal structure at r.x.z.mca folder
                 try
                 {
-                    var chunkFolderPath = Path.ChangeExtension(filePath, ".chunks");
-                    Directory.CreateDirectory(chunkFolderPath);
+                    var finalDir = filePath; // folder named as the MCA file
+                    Directory.CreateDirectory(finalDir);
 
-                    var regionInfoPath = Path.Combine(chunkFolderPath, "region_info.snbt");
+                    var regionInfoPath = Path.Combine(finalDir, "region_info.snbt");
                     await File.WriteAllTextAsync(regionInfoPath,
                         $"// Error processing empty MCA file: {Path.GetFileName(filePath)}\n{{}}",
                         Encoding.UTF8);
 
                     var markerPath = filePath + ".snbt.chunk_mode";
-                    await File.WriteAllTextAsync(markerPath, chunkFolderPath, Encoding.UTF8);
+                    await File.WriteAllTextAsync(markerPath, finalDir, Encoding.UTF8);
 
                     return (true, 0);
                 }
@@ -728,20 +765,60 @@ public class SaveInitializationService : ISaveInitializationService
                 extension.Equals(".mcc", StringComparison.OrdinalIgnoreCase))
                 try
                 {
-                    // Use chunk-based processing for MCA files (same as SaveTranslatorPage chunk mode)
-                    var chunkFolderPath = Path.ChangeExtension(filePath, ".chunks");
-                    await _nbtService.ConvertMcaToChunkFilesAsync(filePath, chunkFolderPath, progressCallback);
+                    // Output to a temporary directory first, then move to folder named like the MCA
+                    var finalDir = filePath;                  // e.g., .../region/r.x.z.mca
+                    var tempDir = filePath + ".tmp_chunks";  // temp during conversion
+                    if (Directory.Exists(tempDir))
+                    {
+                        try { Directory.Delete(tempDir, true); } catch { }
+                    }
+                    Directory.CreateDirectory(tempDir);
 
-                    // Create a marker file to indicate this is chunk-based output (compatible with SaveTranslatorPage)
-                    var markerPath = filePath + ".snbt.chunk_mode";
-                    await File.WriteAllTextAsync(markerPath, chunkFolderPath, Encoding.UTF8);
+                    await _nbtService.ConvertMcaToChunkFilesAsync(filePath, tempDir, progressCallback);
 
                     // Count chunks for statistics
-                    if (Directory.Exists(chunkFolderPath))
+                    if (Directory.Exists(tempDir))
                     {
-                        chunkCount = Directory.GetFiles(chunkFolderPath, "chunk_*.snbt").Length;
+                        chunkCount = Directory.GetFiles(tempDir, "chunk_*.snbt").Length;
                         isMultiChunk = chunkCount > 1;
                     }
+
+                    // Promote tempDir -> finalDir (requires original file be gone)
+                    try
+                    {
+                        if (File.Exists(filePath))
+                        {
+                            File.Delete(filePath);
+                        }
+
+                        if (Directory.Exists(finalDir))
+                        {
+                            // Merge temp into existing
+                            foreach (var p in Directory.EnumerateFileSystemEntries(tempDir, "*", SearchOption.AllDirectories))
+                            {
+                                var rel = Path.GetRelativePath(tempDir, p);
+                                var dest = Path.Combine(finalDir, rel);
+                                var destDir = Path.GetDirectoryName(dest);
+                                if (!string.IsNullOrEmpty(destDir)) Directory.CreateDirectory(destDir);
+                                if (Directory.Exists(p)) { Directory.CreateDirectory(dest); }
+                                else { File.Copy(p, dest, true); }
+                            }
+                            Directory.Delete(tempDir, true);
+                        }
+                        else
+                        {
+                            Directory.Move(tempDir, finalDir);
+                        }
+                    }
+                    catch { /* best-effort; leave temp if move fails */ }
+
+                    // Create/Update marker file to point to final directory
+                    try
+                    {
+                        var markerPath = filePath + ".snbt.chunk_mode";
+                        await File.WriteAllTextAsync(markerPath, finalDir, Encoding.UTF8);
+                    }
+                    catch { }
 
                     return (isMultiChunk, chunkCount);
                 }

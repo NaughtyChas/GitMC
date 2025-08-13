@@ -57,6 +57,8 @@ namespace GitMC.Views
         private Timer? _changeDetectionTimer;
         private Timer? _opProgressTimer;
         private string _originalFileContent = string.Empty;
+        private readonly SemaphoreSlim _changeDetectionSemaphore = new(1, 1);
+        private CancellationTokenSource? _changeDetectionCancellation;
         private List<string> _availableBranches = new();
         private bool _isBranchDropDownOpen;
         private BranchComboBoxItem? _lastValidBranchItem;
@@ -1370,33 +1372,15 @@ namespace GitMC.Views
         {
             if (ViewModel.SaveInfo == null) return;
 
-            var fileBreakdown = await CalculateFileBreakdownAsync(ViewModel.SaveInfo);
-
-            // Update individual file type counts
-            if (FindName("RegionChunksCountText") is TextBlock regionChunksText)
-                regionChunksText.Text = fileBreakdown.RegionChunks.ToString();
-
-            if (FindName("WorldDataCountText") is TextBlock worldDataText)
-                worldDataText.Text = fileBreakdown.WorldData.ToString();
-
-            if (FindName("PlayerDataCountText") is TextBlock playerDataText)
-                playerDataText.Text = fileBreakdown.PlayerData.ToString();
-
-            if (FindName("EntityDataCountText") is TextBlock entityDataText)
-                entityDataText.Text = fileBreakdown.EntityData.ToString();
-
-            if (FindName("StructureDataCountText") is TextBlock structureDataText)
-                structureDataText.Text = fileBreakdown.StructureData.ToString();
-
-            // Update changes summary
-            if (FindName("AddedFilesText") is TextBlock addedText)
-                addedText.Text = fileBreakdown.AddedFiles > 0 ? $"+{fileBreakdown.AddedFiles}" : "0";
-
-            if (FindName("DeletedFilesText") is TextBlock deletedText)
-                deletedText.Text = fileBreakdown.DeletedFiles > 0 ? $"-{fileBreakdown.DeletedFiles}" : "0";
-
-            if (FindName("TotalFilesText") is TextBlock totalText)
-                totalText.Text = fileBreakdown.TotalFiles.ToString();
+            try
+            {
+                var fileBreakdown = await CalculateFileBreakdownAsync(ViewModel.SaveInfo);
+                UpdateFileChangesSummaryFromData(fileBreakdown);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error updating file changes summary: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -1537,7 +1521,7 @@ namespace GitMC.Views
         }
 
         private async Task<(int RegionChunks, int WorldData, int PlayerData, int EntityData, int StructureData, int AddedFiles, int
-            DeletedFiles, int TotalFiles)> CalculateFileBreakdownAsync(ManagedSaveInfo saveInfo)
+            DeletedFiles, int TotalFiles)> CalculateFileBreakdownAsync(ManagedSaveInfo saveInfo, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -1546,15 +1530,21 @@ namespace GitMC.Views
                     return (0, 0, 0, 0, 0, 0, 0, 0);
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Use the change detection from SaveInitializationService
                 var changedChunks = await _saveInitializationService.DetectChangedChunksAsync(saveInfo.Path);
                 var regionChunks = changedChunks.Count;
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // Get Git status for other file types
                 var gitStatus = await _gitService.GetStatusAsync(saveInfo.Path);
                 var modifiedFiles = gitStatus.ModifiedFiles;
                 var addedFiles = gitStatus.UntrackedFiles.Length;
                 var totalFiles = modifiedFiles.Length + addedFiles;
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // Categorize files by type
                 var worldDataFiles = modifiedFiles.Count(f =>
@@ -2743,25 +2733,54 @@ namespace GitMC.Views
             StopChangeDetectionUpdates();
 
             // Create a timer that updates every 30 seconds
-            _changeDetectionTimer = new Timer(_ =>
+            _changeDetectionTimer = new Timer(async _ =>
             {
+                // Use throttling to prevent overlapping operations
+                if (!_changeDetectionSemaphore.Wait(0)) // Non-blocking check
+                {
+                    Debug.WriteLine("Skipping change detection update - previous scan still in progress");
+                    return;
+                }
+
                 try
                 {
-                    // Update on the UI thread
-                    DispatcherQueue.TryEnqueue(async () =>
-                    {
-                        await UpdateChangeDetectionDataAsync();
+                    // Cancel any previous operation
+                    _changeDetectionCancellation?.Cancel();
+                    _changeDetectionCancellation = new CancellationTokenSource();
 
-                        // Auto-translate when enabled and idle (no locks)
-                        if (ViewModel.SaveInfo?.AutoTranslateOnIdle == true &&
-                            ViewModel.SaveInfo.CurrentStatus == ManagedSaveInfo.SaveStatus.Modified &&
-                            !_autoCommitInProgress && !ViewModel.IsCommitInProgress)
+                    // Run the heavy I/O work on background thread
+                    await Task.Run(async () =>
+                    {
+                        try
                         {
-                            var inUse = await IsSaveInUseAsync(ViewModel.SaveInfo.Path);
-                            if (!inUse)
+                            await UpdateChangeDetectionDataAsync(_changeDetectionCancellation.Token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            Debug.WriteLine("Change detection update was cancelled");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error in background change detection: {ex.Message}");
+                        }
+                    }, _changeDetectionCancellation.Token);
+
+                    // Auto-translate logic on UI thread
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        try
+                        {
+                            // Auto-translate when enabled and idle (no locks)
+                            if (ViewModel.SaveInfo?.AutoTranslateOnIdle == true &&
+                                ViewModel.SaveInfo.CurrentStatus == ManagedSaveInfo.SaveStatus.Modified &&
+                                !_autoCommitInProgress && !ViewModel.IsCommitInProgress)
                             {
-                                TranslateButton_Click(this, new RoutedEventArgs());
+                                _ = CheckAndTriggerAutoTranslateAsync();
                             }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error in auto-translate check: {ex.Message}");
                         }
                     });
                 }
@@ -2769,7 +2788,29 @@ namespace GitMC.Views
                 {
                     Debug.WriteLine($"Error in change detection timer: {ex.Message}");
                 }
+                finally
+                {
+                    _changeDetectionSemaphore.Release();
+                }
             }, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+        }
+
+        private async Task CheckAndTriggerAutoTranslateAsync()
+        {
+            try
+            {
+                if (ViewModel.SaveInfo?.Path == null) return;
+
+                var inUse = await IsSaveInUseAsync(ViewModel.SaveInfo.Path);
+                if (!inUse)
+                {
+                    TranslateButton_Click(this, new RoutedEventArgs());
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error checking auto-translate conditions: {ex.Message}");
+            }
         }
 
         private async Task<bool> IsSaveInUseAsync(string savePath)
@@ -2807,50 +2848,137 @@ namespace GitMC.Views
         {
             _changeDetectionTimer?.Dispose();
             _changeDetectionTimer = null;
+
+            // Cancel any ongoing operations
+            _changeDetectionCancellation?.Cancel();
+            _changeDetectionCancellation?.Dispose();
+            _changeDetectionCancellation = null;
         }
 
         /// <summary>
         /// Update all change detection data
         /// </summary>
-        private async Task UpdateChangeDetectionDataAsync()
+        private async Task UpdateChangeDetectionDataAsync(CancellationToken cancellationToken = default)
         {
             if (ViewModel.SaveInfo == null) return;
 
             try
             {
-                // Update file changes summary with real data
-                UpdateFileChangesSummary();
+                // Perform heavy I/O operations on background thread
+                var fileBreakdown = await CalculateFileBreakdownAsync(ViewModel.SaveInfo, cancellationToken);
+                var syncData = await GetSyncDataAsync(cancellationToken);
 
-                // Update sync progress and status
-                await UpdateSyncProgressAsync();
+                // Check for cancellation before UI updates
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Update UI on the UI thread
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    try
+                    {
+                        UpdateFileChangesSummaryFromData(fileBreakdown);
+                        UpdateSyncProgressFromData(syncData);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error updating UI in change detection: {ex.Message}");
+                    }
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancellation is requested
+                throw;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error updating change detection data: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// Update sync progress with real git status
+        /// Collect sync data on background thread
         /// </summary>
-        private async Task UpdateSyncProgressAsync()
+        private async Task<(int TotalChangedFiles, bool HasChanges)> GetSyncDataAsync(CancellationToken cancellationToken = default)
         {
-            if (ViewModel.SaveInfo == null || string.IsNullOrEmpty(ViewModel.SaveInfo.Path)) return;
+            if (ViewModel.SaveInfo == null || string.IsNullOrEmpty(ViewModel.SaveInfo.Path))
+                return (0, false);
 
             try
             {
                 var gitStatus = await _gitService.GetStatusAsync(ViewModel.SaveInfo.Path);
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var totalChangedFiles = gitStatus.ModifiedFiles.Length + gitStatus.UntrackedFiles.Length;
+                return (totalChangedFiles, totalChangedFiles > 0);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting sync data: {ex.Message}");
+                return (0, false);
+            }
+        }
+
+        /// <summary>
+        /// Update file changes summary UI from pre-calculated data
+        /// </summary>
+        private void UpdateFileChangesSummaryFromData((int RegionChunks, int WorldData, int PlayerData, int EntityData, int StructureData, int AddedFiles, int DeletedFiles, int TotalFiles) fileBreakdown)
+        {
+            try
+            {
+                // Update individual file type counts
+                if (FindName("RegionChunksCountText") is TextBlock regionChunksText)
+                    regionChunksText.Text = fileBreakdown.RegionChunks.ToString();
+
+                if (FindName("WorldDataCountText") is TextBlock worldDataText)
+                    worldDataText.Text = fileBreakdown.WorldData.ToString();
+
+                if (FindName("PlayerDataCountText") is TextBlock playerDataText)
+                    playerDataText.Text = fileBreakdown.PlayerData.ToString();
+
+                if (FindName("EntityDataCountText") is TextBlock entityDataText)
+                    entityDataText.Text = fileBreakdown.EntityData.ToString();
+
+                if (FindName("StructureDataCountText") is TextBlock structureDataText)
+                    structureDataText.Text = fileBreakdown.StructureData.ToString();
+
+                // Update changes summary
+                if (FindName("AddedFilesText") is TextBlock addedText)
+                    addedText.Text = fileBreakdown.AddedFiles > 0 ? $"+{fileBreakdown.AddedFiles}" : "0";
+
+                if (FindName("DeletedFilesText") is TextBlock deletedText)
+                    deletedText.Text = fileBreakdown.DeletedFiles > 0 ? $"-{fileBreakdown.DeletedFiles}" : "0";
+
+                if (FindName("TotalFilesText") is TextBlock totalText)
+                    totalText.Text = fileBreakdown.TotalFiles.ToString();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error updating file changes summary UI: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Update sync progress UI from pre-calculated data
+        /// </summary>
+        private void UpdateSyncProgressFromData((int TotalChangedFiles, bool HasChanges) syncData)
+        {
+            try
+            {
+                if (ViewModel.SaveInfo == null) return;
 
                 // Update ManagedSaveInfo with real data
-                ViewModel.SaveInfo.HasPendingChanges = totalChangedFiles > 0;
+                ViewModel.SaveInfo.HasPendingChanges = syncData.HasChanges;
 
                 // Update current status based on changes
-                if (totalChangedFiles > 0)
+                if (syncData.TotalChangedFiles > 0)
                 {
                     ViewModel.SaveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Modified;
                 }
-                else
+                else if (ViewModel.SaveInfo.CurrentStatus == ManagedSaveInfo.SaveStatus.Modified)
                 {
                     ViewModel.SaveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Clear;
                 }
@@ -2859,11 +2987,23 @@ namespace GitMC.Views
                 UpdateSyncStatusBadge();
                 UpdateStatusInfoBar();
                 UpdateSyncProgressDisplay();
-                await RecomputeCanTranslateAsync();
+
+                // Schedule UI-expensive operations to not block the UI thread
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    try
+                    {
+                        await RecomputeCanTranslateAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error recomputing can translate: {ex.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error updating sync progress: {ex.Message}");
+                Debug.WriteLine($"Error updating sync progress UI: {ex.Message}");
             }
         }
 
@@ -4864,6 +5004,16 @@ if(document.readyState==='complete') init(); else window.addEventListener('load'
 
             // Clean up timer when leaving the page
             StopChangeDetectionUpdates();
+
+            // Dispose semaphore resources
+            try
+            {
+                _changeDetectionSemaphore?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error disposing change detection semaphore: {ex.Message}");
+            }
         }
 
         private void OnPropertyChanged(string propertyName = "")
