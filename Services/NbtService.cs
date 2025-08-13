@@ -743,13 +743,21 @@ public class NbtService : INbtService
     {
         try
         {
+            System.Diagnostics.Debug.WriteLine($"[ListChunksInRegionAsync] Opening region file: {mcaFilePath}");
             using var regionFile = new McaRegionFile(mcaFilePath);
+
+            System.Diagnostics.Debug.WriteLine($"[ListChunksInRegionAsync] Loading region file: {mcaFilePath}");
             await regionFile.LoadAsync();
 
             var chunkInfos = new List<AnvilChunkInfo>();
             var existingChunks = regionFile.GetExistingChunks();
+            System.Diagnostics.Debug.WriteLine($"[ListChunksInRegionAsync] Found {existingChunks.Count} existing chunks in {mcaFilePath}");
 
-            if (regionFile.Header == null) return chunkInfos;
+            if (regionFile.Header == null)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ListChunksInRegionAsync] Warning: No header found in {mcaFilePath}");
+                return chunkInfos;
+            }
 
             for (var i = 0; i < 1024; i++)
             {
@@ -762,19 +770,17 @@ public class NbtService : INbtService
                     regionFile.RegionCoordinates.Z * 32 + localCoords.Z
                 );
 
-                // Attempt to read detailed info from chunks
+                // Attempt to read detailed info from chunks with timeout
                 var compressionType = AnvilCompressionType.Zlib;
-                // For Java saves default is Zlib compression
-                // I think wiki mentioned that server.config can determine the compression level
-                // Maybe we have to add support for that in late stage of development.
-
                 var isOversized = false;
                 var dataSize = 0L;
                 var isValid = true;
 
                 try
                 {
-                    var chunkData = await regionFile.GetChunkAsync(globalCoords);
+                    // Add timeout protection for chunk data access
+                    using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10)); // 10-second timeout per chunk
+                    var chunkData = await regionFile.GetChunkAsync(globalCoords).WaitAsync(timeoutCts.Token);
                     if (chunkData != null)
                     {
                         compressionType = ConvertCompressionType(chunkData.CompressionType);
@@ -782,9 +788,14 @@ public class NbtService : INbtService
                         dataSize = chunkData.DataLength;
                     }
                 }
+                catch (TimeoutException)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ListChunksInRegionAsync] Timeout reading chunk ({globalCoords.X}, {globalCoords.Z}) from {mcaFilePath}");
+                    isValid = false;
+                }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($@"Error occurred while reading chunk data: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"[ListChunksInRegionAsync] Error reading chunk ({globalCoords.X}, {globalCoords.Z}) from {mcaFilePath}: {ex.Message}");
                     isValid = false;
                 }
 
@@ -805,10 +816,12 @@ public class NbtService : INbtService
                 });
             }
 
+            System.Diagnostics.Debug.WriteLine($"[ListChunksInRegionAsync] Completed processing {mcaFilePath}: {chunkInfos.Count} chunks total");
             return chunkInfos;
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[ListChunksInRegionAsync] Fatal error processing {mcaFilePath}: {ex.Message}");
             throw new InvalidOperationException($"Failed to list chunks in {mcaFilePath}: {ex.Message}", ex);
         }
     }
@@ -978,9 +991,9 @@ public class NbtService : INbtService
                         var chunkFileName = $"chunk_{chunkCoord.X}_{chunkCoord.Z}.snbt";
                         var chunkFilePath = Path.Combine(outputFolderPath, chunkFileName);
 
-                        // Use standard SNBT format without verbose headers to minimize file size
-                        // Metadata is stored in region_info.snbt instead of per-chunk headers
-                        var chunkSnbt = chunkData.NbtData.ToSnbt(SnbtOptions.Default);
+                        // Use standard SNBT format with proper formatting for git tracking consistency
+                        // This ensures all SNBT files use the same formatting (expanded) throughout the application
+                        var chunkSnbt = chunkData.NbtData.ToSnbt(SnbtOptions.DefaultExpanded);
 
                         await File.WriteAllTextAsync(chunkFilePath, chunkSnbt, Encoding.UTF8);
                     }

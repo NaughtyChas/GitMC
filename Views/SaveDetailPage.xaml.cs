@@ -340,7 +340,11 @@ namespace GitMC.Views
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine("SyncOperationStatusWithManager: Manual translation in progress, not resetting translation state");
+                        // Only log this message occasionally to avoid spam
+                        if (_debugLogCounter++ % 20 == 0) // Log every 10 seconds (20 * 500ms)
+                        {
+                            System.Diagnostics.Debug.WriteLine("SyncOperationStatusWithManager: Manual translation in progress, not resetting translation state");
+                        }
                     }
                 }
             }
@@ -1783,6 +1787,7 @@ namespace GitMC.Views
         }
 
         private bool _autoCommitInProgress;
+        private int _debugLogCounter = 0;
 
         private async void TranslateButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1864,8 +1869,22 @@ namespace GitMC.Views
                 });
 
                 Debug.WriteLine("TranslateButton: Starting TranslateChangedAsync...");
-                var ok = await _saveInitializationService.TranslateChangedAsync(ViewModel.SaveInfo.Path, progress);
-                Debug.WriteLine($"TranslateButton: TranslateChangedAsync completed with result: {ok}");
+
+                // Add timeout protection to prevent hanging indefinitely
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10)); // 10-minute timeout
+                var translationTask = _saveInitializationService.TranslateChangedAsync(ViewModel.SaveInfo.Path, progress);
+
+                bool ok;
+                try
+                {
+                    ok = await translationTask.WaitAsync(timeoutCts.Token);
+                    Debug.WriteLine($"TranslateButton: TranslateChangedAsync completed with result: {ok}");
+                }
+                catch (TimeoutException)
+                {
+                    Debug.WriteLine("TranslateButton: Translation timed out after 10 minutes");
+                    throw new Exception("Translation timed out. The process may be stuck on detecting changes or processing large files.");
+                }
 
                 if (ok)
                 {

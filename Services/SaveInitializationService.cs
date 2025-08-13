@@ -364,7 +364,7 @@ public class SaveInitializationService : ISaveInitializationService
                                # Ignore processing artifacts
                                *.processing
                                *.error
-                               
+
                                # Ignore save session lock
                                session.lock
 
@@ -1692,7 +1692,10 @@ public class SaveInitializationService : ISaveInitializationService
         var changedChunks = new List<string>();
         try
         {
+            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Getting git status...");
             var gitStatus = await _gitService.GetStatusAsync(savePath);
+            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Got git status, processing files...");
+
             var modifiedMcaFiles = gitStatus.ModifiedFiles
                 .Concat(gitStatus.UntrackedFiles)
                 .Concat(gitStatus.DeletedFiles)
@@ -1700,27 +1703,40 @@ public class SaveInitializationService : ISaveInitializationService
                 .Distinct()
                 .ToList();
 
+            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Found {modifiedMcaFiles.Count} MCA files to process");
+
             foreach (var mcaFile in modifiedMcaFiles)
             {
+                System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Processing MCA file: {mcaFile}");
                 var fullMcaPath = Path.Combine(savePath, mcaFile);
+
+                System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Checking if file actually changed: {mcaFile}");
                 if (await IsFileActuallyChanged(savePath, mcaFile))
                 {
+                    System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] File actually changed, processing chunks: {mcaFile}");
                     if (File.Exists(fullMcaPath))
                     {
                         try
                         {
+                            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Listing chunks in region: {fullMcaPath}");
                             var chunks = await _nbtService.ListChunksInRegionAsync(fullMcaPath);
+                            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Found {chunks.Count} chunks in {mcaFile}");
                             foreach (var c in chunks.Where(c => c.IsValid))
                             {
                                 changedChunks.Add($"chunk_{c.ChunkX}_{c.ChunkZ}.snbt");
                             }
                         }
-                        catch
+                        catch (Exception ex)
                         {
+                            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Error processing {mcaFile}: {ex.Message}, using fallback");
                             var fallback = await GetChunksFromMcaFile(fullMcaPath);
                             changedChunks.AddRange(fallback);
                         }
                     }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] File not actually changed (timestamp only?): {mcaFile}");
                 }
             }
             System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Detected {changedChunks.Count} changed chunks.");
@@ -1836,7 +1852,7 @@ public class SaveInitializationService : ISaveInitializationService
         {
             var tag = SnbtParser.Parse(snbt, false);
             RemoveFieldsRecursive(tag, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "LastUpdate" });
-            return (tag as NbtTag)!.ToSnbt(SnbtOptions.Default);
+            return (tag as NbtTag)!.ToSnbt(SnbtOptions.DefaultExpanded);
         }
         catch
         {
@@ -1894,14 +1910,23 @@ public class SaveInitializationService : ISaveInitializationService
     {
         try
         {
+            System.Diagnostics.Debug.WriteLine($"[IsFileActuallyChanged] Checking file: {relativePath}");
+
             // Get the current file hash
             var currentFilePath = Path.Combine(savePath, relativePath);
+            System.Diagnostics.Debug.WriteLine($"[IsFileActuallyChanged] Computing current file hash: {currentFilePath}");
             var currentHash = await ComputeFileHash(currentFilePath);
 
-            // Get the hash from the last commit using git show command
-            var gitResult = await _gitService.ExecuteCommandAsync($"git show HEAD:{relativePath}", savePath);
+            // Get the hash from the last commit using git show command with timeout
+            System.Diagnostics.Debug.WriteLine($"[IsFileActuallyChanged] Getting last committed version via git");
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30)); // 30-second timeout for git operations
+
+            var gitTask = _gitService.ExecuteCommandAsync($"git show HEAD:{relativePath}", savePath);
+            var gitResult = await gitTask.WaitAsync(timeoutCts.Token);
+
             if (!gitResult.Success || gitResult.OutputLines.Length == 0)
             {
+                System.Diagnostics.Debug.WriteLine($"[IsFileActuallyChanged] File is new or couldn't get last commit version: {relativePath}");
                 return true; // File is new or couldn't get last commit version
             }
 
@@ -1909,7 +1934,13 @@ public class SaveInitializationService : ISaveInitializationService
             var lastCommittedHash = ComputeContentHash(lastCommittedContent);
 
             var isChanged = currentHash != lastCommittedHash;
+            System.Diagnostics.Debug.WriteLine($"[IsFileActuallyChanged] File {relativePath}: changed = {isChanged}");
             return isChanged;
+        }
+        catch (TimeoutException)
+        {
+            System.Diagnostics.Debug.WriteLine($"[IsFileActuallyChanged] Timeout checking {relativePath}, assuming changed");
+            return true;
         }
         catch (Exception ex)
         {
