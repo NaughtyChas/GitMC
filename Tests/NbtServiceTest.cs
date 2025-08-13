@@ -9,7 +9,7 @@ internal class NbtServiceTest
         var nbtService = new NbtService();
 
         // This is a simple SNBT structure for testing purposes
-        string testSnbt = @"{
+        var testSnbt = @"{
     ""test"": ""Hello World"",
     ""number"": 42,
     ""float"": 3.14f,
@@ -25,21 +25,21 @@ internal class NbtServiceTest
             Console.WriteLine($@"SNBT validation result: {nbtService.IsValidSnbt(testSnbt)}");
 
             // Test conversion to NBT
-            string tempFile = Path.GetTempFileName() + ".nbt";
+            var tempFile = Path.GetTempFileName() + ".nbt";
             await nbtService.ConvertSnbtToNbtAsync(testSnbt, tempFile);
             Console.WriteLine($@"NBT file created: {tempFile}");
 
             // Test file validation
-            bool isValid = await nbtService.IsValidNbtFileAsync(tempFile);
+            var isValid = await nbtService.IsValidNbtFileAsync(tempFile);
             Console.WriteLine($@"File validation result: {isValid}");
 
             // Test file info
-            string fileInfo = await nbtService.GetNbtFileInfoAsync(tempFile);
+            var fileInfo = await nbtService.GetNbtFileInfoAsync(tempFile);
             Console.WriteLine($@"File info:
 {fileInfo}");
 
             // Test conversion back to SNBT
-            string convertedSnbt = await nbtService.ConvertNbtToSnbtAsync(tempFile);
+            var convertedSnbt = await nbtService.ConvertNbtToSnbtAsync(tempFile);
             Console.WriteLine($@"Converted back to SNBT:
 {convertedSnbt}");
 

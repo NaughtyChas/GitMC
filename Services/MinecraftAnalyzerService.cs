@@ -47,11 +47,11 @@ public class MinecraftAnalyzerService : IMinecraftAnalyzerService
             };
 
             // Analyze NBT data if available
-            string levelDatPath = Path.Combine(savePath, "level.dat");
+            var levelDatPath = Path.Combine(savePath, "level.dat");
             if (File.Exists(levelDatPath))
                 try
                 {
-                    string nbtInfo = await _nbtService.GetNbtFileInfoAsync(levelDatPath);
+                    var nbtInfo = await _nbtService.GetNbtFileInfoAsync(levelDatPath);
                     save.GameVersion = await ExtractVersionFromNbtInfo(nbtInfo);
                     save.WorldType = await ExtractWorldTypeFromNbtInfo(nbtInfo);
                 }
@@ -76,8 +76,8 @@ public class MinecraftAnalyzerService : IMinecraftAnalyzerService
 
     public bool ValidateMinecraftSave(string savePath)
     {
-        string levelDatPath = Path.Combine(savePath, "level.dat");
-        string levelDatOldPath = Path.Combine(savePath, "level.dat_old");
+        var levelDatPath = Path.Combine(savePath, "level.dat");
+        var levelDatOldPath = Path.Combine(savePath, "level.dat_old");
         return File.Exists(levelDatPath) || File.Exists(levelDatOldPath);
     }
 
@@ -106,9 +106,9 @@ public class MinecraftAnalyzerService : IMinecraftAnalyzerService
 
     public string GenerateSaveId(string saveName)
     {
-        char[] invalidChars = Path.GetInvalidFileNameChars();
-        string safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
-        string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var safeName = string.Join("_", saveName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
         return $"{safeName}_{timestamp}";
     }
 }

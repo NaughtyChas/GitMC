@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using GitMC.Constants;
 using Windows.UI;
+using GitMC.Constants;
 
 namespace GitMC.Models;
 

@@ -5,10 +5,13 @@ namespace GitMC.Services;
 
 public class ConfigurationService : IConfigurationService
 {
+    private const int SaveDelayMs = 500; // Debounce save operations
     private readonly string _configFilePath;
     private readonly IDataStorageService _dataStorageService;
     private readonly object _lock = new();
+    private readonly SemaphoreSlim _saveSemaphore = new(1, 1);
     private readonly Dictionary<string, object> _settings = new();
+    private CancellationTokenSource _saveDelayTokenSource = new();
 
     public ConfigurationService()
     {
@@ -28,15 +31,15 @@ public class ConfigurationService : IConfigurationService
 
             if (File.Exists(_configFilePath))
             {
-                string json = await File.ReadAllTextAsync(_configFilePath);
-                Dictionary<string, JsonElement>? loaded =
+                var json = await File.ReadAllTextAsync(_configFilePath);
+                var loaded =
                     JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
 
                 lock (_lock)
                 {
                     _settings.Clear();
                     if (loaded != null)
-                        foreach (KeyValuePair<string, JsonElement> kvp in loaded)
+                        foreach (var kvp in loaded)
                             _settings[kvp.Key] = ConvertJsonElement(kvp.Value);
                 }
 
@@ -56,6 +59,7 @@ public class ConfigurationService : IConfigurationService
 
     public async Task SaveAsync()
     {
+        await _saveSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
             string json;
@@ -70,23 +74,27 @@ public class ConfigurationService : IConfigurationService
         {
             // Ignore save errors - we don't want to crash the app
         }
+        finally
+        {
+            _saveSemaphore.Release();
+        }
     }
 
     public bool GetBool(string key, bool defaultValue = false)
     {
         lock (_lock)
         {
-            if (_settings.TryGetValue(key, out object? value) && value is bool boolValue) return boolValue;
+            if (_settings.TryGetValue(key, out var value) && value is bool boolValue) return boolValue;
             return defaultValue;
         }
     }
 
     public void SetBool(string key, bool value)
     {
-        bool changed = false;
+        var changed = false;
         lock (_lock)
         {
-            if (!_settings.TryGetValue(key, out object? currentValue) || !currentValue.Equals(value))
+            if (!_settings.TryGetValue(key, out var currentValue) || !currentValue.Equals(value))
             {
                 _settings[key] = value;
                 changed = true;
@@ -95,7 +103,6 @@ public class ConfigurationService : IConfigurationService
 
         if (changed)
         {
-            // Auto-save on every change
             _ = Task.Run(SaveAsync);
             ConfigurationChanged?.Invoke(this, key);
             NotifySpecificPropertyChanged(key);
@@ -106,17 +113,17 @@ public class ConfigurationService : IConfigurationService
     {
         lock (_lock)
         {
-            if (_settings.TryGetValue(key, out object? value) && value is string stringValue) return stringValue;
+            if (_settings.TryGetValue(key, out var value) && value is string stringValue) return stringValue;
             return defaultValue;
         }
     }
 
     public void SetString(string key, string value)
     {
-        bool changed = false;
+        var changed = false;
         lock (_lock)
         {
-            if (!_settings.TryGetValue(key, out object? currentValue) || !currentValue.Equals(value))
+            if (!_settings.TryGetValue(key, out var currentValue) || !currentValue.Equals(value))
             {
                 _settings[key] = value;
                 changed = true;
@@ -135,13 +142,13 @@ public class ConfigurationService : IConfigurationService
     {
         lock (_lock)
         {
-            if (_settings.TryGetValue(key, out object? value))
+            if (_settings.TryGetValue(key, out var value))
             {
                 if (value is int intValue)
                     return intValue;
                 if (value is double doubleValue && doubleValue == Math.Floor(doubleValue))
                     return (int)doubleValue;
-                if (value is JsonElement element && element.TryGetInt32(out int jsonInt))
+                if (value is JsonElement element && element.TryGetInt32(out var jsonInt))
                     return jsonInt;
             }
 
@@ -151,10 +158,10 @@ public class ConfigurationService : IConfigurationService
 
     public void SetInt(string key, int value)
     {
-        bool changed = false;
+        var changed = false;
         lock (_lock)
         {
-            if (!_settings.TryGetValue(key, out object? currentValue) || !currentValue.Equals(value))
+            if (!_settings.TryGetValue(key, out var currentValue) || !currentValue.Equals(value))
             {
                 _settings[key] = value;
                 changed = true;
@@ -327,6 +334,12 @@ public class ConfigurationService : IConfigurationService
         set => SetString("GitHubAccessToken", value);
     }
 
+    public DateTime GitHubAccessTokenTimestamp
+    {
+        get => GetDateTime("GitHubAccessTokenTimestamp", DateTime.MinValue);
+        set => SetDateTime("GitHubAccessTokenTimestamp", value);
+    }
+
     public string GitHubUsername
     {
         get => GetString("GitHubUsername");
@@ -408,19 +421,57 @@ public class ConfigurationService : IConfigurationService
         set => SetString("BackupPath", value);
     }
 
+    public DateTime GetDateTime(string key, DateTime defaultValue = default)
+    {
+        lock (_lock)
+        {
+            if (_settings.TryGetValue(key, out var value))
+            {
+                if (value is DateTime dateTimeValue)
+                    return dateTimeValue;
+                if (value is string stringValue && DateTime.TryParse(stringValue, out var parsedDate))
+                    return parsedDate;
+                if (value is JsonElement element && element.TryGetDateTime(out var jsonDate))
+                    return jsonDate;
+            }
+
+            return defaultValue;
+        }
+    }
+
+    public void SetDateTime(string key, DateTime value)
+    {
+        var changed = false;
+        lock (_lock)
+        {
+            if (!_settings.TryGetValue(key, out var currentValue) || !currentValue.Equals(value))
+            {
+                _settings[key] = value;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _ = Task.Run(SaveAsync);
+            ConfigurationChanged?.Invoke(this, key);
+            NotifySpecificPropertyChanged(key);
+        }
+    }
+
     // Array handling methods
     public string[] GetStringArray(string key, string[]? defaultValue = null)
     {
         lock (_lock)
         {
-            if (_settings.TryGetValue(key, out object? value))
+            if (_settings.TryGetValue(key, out var value))
             {
                 if (value is string[] stringArray)
                     return stringArray;
                 if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
                 {
                     var items = new List<string>();
-                    foreach (JsonElement item in element.EnumerateArray())
+                    foreach (var item in element.EnumerateArray())
                         if (item.ValueKind == JsonValueKind.String)
                             items.Add(item.GetString() ?? "");
                     return items.ToArray();
@@ -433,17 +484,17 @@ public class ConfigurationService : IConfigurationService
 
     public void SetStringArray(string key, string[] value)
     {
-        bool changed = false;
+        var changed = false;
         lock (_lock)
         {
-            if (!_settings.TryGetValue(key, out object? currentValue))
+            if (!_settings.TryGetValue(key, out var currentValue))
             {
                 _settings[key] = value;
                 changed = true;
             }
             else
             {
-                string[]? currentStringArray = currentValue as string[];
+                var currentStringArray = currentValue as string[];
                 if (!ArraysEqual(currentStringArray, value))
                 {
                     _settings[key] = value;
@@ -464,13 +515,13 @@ public class ConfigurationService : IConfigurationService
     {
         lock (_lock)
         {
-            if (_settings.TryGetValue(key, out object? value))
+            if (_settings.TryGetValue(key, out var value))
             {
                 if (value is double doubleValue)
                     return doubleValue;
                 if (value is int intValue)
                     return intValue;
-                if (value is JsonElement element && element.TryGetDouble(out double jsonDouble))
+                if (value is JsonElement element && element.TryGetDouble(out var jsonDouble))
                     return jsonDouble;
             }
 
@@ -480,10 +531,10 @@ public class ConfigurationService : IConfigurationService
 
     public void SetDouble(string key, double value)
     {
-        bool changed = false;
+        var changed = false;
         lock (_lock)
         {
-            if (!_settings.TryGetValue(key, out object? currentValue) || !currentValue.Equals(value))
+            if (!_settings.TryGetValue(key, out var currentValue) || !currentValue.Equals(value))
             {
                 _settings[key] = value;
                 changed = true;
@@ -504,7 +555,7 @@ public class ConfigurationService : IConfigurationService
         if (array1 == null || array2 == null) return false;
         if (array1.Length != array2.Length) return false;
 
-        for (int i = 0; i < array1.Length; i++)
+        for (var i = 0; i < array1.Length; i++)
             if (array1[i] != array2[i])
                 return false;
         return true;
@@ -515,7 +566,7 @@ public class ConfigurationService : IConfigurationService
         return element.ValueKind switch
         {
             JsonValueKind.String => element.GetString() ?? "",
-            JsonValueKind.Number when element.TryGetInt32(out int intVal) => intVal,
+            JsonValueKind.Number when element.TryGetInt32(out var intVal) => intVal,
             JsonValueKind.Number => element.GetDouble(),
             JsonValueKind.True => true,
             JsonValueKind.False => false,
@@ -527,7 +578,7 @@ public class ConfigurationService : IConfigurationService
     private string[] ConvertJsonArray(JsonElement arrayElement)
     {
         var items = new List<string>();
-        foreach (JsonElement item in arrayElement.EnumerateArray())
+        foreach (var item in arrayElement.EnumerateArray())
             if (item.ValueKind == JsonValueKind.String)
                 items.Add(item.GetString() ?? "");
             else
@@ -575,6 +626,7 @@ public class ConfigurationService : IConfigurationService
 
         // GitHub settings
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubAccessToken)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubAccessTokenTimestamp)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubUsername)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubRepository)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GitHubPrivateRepo)));
@@ -598,7 +650,7 @@ public class ConfigurationService : IConfigurationService
 
     private void NotifySpecificPropertyChanged(string key)
     {
-        string? propertyName = key switch
+        var propertyName = key switch
         {
             // Onboarding properties
             "LanguageConfigured" => nameof(IsLanguageConfigured),
@@ -638,6 +690,7 @@ public class ConfigurationService : IConfigurationService
 
             // GitHub settings
             "GitHubAccessToken" => nameof(GitHubAccessToken),
+            "GitHubAccessTokenTimestamp" => nameof(GitHubAccessTokenTimestamp),
             "GitHubUsername" => nameof(GitHubUsername),
             "GitHubRepository" => nameof(GitHubRepository),
             "GitHubPrivateRepo" => nameof(GitHubPrivateRepo),

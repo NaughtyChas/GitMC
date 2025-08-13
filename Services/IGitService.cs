@@ -42,6 +42,14 @@ public interface IGitService
     Task<GitOperationResult> StageAllAsync(string? workingDirectory = null);
     Task<GitOperationResult> UnstageFileAsync(string filePath, string? workingDirectory = null);
     Task<GitOperationResult> CommitAsync(string message, string? workingDirectory = null);
+
+    /// <summary>
+    /// Amend the last commit with currently staged changes.
+    /// If message is null, reuse the previous commit message (no-edit behavior).
+    /// </summary>
+    /// <param name="message">Optional new commit message</param>
+    /// <param name="workingDirectory">Repository working directory</param>
+    Task<GitOperationResult> AmendLastCommitAsync(string? message = null, string? workingDirectory = null);
     Task<GitCommit[]> GetCommitHistoryAsync(int count = 50, string? workingDirectory = null);
     Task<string[]> GetBranchesAsync(string? workingDirectory = null);
     Task<GitOperationResult> CreateBranchAsync(string branchName, string? workingDirectory = null);
@@ -53,6 +61,7 @@ public interface IGitService
     Task<string> GetDiffAsync(string? filePath = null, string? workingDirectory = null);
     Task<bool> ResetAsync(string mode = "mixed", string? target = null, string? workingDirectory = null);
     Task<bool> CloneAsync(string url, string targetPath, string? branchName = null);
+    Task<string?> GetCurrentCommitHashAsync(string? workingDirectory = null);
 }
 
 public class GitCommandResult

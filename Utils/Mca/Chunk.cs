@@ -54,20 +54,20 @@ public abstract class Chunk
         try
         {
             // Read data length (4 bytes, big endian)
-            byte[] lengthBytes = reader.ReadBytes(4);
+            var lengthBytes = reader.ReadBytes(4);
             if (BitConverter.IsLittleEndian)
                 Array.Reverse(lengthBytes);
-            uint dataLength = BitConverter.ToUInt32(lengthBytes, 0);
+            var dataLength = BitConverter.ToUInt32(lengthBytes, 0);
 
             // Read compression type (1 byte)
-            byte compressionTypeByte = reader.ReadByte();
+            var compressionTypeByte = reader.ReadByte();
 
             // Check if oversized chunk
             IsOversized = CompressionHelper.IsOversized(compressionTypeByte);
             CompressionType = CompressionHelper.GetActualCompressionType(compressionTypeByte);
 
             // Read compressed data
-            byte[] compressedData =
+            var compressedData =
                 reader.ReadBytes((int)(dataLength - 1)); // -1 because compression type occupies 1 byte
 
             // Decompress data
@@ -108,19 +108,19 @@ public abstract class Chunk
             }
 
             // Compress data
-            byte[] compressedData = CompressionHelper.Compress(nbtData, CompressionType);
+            var compressedData = CompressionHelper.Compress(nbtData, CompressionType);
 
             // Calculate total length (1 byte for compression type + compressed data)
-            uint totalLength = (uint)(1 + compressedData.Length);
+            var totalLength = (uint)(1 + compressedData.Length);
 
             // Write data length (4 bytes, big endian)
-            byte[] lengthBytes = BitConverter.GetBytes(totalLength);
+            var lengthBytes = BitConverter.GetBytes(totalLength);
             if (BitConverter.IsLittleEndian)
                 Array.Reverse(lengthBytes);
             writer.Write(lengthBytes);
 
             // Write compression type
-            byte compressionTypeByte = (byte)CompressionType;
+            var compressionTypeByte = (byte)CompressionType;
             if (IsOversized) compressionTypeByte = CompressionHelper.SetOversizedFlag(CompressionType);
             writer.Write(compressionTypeByte);
 

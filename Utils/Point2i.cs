@@ -55,7 +55,7 @@ public struct Point2I : IEquatable<Point2I>
     /// </summary>
     public int GetRegionIndex()
     {
-        Point2I local = GetLocalInRegion();
+        var local = GetLocalInRegion();
         return local.X + local.Z * 32;
     }
 
@@ -88,8 +88,8 @@ public struct Point2I : IEquatable<Point2I>
     /// </summary>
     public Point2I Mod(int modulus)
     {
-        int modX = X % modulus;
-        int modZ = Z % modulus;
+        var modX = X % modulus;
+        var modZ = Z % modulus;
         if (modX < 0) modX += modulus;
         if (modZ < 0) modZ += modulus;
         return new Point2I(modX, modZ);

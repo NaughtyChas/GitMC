@@ -23,7 +23,7 @@ public static class FlyoutHelper
     {
         if (anchor == null) return;
 
-        Flyout flyout = CreateStandardFlyout(
+        var flyout = CreateStandardFlyout(
             title,
             message,
             "\uE783", // Error icon
@@ -44,7 +44,7 @@ public static class FlyoutHelper
     {
         if (anchor == null) return;
 
-        Flyout flyout = CreateStandardFlyout(
+        var flyout = CreateStandardFlyout(
             title,
             message,
             "\uE73E", // Checkmark icon

@@ -18,14 +18,14 @@ public static class DataUtils
 
     public static double? TryParseSpecialDouble(string value)
     {
-        if (SpecialFloatingPoints.TryGetValue(value, out (double d, float f) result))
+        if (SpecialFloatingPoints.TryGetValue(value, out var result))
             return result.d;
         return null;
     }
 
     public static float? TryParseSpecialFloat(string value)
     {
-        if (SpecialFloatingPoints.TryGetValue(value, out (double d, float f) result))
+        if (SpecialFloatingPoints.TryGetValue(value, out var result))
             return result.f;
         return null;
     }

@@ -38,27 +38,27 @@ public class SimpleNbtTest
 
             // Save as NBT file
             var nbtFile = new NbtFile(root);
-            string tempNbtPath = Path.GetTempFileName() + ".nbt";
+            var tempNbtPath = Path.GetTempFileName() + ".nbt";
             nbtFile.SaveToFile(tempNbtPath, NbtCompression.GZip);
             Console.WriteLine($@"2. Saved NBT file: {tempNbtPath}");
             Console.WriteLine();
 
             // Convert to SNBT using our implementation
             var nbtService = new NbtService();
-            string snbtContent = await nbtService.ConvertNbtToSnbtAsync(tempNbtPath);
+            var snbtContent = await nbtService.ConvertNbtToSnbtAsync(tempNbtPath);
 
             Console.WriteLine(@"3. Converted to SNBT:");
             Console.WriteLine(snbtContent);
             Console.WriteLine();
 
             // Save SNBT file
-            string tempSnbtPath = Path.GetTempFileName() + ".snbt";
+            var tempSnbtPath = Path.GetTempFileName() + ".snbt";
             File.WriteAllText(tempSnbtPath, snbtContent, Encoding.UTF8);
             Console.WriteLine($@"4. Saved SNBT file: {tempSnbtPath}");
             Console.WriteLine();
 
             // Convert back to NBT
-            string finalNbtPath = Path.GetTempFileName() + ".nbt";
+            var finalNbtPath = Path.GetTempFileName() + ".nbt";
             await nbtService.ConvertSnbtToNbtAsync(snbtContent, finalNbtPath);
             Console.WriteLine($@"5. Converted back to NBT: {finalNbtPath}");
             Console.WriteLine();
@@ -66,7 +66,7 @@ public class SimpleNbtTest
             // Verify the round-trip
             var finalNbtFile = new NbtFile();
             finalNbtFile.LoadFromFile(finalNbtPath);
-            NbtCompound? finalRoot = finalNbtFile.RootTag;
+            var finalRoot = finalNbtFile.RootTag;
 
             Console.WriteLine(@"6. Round-trip verification:");
             Console.WriteLine($@"   Original tags: {root.Count}");
@@ -74,9 +74,9 @@ public class SimpleNbtTest
 
             if (finalRoot != null)
             {
-                NbtString? messageTag = finalRoot.Get<NbtString>("message");
-                NbtInt? numberTag = finalRoot.Get<NbtInt>("number");
-                NbtFloat? piTag = finalRoot.Get<NbtFloat>("pi");
+                var messageTag = finalRoot.Get<NbtString>("message");
+                var numberTag = finalRoot.Get<NbtInt>("number");
+                var piTag = finalRoot.Get<NbtFloat>("pi");
 
                 Console.WriteLine($@"   Message: '{messageTag?.Value}' (expected: 'Hello World!')");
                 Console.WriteLine($@"   Number: {numberTag?.Value} (expected: 42)");
