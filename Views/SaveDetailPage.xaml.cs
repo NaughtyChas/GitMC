@@ -2754,10 +2754,34 @@ namespace GitMC.Views
             // Create a timer that updates every 30 seconds
             _changeDetectionTimer = new Timer(async _ =>
             {
-                // Use throttling to prevent overlapping operations
-                if (!_changeDetectionSemaphore.Wait(0)) // Non-blocking check
+                // Check if semaphore is still valid before using it
+                SemaphoreSlim? semaphore;
+                try
                 {
-                    Debug.WriteLine("Skipping change detection update - previous scan still in progress");
+                    semaphore = _changeDetectionSemaphore;
+                    if (semaphore == null) return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Semaphore was disposed, exit gracefully
+                    return;
+                }
+
+                // Use throttling to prevent overlapping operations
+                bool acquired = false;
+                try
+                {
+                    acquired = semaphore.Wait(0); // Non-blocking check
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Semaphore was disposed during Wait call, exit gracefully
+                    return;
+                }
+
+                if (!acquired)
+                {
+                    ServiceFactory.Logger.LogDebug(LogCategory.UI, "Skipping change detection update - previous scan still in progress");
                     return;
                 }
 
@@ -2776,11 +2800,11 @@ namespace GitMC.Views
                         }
                         catch (OperationCanceledException)
                         {
-                            Debug.WriteLine("Change detection update was cancelled");
+                            ServiceFactory.Logger.LogDebug(LogCategory.UI, "Change detection update was cancelled");
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"Error in background change detection: {ex.Message}");
+                            ServiceFactory.Logger.LogError(LogCategory.UI, "Error in background change detection: {Error}", ex.Message);
                         }
                     }, _changeDetectionCancellation.Token);
 
@@ -2799,17 +2823,29 @@ namespace GitMC.Views
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"Error in auto-translate check: {ex.Message}");
+                            ServiceFactory.Logger.LogError(LogCategory.UI, "Error in auto-translate check: {Error}", ex.Message);
                         }
                     });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error in change detection timer: {ex.Message}");
+                    ServiceFactory.Logger.LogError(LogCategory.UI, "Error in change detection timer: {Error}", ex.Message);
                 }
                 finally
                 {
-                    _changeDetectionSemaphore.Release();
+                    // Safely release the semaphore
+                    try
+                    {
+                        semaphore?.Release();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // Semaphore was disposed, which is fine
+                    }
+                    catch (SemaphoreFullException)
+                    {
+                        // Semaphore was already released, which is fine
+                    }
                 }
             }, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
         }
@@ -5024,14 +5060,28 @@ if(document.readyState==='complete') init(); else window.addEventListener('load'
             // Clean up timer when leaving the page
             StopChangeDetectionUpdates();
 
-            // Dispose semaphore resources
+            // Dispose semaphore resources with proper synchronization
             try
             {
-                _changeDetectionSemaphore?.Dispose();
+                // Wait for any ongoing operations to complete before disposing
+                if (_changeDetectionSemaphore != null)
+                {
+                    // Give ongoing operations a chance to complete
+                    bool acquired = _changeDetectionSemaphore.Wait(1000); // Wait up to 1 second
+                    if (acquired)
+                    {
+                        _changeDetectionSemaphore.Release();
+                    }
+                    _changeDetectionSemaphore.Dispose();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Semaphore was already disposed, which is fine
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error disposing change detection semaphore: {ex.Message}");
+                ServiceFactory.Logger.LogError(LogCategory.UI, "Error disposing change detection semaphore: {Error}", ex.Message);
             }
         }
 
