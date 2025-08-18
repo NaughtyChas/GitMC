@@ -32,6 +32,9 @@ public sealed partial class MainWindow : Window
 
         // Only subscribe to window close event for saving configuration
         Closed += MainWindow_Closed;
+
+        // Apply saved theme
+        ApplySavedTheme();
     }
 
     private async void NavigateToHomePage()
@@ -421,6 +424,49 @@ public sealed partial class MainWindow : Window
             }
 
             if (needsResize) sender.Resize(new SizeInt32(newWidth, newHeight));
+        }
+    }
+
+    private async void ApplySavedTheme()
+    {
+        try
+        {
+            // Load configuration to get saved theme
+            await _configurationService.LoadAsync();
+            var savedTheme = _configurationService.Theme;
+            
+            ElementTheme elementTheme = savedTheme switch
+            {
+                "Light" => ElementTheme.Light,
+                "Dark" => ElementTheme.Dark,
+                _ => ElementTheme.Default
+            };
+
+            // Apply theme to the main window content
+            if (Content is FrameworkElement rootElement)
+            {
+                rootElement.RequestedTheme = elementTheme;
+            }
+        }
+        catch
+        {
+            // If there's any error, use default theme
+        }
+    }
+
+    public void ApplyTheme(string theme)
+    {
+        ElementTheme elementTheme = theme switch
+        {
+            "Light" => ElementTheme.Light,
+            "Dark" => ElementTheme.Dark,
+            _ => ElementTheme.Default
+        };
+
+        // Apply theme to the main window content
+        if (Content is FrameworkElement rootElement)
+        {
+            rootElement.RequestedTheme = elementTheme;
         }
     }
 

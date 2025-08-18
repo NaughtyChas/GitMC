@@ -65,6 +65,20 @@
                             <ComboBoxItem Content="{ext:Localize Key=Language_Chinese}" Tag="zh-CN" />
                         </ComboBox>
                     </toolkit:SettingsCard>
+                    
+                    <toolkit:SettingsCard
+                        Description="{ext:Localize Key=Settings_Theme_Description}"
+                        Header="{ext:Localize Key=Settings_Theme}"
+                        HeaderIcon="{winUi:FontIcon Glyph=&#xE771;}">
+                        <ComboBox
+                            MinWidth="150"
+                            SelectionChanged="ThemeComboBox_SelectionChanged"
+                            x:Name="ThemeComboBox">
+                            <ComboBoxItem Content="{ext:Localize Key=Theme_SystemDefault}" Tag="Default" />
+                            <ComboBoxItem Content="{ext:Localize Key=Theme_Light}" Tag="Light" />
+                            <ComboBoxItem Content="{ext:Localize Key=Theme_Dark}" Tag="Dark" />
+                        </ComboBox>
+                    </toolkit:SettingsCard>
 
                     <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{ext:Localize Key=Settings_DevDebug}" />
                     <toolkit:SettingsExpander Description="Tools for debugging" Header="Debug Tools">
