@@ -1,0 +1,6 @@
+{
+  "configProperties": {
+    "System.Runtime.Loader.EnableLogging": false,
+    "System.Threading.ThreadPool.EnableWorkerTracking": false
+  }
+}

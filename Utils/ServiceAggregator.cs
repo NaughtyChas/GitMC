@@ -7,6 +7,7 @@ namespace GitMC.Utils;
 /// </summary>
 public interface IServiceAggregator
 {
+    ILoggingService Logging { get; }
     IConfigurationService Configuration { get; }
     IGitService Git { get; }
     IOnboardingService Onboarding { get; }
@@ -24,6 +25,7 @@ public interface IServiceAggregator
 internal class ServiceAggregator : IServiceAggregator
 {
     public ServiceAggregator(
+        ILoggingService loggingService,
         IConfigurationService configurationService,
         IGitService gitService,
         IOnboardingService onboardingService,
@@ -34,6 +36,7 @@ internal class ServiceAggregator : IServiceAggregator
     ISessionLockMonitorService sessionLockMonitorService,
     IOperationManager operationManager)
     {
+        Logging = loggingService;
         Configuration = configurationService;
         Git = gitService;
         Onboarding = onboardingService;
@@ -45,6 +48,7 @@ internal class ServiceAggregator : IServiceAggregator
         Operations = operationManager;
     }
 
+    public ILoggingService Logging { get; }
     public IConfigurationService Configuration { get; }
     public IGitService Git { get; }
     public IOnboardingService Onboarding { get; }

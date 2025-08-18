@@ -14,10 +14,12 @@ namespace GitMC.Services;
 public class ManagedSaveService
 {
     private readonly IDataStorageService _dataStorageService;
+    private readonly ILoggingService _logger;
 
     public ManagedSaveService(IDataStorageService dataStorageService)
     {
         _dataStorageService = dataStorageService;
+        _logger = ServiceFactory.Logger;
     }
 
     /// <summary>
@@ -47,7 +49,7 @@ public class ManagedSaveService
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to parse save info from {jsonFile}: {ex.Message}");
+                _logger.LogWarning(LogCategory.FileSystem, "Failed to parse save info from file: {JsonFile}", ex, jsonFile);
             }
 
         return saves.OrderByDescending(s => s.LastModified).ToList();
@@ -169,12 +171,13 @@ public class ManagedSaveService
             else
                 saveInfo.CurrentStatus = ManagedSaveInfo.SaveStatus.Clear;
 
-            Debug.WriteLine(
-                $"[UpdateGitStatus] Updated Git status for {saveInfo.Name}: Status={saveInfo.CurrentStatus}, Branch={saveInfo.Branch}, Commits={saveInfo.CommitCount}, Push={saveInfo.PendingPushCount}, Pull={saveInfo.PendingPullCount}");
+            _logger.LogDebug(LogCategory.Git, 
+                "Updated Git status for save '{SaveName}': Status={Status}, Branch={Branch}, Commits={CommitCount}, Push={PushCount}, Pull={PullCount}",
+                saveInfo.Name, saveInfo.CurrentStatus, saveInfo.Branch, saveInfo.CommitCount, saveInfo.PendingPushCount, saveInfo.PendingPullCount);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to update Git status for {saveInfo.Name}: {ex.Message}");
+            _logger.LogWarning(LogCategory.Git, "Failed to update Git status for save '{SaveName}'", ex, saveInfo.Name);
             // Don't throw - just leave Git status as is
         }
     }

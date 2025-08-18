@@ -4,6 +4,7 @@ using System.Text.Json;
 using fNbt;
 using GitMC.Models;
 using GitMC.Utils.Nbt;
+using GitMC.Extensions;
 
 namespace GitMC.Services;
 
@@ -17,17 +18,20 @@ public class SaveInitializationService : ISaveInitializationService
     private readonly INbtService _nbtService;
     private readonly IManifestService _manifestService;
     private readonly IOperationManager? _operations;
+    private readonly ILoggingService _logger;
 
     public SaveInitializationService(
         IGitService gitService,
         INbtService nbtService,
         IDataStorageService dataStorageService,
-        IManifestService manifestService)
+        IManifestService manifestService,
+        ILoggingService? loggingService = null)
     {
         _gitService = gitService;
         _nbtService = nbtService;
         _dataStorageService = dataStorageService;
         _manifestService = manifestService;
+        _logger = loggingService ?? new LoggingService(enableFileLogging: false, enableConsoleLogging: true); // Fallback logger
         try { _operations = GitMC.Extensions.ServiceFactory.Services.Operations; } catch { }
     }
 
@@ -1362,7 +1366,9 @@ public class SaveInitializationService : ISaveInitializationService
     /// </summary>
     public async Task<bool> TranslateChangedAsync(string savePath, IProgress<SaveInitStep>? progress = null)
     {
-        System.Diagnostics.Debug.WriteLine($"=== TranslateChangedAsync STARTED for path: {savePath} ===");
+        using var operation = _logger.BeginTimedOperation(LogCategory.Translation, "TranslateChangedAsync");
+        _logger.LogInfo(LogCategory.Translation, "Starting translation for save path: {SavePath}", savePath);
+        
         var step = new SaveInitStep { Name = "Translating Changes", Description = "Exporting changes to SNBT (no commit)" };
         var op = _operations?.Start(savePath, Models.OperationType.Translate, totalSteps: 5, message: "Translating changes");
         var totalOperations = 5; // Detect, Export, Process non-region, Update manifest (pending), Finalize
@@ -1371,7 +1377,7 @@ public class SaveInitializationService : ISaveInitializationService
         try
         {
             var gitMcPath = Path.Combine(savePath, "GitMC");
-            System.Diagnostics.Debug.WriteLine($"GitMC path: {gitMcPath}");
+            _logger.LogDebug(LogCategory.Translation, "GitMC path resolved to: {GitMcPath}", gitMcPath);
 
             // Step 1: Detect changed chunks
             currentOperation++;
@@ -1379,25 +1385,25 @@ public class SaveInitializationService : ISaveInitializationService
             step.TotalProgress = totalOperations;
             step.Message = "Detecting changed chunks...";
             progress?.Report(step);
-            System.Diagnostics.Debug.WriteLine($"Step 1: Detecting changed chunks...");
+            _logger.LogInfo(LogCategory.Translation, "Step {CurrentStep}/{TotalSteps}: {StepMessage}", currentOperation, totalOperations, step.Message);
 
             var changedChunks = await DetectChangedChunksAsync(savePath);
-            System.Diagnostics.Debug.WriteLine($"DetectChangedChunksAsync returned {changedChunks.Count} chunks");
+            _logger.LogInfo(LogCategory.Translation, "Detected {ChunkCount} changed chunks", changedChunks.Count);
             _operations?.Update(op!, current: currentOperation, total: totalOperations, message: step.Message);
 
             // Filter out timestamp-only changes before exporting
             if (changedChunks.Count > 0)
             {
-                System.Diagnostics.Debug.WriteLine($"Filtering timestamp-only changes from {changedChunks.Count} chunks...");
+                _logger.LogDebug(LogCategory.Translation, "Filtering timestamp-only changes from {ChunkCount} chunks", changedChunks.Count);
                 changedChunks = await FilterLastUpdateOnlyChangesAsync(savePath, changedChunks);
-                System.Diagnostics.Debug.WriteLine($"After filtering: {changedChunks.Count} chunks remain");
+                _logger.LogInfo(LogCategory.Translation, "After filtering: {RemainingChunks} chunks remain for translation", changedChunks.Count);
             }
             if (changedChunks.Count == 0)
             {
                 step.Message = "No changes detected - nothing to translate";
                 progress?.Report(step);
                 _operations?.Complete(op!, true, step.Message);
-                System.Diagnostics.Debug.WriteLine("No changes detected after filtering - translation complete");
+                _logger.LogInfo(LogCategory.Translation, "Translation completed: no meaningful changes detected");
                 return true;
             }
 
@@ -1446,6 +1452,7 @@ public class SaveInitializationService : ISaveInitializationService
             progress?.Report(step);
 
             _operations?.Complete(op!, true, step.Message);
+            _logger.LogInfo(LogCategory.Translation, "Translation completed successfully for save: {SavePath}", savePath);
             return true;
         }
         catch (Exception ex)
@@ -1453,6 +1460,7 @@ public class SaveInitializationService : ISaveInitializationService
             step.Message = $"Failed to translate changes: {ex.Message}";
             progress?.Report(step);
             _operations?.Complete(op!, false, step.Message);
+            _logger.LogError(LogCategory.Translation, "Translation failed for save: {SavePath}", ex, savePath);
             return false;
         }
     }
@@ -1693,13 +1701,15 @@ public class SaveInitializationService : ISaveInitializationService
     /// <returns>List of changed chunk file paths</returns>
     public async Task<List<string>> DetectChangedChunksAsync(string savePath)
     {
-        System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Detecting changed chunks for save: {savePath}");
+        using var operation = _logger.BeginTimedOperation(LogCategory.Translation, "DetectChangedChunksAsync");
+        _logger.LogDebug(LogCategory.Translation, "Detecting changed chunks for save: {SavePath}", savePath);
+        
         var changedChunks = new List<string>();
         try
         {
-            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Getting git status...");
+            _logger.LogTrace(LogCategory.Git, "Getting git status for change detection");
             var gitStatus = await _gitService.GetStatusAsync(savePath);
-            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Got git status, processing files...");
+            _logger.LogDebug(LogCategory.Git, "Git status retrieved, processing files");
 
             var modifiedMcaFiles = gitStatus.ModifiedFiles
                 .Concat(gitStatus.UntrackedFiles)
@@ -1708,24 +1718,24 @@ public class SaveInitializationService : ISaveInitializationService
                 .Distinct()
                 .ToList();
 
-            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Found {modifiedMcaFiles.Count} MCA files to process");
+            _logger.LogInfo(LogCategory.Translation, "Found {McaFileCount} MCA files to process", modifiedMcaFiles.Count);
 
             foreach (var mcaFile in modifiedMcaFiles)
             {
-                System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Processing MCA file: {mcaFile}");
+                _logger.LogDebug(LogCategory.Translation, "Processing MCA file: {McaFile}", mcaFile);
                 var fullMcaPath = Path.Combine(savePath, mcaFile);
 
-                System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Checking if file actually changed: {mcaFile}");
+                _logger.LogTrace(LogCategory.Translation, "Checking if file actually changed: {McaFile}", mcaFile);
                 if (await IsFileActuallyChanged(savePath, mcaFile))
                 {
-                    System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] File actually changed, processing chunks: {mcaFile}");
+                    _logger.LogDebug(LogCategory.Translation, "File contains actual changes, processing chunks: {McaFile}", mcaFile);
                     if (File.Exists(fullMcaPath))
                     {
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Listing chunks in region: {fullMcaPath}");
+                            _logger.LogTrace(LogCategory.NBT, "Listing chunks in region: {McaPath}", fullMcaPath);
                             var chunks = await _nbtService.ListChunksInRegionAsync(fullMcaPath);
-                            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Found {chunks.Count} chunks in {mcaFile}");
+                            _logger.LogDebug(LogCategory.NBT, "Found {ChunkCount} chunks in MCA file: {McaFile}", chunks.Count, mcaFile);
                             foreach (var c in chunks.Where(c => c.IsValid))
                             {
                                 changedChunks.Add($"chunk_{c.ChunkX}_{c.ChunkZ}.snbt");
@@ -1733,7 +1743,7 @@ public class SaveInitializationService : ISaveInitializationService
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Error processing {mcaFile}: {ex.Message}, using fallback");
+                            _logger.LogWarning(LogCategory.NBT, "Error processing MCA file, using fallback: {McaFile}", ex, mcaFile);
                             var fallback = await GetChunksFromMcaFile(fullMcaPath);
                             changedChunks.AddRange(fallback);
                         }
@@ -1741,17 +1751,17 @@ public class SaveInitializationService : ISaveInitializationService
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] File not actually changed (timestamp only?): {mcaFile}");
+                    _logger.LogTrace(LogCategory.Translation, "File not actually changed (timestamp only): {McaFile}", mcaFile);
                 }
             }
-            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Detected {changedChunks.Count} changed chunks.");
+            _logger.LogInfo(LogCategory.Translation, "Change detection completed: {ChunkCount} chunks detected", changedChunks.Count);
             if (changedChunks.Count > 0)
-                System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Changed chunks: {string.Join(", ", changedChunks)}");
+                _logger.LogTrace(LogCategory.Translation, "Changed chunks: {ChunkList}", string.Join(", ", changedChunks));
             return changedChunks;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DetectChangedChunksAsync] Error: {ex.Message}");
+            _logger.LogError(LogCategory.Translation, "Failed to detect changed chunks for save: {SavePath}", ex, savePath);
             return new List<string>();
         }
     }

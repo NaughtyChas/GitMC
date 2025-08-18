@@ -83,7 +83,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         catch (Exception ex)
         {
             // Log error and show user-friendly message
-            Debug.WriteLine($"Error loading saves: {ex.Message}");
+            ServiceFactory.Logger.LogError(LogCategory.UI, "Error loading saves: {Error}", ex.Message);
         }
     }
 
@@ -697,7 +697,7 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to update statistics: {ex.Message}");
+            ServiceFactory.Logger.LogError(LogCategory.UI, "Failed to update statistics: {Error}", ex.Message);
         }
     }
 

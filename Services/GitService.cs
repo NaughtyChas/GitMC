@@ -1,19 +1,23 @@
 using System.Diagnostics;
 using LibGit2Sharp;
+using GitMC.Extensions;
 
 namespace GitMC.Services;
 
 public class GitService : IGitService
 {
     private readonly IConfigurationService _configurationService;
+    private readonly ILoggingService? _logger;
     private readonly List<string> _directoryStack = [];
     private readonly string _initialDirectory;
     private string _currentDirectory;
 
-    public GitService(IConfigurationService configurationService)
+    public GitService(IConfigurationService configurationService, ILoggingService? logger = null)
     {
         _configurationService = configurationService;
+        _logger = logger;
         _initialDirectory = _currentDirectory = Directory.GetCurrentDirectory();
+        _logger?.LogDebug(LogCategory.Git, "GitService initialized with working directory: {WorkingDirectory}", _currentDirectory);
     }
 
     public async Task<string> GetVersionAsync()
@@ -22,11 +26,13 @@ public class GitService : IGitService
         {
             // Use LibGit2Sharp version first, fallback to command line
             var libgit2Version = GlobalSettings.Version;
-            return await Task.FromResult($"LibGit2Sharp {libgit2Version} / Git {await GetSystemGitVersionAsync()}");
+            var result = $"LibGit2Sharp {libgit2Version} / Git {await GetSystemGitVersionAsync()}";
+            _logger?.LogDebug(LogCategory.Git, "Git version retrieved: {Version}", result);
+            return result;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"An error occurred while getting Git version: {ex.Message}");
+            _logger?.LogError(LogCategory.Git, "Failed to get Git version", ex);
             return "LibGit2Sharp Available / Git " + await GetSystemGitVersionAsync();
         }
     }
@@ -152,11 +158,12 @@ public class GitService : IGitService
             
             await _configurationService.SaveAsync();
 
+            _logger?.LogInfo(LogCategory.Git, "Git identity configured successfully for user: {UserName} <{UserEmail}>", userName, userEmail);
             return true;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error configuring LibGit2Sharp identity: {ex.Message}");
+            _logger?.LogError(LogCategory.Git, "Failed to configure Git identity for user: {UserName} <{UserEmail}>", ex, userName, userEmail);
             return false;
         }
     }

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using GitMC.Extensions;
 
 namespace GitMC.Services;
 
@@ -10,9 +11,12 @@ namespace GitMC.Services;
 public class DataStorageService : IDataStorageService
 {
     private readonly string _dataDirectory;
+    private readonly ILoggingService? _logger;
 
-    public DataStorageService()
+    public DataStorageService(ILoggingService? logger = null)
     {
+        _logger = logger;
+        
         // Get the executable directory
         var exeDirectory = Path.GetDirectoryName(Environment.ProcessPath) ??
                            Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ??
@@ -20,14 +24,13 @@ public class DataStorageService : IDataStorageService
 
         if (string.IsNullOrEmpty(exeDirectory))
         {
-            Debug.WriteLine(
-                "[DataStorageService] Warning: Could not determine executable directory, using current directory");
+            _logger?.LogWarning(LogCategory.FileSystem, "Could not determine executable directory, using current directory");
             exeDirectory = Environment.CurrentDirectory;
         }
 
         // Create the .GitMC hidden directory
         _dataDirectory = Path.Combine(exeDirectory, ".GitMC");
-        Debug.WriteLine($"[DataStorageService] Data directory set to: {_dataDirectory}");
+        _logger?.LogInfo(LogCategory.FileSystem, "Data directory initialized: {DataDirectory}", _dataDirectory);
     }
 
     public string GetDataDirectory()
