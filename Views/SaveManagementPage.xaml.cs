@@ -942,6 +942,16 @@ public sealed partial class SaveManagementPage : Page, INotifyPropertyChanged
         if (sender is Button button && button.Tag is ManagedSaveInfo saveInfo)
             try
             {
+                // Check Git identity before starting initialization
+                (var userName, var userEmail) = await _services.Git.GetIdentityAsync();
+                if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(userEmail))
+                {
+                    FlyoutHelper.ShowErrorFlyout(button, "Git Identity Not Configured",
+                        "Git identity is not configured. Please complete the onboarding process and configure your Git identity before initializing a save.\n\n" +
+                        "Go to Settings > Onboarding to configure your Git identity.");
+                    return;
+                }
+
                 // Set up cancellation support
                 _initCancellationTokenSource = new CancellationTokenSource();
 

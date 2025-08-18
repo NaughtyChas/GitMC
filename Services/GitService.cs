@@ -101,7 +101,24 @@ public class GitService : IGitService
     {
         try
         {
-            await Task.Run(() => Repository.Init(path));
+            await Task.Run(() => 
+            {
+                Repository.Init(path);
+                
+                // Configure the repository with user identity if available
+                using var repo = new Repository(path);
+                var config = repo.Config;
+                
+                // Get the configured identity from the configuration service
+                var userName = _configurationService.DefaultGitUserName;
+                var userEmail = _configurationService.DefaultGitUserEmail;
+                
+                if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
+                {
+                    config.Set("user.name", userName);
+                    config.Set("user.email", userEmail);
+                }
+            });
             return true;
         }
         catch (LibGit2SharpException)
@@ -129,6 +146,10 @@ public class GitService : IGitService
             // Store LibGit2Sharp identity in application configuration (not in system Git)
             _configurationService.DefaultGitUserName = userName;
             _configurationService.DefaultGitUserEmail = userEmail;
+            
+            // Set the Git identity configured flag
+            _configurationService.IsGitIdentityConfigured = true;
+            
             await _configurationService.SaveAsync();
 
             return true;
@@ -459,7 +480,7 @@ public class GitService : IGitService
                     throw new LibGit2SharpException(
                         "No changes added to commit (use \"git add\" and/or \"git commit -a\")");
 
-                // Build signature; if configuration is missing, fallback to a generic identity
+                // Build signature; if repository configuration is missing, use app configuration
                 Signature signature;
                 try
                 {
@@ -467,7 +488,23 @@ public class GitService : IGitService
                 }
                 catch
                 {
-                    signature = new Signature("GitMC", "gitmc@example.invalid", DateTimeOffset.Now);
+                    // Fallback to app configuration
+                    var userName = _configurationService.DefaultGitUserName;
+                    var userEmail = _configurationService.DefaultGitUserEmail;
+                    
+                    if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
+                    {
+                        signature = new Signature(userName, userEmail, DateTimeOffset.Now);
+                    }
+                    else
+                    {
+                        throw new LibGit2SharpException("Git identity is not configured. Please configure your Git identity in the onboarding process before initializing a save.\n\n" +
+                            "To configure Git identity:\n" +
+                            "1. Go to Settings > Onboarding\n" +
+                            "2. Complete Step 3: Configure Git Identity\n" +
+                            "3. Enter your name and email address\n" +
+                            "4. Save the configuration");
+                    }
                 }
                 repo.Commit(message, signature, signature);
             });
@@ -506,7 +543,23 @@ public class GitService : IGitService
                 }
                 catch
                 {
-                    signature = new Signature("GitMC", "gitmc@example.invalid", DateTimeOffset.Now);
+                    // Fallback to app configuration
+                    var userName = _configurationService.DefaultGitUserName;
+                    var userEmail = _configurationService.DefaultGitUserEmail;
+                    
+                    if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
+                    {
+                        signature = new Signature(userName, userEmail, DateTimeOffset.Now);
+                    }
+                    else
+                    {
+                        throw new LibGit2SharpException("Git identity is not configured. Please configure your Git identity in the onboarding process before initializing a save.\n\n" +
+                            "To configure Git identity:\n" +
+                            "1. Go to Settings > Onboarding\n" +
+                            "2. Complete Step 3: Configure Git Identity\n" +
+                            "3. Enter your name and email address\n" +
+                            "4. Save the configuration");
+                    }
                 }
                 var newMessage = message ?? repo.Head.Tip.Message;
 

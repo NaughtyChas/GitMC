@@ -65,7 +65,12 @@ public class SaveInitializationService : ISaveInitializationService
         (var userName, var userEmail) = await _gitService.GetIdentityAsync();
         if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(userEmail))
             throw new InvalidOperationException(
-                "Git identity is not configured. Please configure your Git identity in the onboarding process before initializing a save.");
+                "Git identity is not configured. Please configure your Git identity in the onboarding process before initializing a save.\n\n" +
+                "To configure Git identity:\n" +
+                "1. Go to Settings > Onboarding\n" +
+                "2. Complete Step 3: Configure Git Identity\n" +
+                "3. Enter your name and email address\n" +
+                "4. Save the configuration");
 
         var steps = GetInitializationSteps();
 
