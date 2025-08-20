@@ -49,6 +49,12 @@ public class ChangedFile
     /// </summary>
     public string? EditorPath { get; set; }
 
+    // Translation tracking (active status after change list load)
+    public TranslationStatus TranslationStatus { get; set; } = TranslationStatus.NotTranslated;
+    public string TranslationStateText { get; set; } = string.Empty;
+    public string TranslationStateColor { get; set; } = "#9E9E9E";
+    public DateTime? TranslatedAt { get; set; }
+
     /// <summary>
     /// For region files, contains the associated chunk files
     /// </summary>
@@ -113,4 +119,16 @@ public enum FileCategory
     Entity,     // entities/ folder contents
     Mod,        // mod-related files
     Other       // everything else
+}
+
+/// <summary>
+/// Active translation status for a file's SNBT mirror
+/// </summary>
+public enum TranslationStatus
+{
+    NotTranslatable,
+    NotTranslated,
+    TranslatedUpToDate,
+    TranslatedOutdated,
+    TranslatedDiverged
 }

@@ -2701,6 +2701,70 @@
                                                 </Button>
                                             </StackPanel>
                                         </Border>
+
+                                        <!--  Translation Outdated / Diverged State Panel (controlled from code-behind)  -->
+                                        <Border
+                                            Background="#FFF8E1"
+                                            BorderBrush="#FFCC02"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="24"
+                                            Visibility="Collapsed"
+                                            x:Name="FileStatusPanel">
+                                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
+                                                </Grid.RowDefinitions>
+
+                                                <StackPanel Grid.Row="0" Spacing="8" HorizontalAlignment="Center">
+                                                    <FontIcon x:Name="FileStatusIcon" FontSize="48" Foreground="#FF9800" Glyph="&#xE7BA;" />
+                                                    <TextBlock x:Name="FileStatusTitle" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Text="Translation Outdated" />
+                                                    <TextBlock x:Name="FileStatusMessage" FontSize="14" Foreground="#666666" HorizontalAlignment="Center" Text="This file has been modified since translation." TextAlignment="Center" TextWrapping="Wrap" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center" Margin="0,12,0,0">
+                                                    <StackPanel>
+                                                        <TextBlock FontSize="12" Foreground="#999999" Text="Name"/>
+                                                        <TextBlock x:Name="FileInfoName" FontSize="12" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock FontSize="12" Foreground="#999999" Text="Size"/>
+                                                        <TextBlock x:Name="FileInfoSize" FontSize="12" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock FontSize="12" Foreground="#999999" Text="Status"/>
+                                                        <TextBlock x:Name="FileInfoStatus" FontSize="12" />
+                                                    </StackPanel>
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Row="2" x:Name="FileStatusActionHint" FontSize="13" Foreground="#999999" HorizontalAlignment="Center" Text="Please re-translate to ensure recency, or view current contents." TextAlignment="Center" />
+
+                                                <!-- Buttons Panel: hidden during per-file re-translate progress -->
+                                                <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center" Margin="0,16,0,0" x:Name="FileStatusButtonsPanel">
+                                                    <Button x:Name="FileStatusReTranslateButton" Background="#FF9800" Foreground="White" Click="ForceTranslation_Click">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon FontSize="16" Glyph="&#xE895;" />
+                                                            <TextBlock Text="Re-translate" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <Button Click="OutdatedViewAnyway_Click">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <FontIcon FontSize="16" Glyph="&#xE8A7;" />
+                                                            <TextBlock Text="View current content" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                </StackPanel>
+
+                                                <!-- Inline Progress Panel for per-file re-translate -->
+                                                <StackPanel Grid.Row="3" Orientation="Vertical" Spacing="8" HorizontalAlignment="Center" Margin="0,16,0,0" x:Name="FileStatusProgressPanel" Visibility="Collapsed">
+                                                    <ProgressBar x:Name="FileStatusProgressBar" IsIndeterminate="True" Width="320" />
+                                                    <TextBlock x:Name="FileStatusProgressText" FontSize="12" Foreground="#666666" Text="Translating..." HorizontalAlignment="Center" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
                                     </Grid>
                                 </Grid>
                             </Grid>

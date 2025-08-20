@@ -13,6 +13,7 @@ using GitMC.Models;
 using GitMC.Models.GitHub;
 using GitMC.Services;
 using GitMC.Utils.Nbt;
+using GitMC.Utils;
 using GitMC.ViewModels;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Controls; // WebView2
@@ -77,6 +78,9 @@ namespace GitMC.Views
         private int _virtualLineBase; // number of lines logically before the first loaded page
         private const int VirtualPageLines = 2000; // lines per page
         private const int VirtualMaxPagesInMemory = 6; // keep a sliding window of pages
+        
+        // Game running state tracking
+        private bool _isGameRunning;
 
         public SaveDetailPage()
         {
@@ -101,6 +105,9 @@ namespace GitMC.Views
 
             // Observe ViewModel changes for dynamic UI tweaks
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            
+            // Subscribe to session lock monitoring
+            _sessionLockMonitorService.SessionInUseChanged += OnSessionInUseChanged;
 
             // Keep page instance alive across navigation to preserve progress UI
             NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
@@ -1536,17 +1543,14 @@ namespace GitMC.Views
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Use the change detection from SaveInitializationService
-                var changedChunks = await _saveInitializationService.DetectChangedChunksAsync(saveInfo.Path);
-                var regionChunks = changedChunks.Count;
-
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Get Git status for other file types
+                // Get Git status for all file types
                 var gitStatus = await _gitService.GetStatusAsync(saveInfo.Path);
                 var modifiedFiles = gitStatus.ModifiedFiles;
                 var addedFiles = gitStatus.UntrackedFiles.Length;
                 var totalFiles = modifiedFiles.Length + addedFiles;
+
+                // Count different file types from Git status directly
+                var regionChunks = modifiedFiles.Count(f => f.EndsWith(".mca", StringComparison.OrdinalIgnoreCase));
 
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -2351,18 +2355,19 @@ namespace GitMC.Views
                     {
                         Debug.WriteLine("Scanning save files for changes...");
 
-                        // Use our change detection system
-                        var changedChunks = await _saveInitializationService.DetectChangedChunksAsync(ViewModel.SaveInfo.Path);
-                        Debug.WriteLine($"Detected {changedChunks.Count} changed chunks");
+                        // Get Git status directly
+                        var gitStatus = await _gitService.GetStatusAsync(ViewModel.SaveInfo.Path);
+                        var totalChanges = gitStatus.ModifiedFiles.Length + gitStatus.UntrackedFiles.Length + gitStatus.DeletedFiles.Length;
+                        Debug.WriteLine($"Detected {totalChanges} changed files");
 
                         // Update all change detection data immediately
                         await UpdateChangeDetectionDataAsync();
 
                         // Show results to user
-                        if (changedChunks.Count > 0)
+                        if (totalChanges > 0)
                         {
                             await ShowInfoDialogSafe("Scan Complete",
-                                $"Scan complete! Found {changedChunks.Count} changed chunks that can be committed.");
+                                $"Scan complete! Found {totalChanges} changed files that can be committed.");
                         }
                         else
                         {
@@ -2945,8 +2950,9 @@ namespace GitMC.Views
                 // Expected when cancellation is requested
                 throw;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
+                // Silently handle other exceptions
             }
         }
 
@@ -3099,60 +3105,15 @@ namespace GitMC.Views
             try
             {
                 ViewModel.IsChangesLoading = true;
-                // Get region-level real changes (filtering out timestamp-only diffs)
-                var changedChunks = await _saveInitializationService.DetectRealChangedChunksAsync(ViewModel.SaveInfo.Path);
+                
+                // Get Git status directly - no complex processing needed
                 var gitStatus = await _gitService.GetStatusAsync(ViewModel.SaveInfo.Path);
 
                 // Group and categorize files
                 var fileGroups = new Dictionary<FileCategory, ChangedFileGroup>();
 
-                // Process .mca files by source folder (region, entities, poi)
-                var mcaFiles = gitStatus.ModifiedFiles
-                    .Where(f => f.EndsWith(".mca", StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                foreach (var regionFile in mcaFiles)
-                {
-                    var source = GetMcaSourceFolder(regionFile);
-                    (FileCategory cat, string name, string icon) groupMeta = source switch
-                    {
-                        "entities" => (FileCategory.Entity, "Entity Region Files", "\uE77B"),
-                        "poi" => (FileCategory.Data, "POI Region Files", "\uE8A5"),
-                        _ => (FileCategory.Region, "Region Files", "\uE8B7")
-                    };
-
-                    var group = GetOrCreateGroup(fileGroups, groupMeta.cat, groupMeta.name, groupMeta.icon);
-
-                    var fullPath = Path.Combine(ViewModel.SaveInfo.Path, regionFile);
-                    var fileInfo = new FileInfo(fullPath);
-
-                    var changedFile = new ChangedFile
-                    {
-                        FileName = Path.GetFileName(regionFile),
-                        RelativePath = regionFile,
-                        FullPath = fullPath,
-                        Status = ChangeStatus.Modified,
-                        Category = groupMeta.cat,
-                        FileSizeBytes = fileInfo.Exists ? fileInfo.Length : 0,
-                        LastModified = fileInfo.Exists ? fileInfo.LastWriteTime : DateTime.Now,
-                        DisplaySize = FormatFileSize(fileInfo.Exists ? fileInfo.Length : 0),
-                        StatusText = "Modified",
-                        CategoryText = groupMeta.name,
-                        IconGlyph = groupMeta.icon,
-                        StatusColor = "#FF9800",
-                        ChunkCount = await CountRegionChunkSnbtAsync(ViewModel.SaveInfo.Path, regionFile)
-                    };
-
-                    TryPopulateTranslationInfo(changedFile);
-                    group.Files.Add(changedFile);
-                }
-
-                // Process other modified files
-                var otherFiles = gitStatus.ModifiedFiles
-                    .Where(f => !f.EndsWith(".mca", StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                foreach (var file in otherFiles)
+                // Process all modified files
+                foreach (var file in gitStatus.ModifiedFiles)
                 {
                     var category = CategorizeFile(file);
                     var group = GetOrCreateGroup(fileGroups, category.Category, category.Name, category.Icon);
@@ -3177,11 +3138,11 @@ namespace GitMC.Views
                     };
 
                     TryPopulateTranslationInfo(changedFile);
-
+                    await EvaluateTranslationStateAsync(changedFile);
                     group.Files.Add(changedFile);
                 }
 
-                // Process untracked files
+                // Process untracked/added files
                 foreach (var file in gitStatus.UntrackedFiles)
                 {
                     var category = CategorizeFile(file);
@@ -3207,7 +3168,33 @@ namespace GitMC.Views
                     };
 
                     TryPopulateTranslationInfo(changedFile);
+                    await EvaluateTranslationStateAsync(changedFile);
+                    group.Files.Add(changedFile);
+                }
 
+                // Process deleted files
+                foreach (var file in gitStatus.DeletedFiles)
+                {
+                    var category = CategorizeFile(file);
+                    var group = GetOrCreateGroup(fileGroups, category.Category, category.Name, category.Icon);
+
+                    var changedFile = new ChangedFile
+                    {
+                        FileName = Path.GetFileName(file),
+                        RelativePath = file,
+                        FullPath = Path.Combine(ViewModel.SaveInfo.Path, file),
+                        Status = ChangeStatus.Deleted,
+                        Category = category.Category,
+                        FileSizeBytes = 0,
+                        LastModified = DateTime.Now,
+                        DisplaySize = "0 B",
+                        StatusText = "Deleted",
+                        CategoryText = category.Name,
+                        IconGlyph = category.Icon,
+                        StatusColor = "#F44336"
+                    };
+
+                    TryPopulateTranslationInfo(changedFile);
                     group.Files.Add(changedFile);
                 }
 
@@ -3258,16 +3245,14 @@ namespace GitMC.Views
             var fileName = Path.GetFileName(filePath).ToLowerInvariant();
             var directory = Path.GetDirectoryName(filePath)?.ToLowerInvariant() ?? "";
 
-            // Region-like files: split by source folder
+            // Region files - simplified grouping
             if (fileName.EndsWith(".mca") || fileName.EndsWith(".mcc"))
             {
-                var src = GetMcaSourceFolder(filePath);
-                return src switch
-                {
-                    "entities" => (FileCategory.Entity, "Entity Region Files", "\uE77B"),
-                    "poi" => (FileCategory.Data, "POI Region Files", "\uE8A5"),
-                    _ => (FileCategory.Region, "Region Files", "\uE8B7")
-                };
+                if (directory.Contains("entities"))
+                    return (FileCategory.Entity, "Entity Region Files", "\uE77B");
+                if (directory.Contains("poi"))
+                    return (FileCategory.Data, "POI Region Files", "\uE8A5");
+                return (FileCategory.Region, "Region Files", "\uE8B7");
             }
 
             // Data files
@@ -3340,7 +3325,7 @@ namespace GitMC.Views
         /// <summary>
         /// Handle file selection in the changed files list
         /// </summary>
-        private void ChangedFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void ChangedFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (sender is ListView listView && listView.SelectedItem is ChangedFile selectedFile)
             {
@@ -3360,8 +3345,101 @@ namespace GitMC.Views
                         }
                     }
                 }
+                
+                // Check if file access should be blocked
+                if (ShouldBlockFileAccess(selectedFile))
+                {
+                    ViewModel.SelectedChangedFile = selectedFile;
+                    ShowFileAccessBlockedMessage(selectedFile);
+                    return;
+                }
+                
                 ViewModel.SelectedChangedFile = selectedFile;
-                _ = LoadSelectedFileEditorAsync();
+                await LoadSelectedFileEditorAsync();
+            }
+        }
+        
+        /// <summary>
+        /// Determines if file access should be blocked based on game state and translation status
+        /// </summary>
+        private bool ShouldBlockFileAccess(ChangedFile file)
+        {
+            // Block access if:
+            // 1. Game is running AND
+            // 2. File has not been translated (no editable version available)
+            return _isGameRunning && file.TranslationStatus == TranslationStatus.NotTranslated;
+        }
+        
+        /// <summary>
+        /// Show appropriate message when file access is blocked
+        /// </summary>
+        private void ShowFileAccessBlockedMessage(ChangedFile file)
+        {
+            if (_isGameRunning && file.TranslationStatus == TranslationStatus.NotTranslated)
+            {
+                // Show warning that file cannot be accessed while game is running because it needs translation
+                ViewModel.FileContent = "";
+                
+                // Update the editor area to show a warning message
+                if (FindName("FileEditorWebView") is WebView2 webView)
+                {
+                    var warningHtml = @"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background-color: #f8f8f8; 
+            margin: 0; 
+            padding: 40px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+        .warning-container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            text-align: center; 
+            max-width: 500px; 
+        }
+        .warning-icon { 
+            font-size: 48px; 
+            color: #ff9800; 
+            margin-bottom: 20px; 
+        }
+        .warning-title { 
+            color: #333; 
+            font-size: 20px; 
+            font-weight: 600; 
+            margin-bottom: 15px; 
+        }
+        .warning-message { 
+            color: #666; 
+            line-height: 1.6; 
+            margin-bottom: 10px; 
+        }
+    </style>
+</head>
+<body>
+    <div class='warning-container'>
+        <div class='warning-icon'>⚠️</div>
+        <div class='warning-title'>File Access Restricted</div>
+        <div class='warning-message'>
+            This file cannot be edited while Minecraft is running because it requires translation to an editable format first.
+        </div>
+        <div class='warning-message'>
+            Please close Minecraft to access this file, or translate it first when the game is not running.
+        </div>
+    </div>
+</body>
+</html>";
+                    webView.NavigateToString(warningHtml);
+                }
             }
         }
 
@@ -3700,18 +3778,6 @@ namespace GitMC.Views
                     snbtPath = GetSnbtPathForRelative(file.RelativePath);
                 }
 
-                bool isTranslated = false;
-                if (!string.IsNullOrEmpty(snbtPath))
-                {
-                    if (ext == ".mca")
-                        isTranslated = File.Exists(snbtPath);
-                    else
-                        isTranslated = File.Exists(snbtPath) || File.Exists(snbtPath + ".chunk_mode") || Directory.Exists(Path.ChangeExtension(snbtPath, ".chunks"));
-                }
-
-                file.IsTranslated = isTranslated;
-                file.SnbtPath = isTranslated ? snbtPath : null;
-
                 // Determine if original file is directly editable (text-based)
                 // Common editable text formats
                 var directEditable = ext is ".txt" or ".json" or ".md" or ".log" or ".mcfunction" or ".mcmeta" or ".cfg" or ".ini" or ".csv" or ".yaml" or ".yml" or ".toml" or ".xml" or ".properties" or ".snbt";
@@ -3720,8 +3786,55 @@ namespace GitMC.Views
                 // Whitelist-based translatability with light sniffing
                 file.IsTranslatable = IsKnownTranslatable(file.FullPath);
 
+                // Determine translation status
+                if (!file.IsTranslatable && !file.IsDirectEditable)
+                {
+                    file.TranslationStatus = TranslationStatus.NotTranslatable;
+                    file.IsTranslated = false;
+                    file.SnbtPath = null;
+                }
+                else if (file.IsDirectEditable)
+                {
+                    // Direct editable files don't need translation
+                    file.TranslationStatus = TranslationStatus.TranslatedUpToDate;
+                    file.IsTranslated = true;
+                    file.SnbtPath = file.FullPath; // Use original file directly
+                }
+                else
+                {
+                    // Check if translation exists and is up to date
+                    bool translationExists = false;
+                    if (!string.IsNullOrEmpty(snbtPath))
+                    {
+                        if (ext == ".mca")
+                            translationExists = File.Exists(snbtPath);
+                        else
+                            translationExists = File.Exists(snbtPath) || File.Exists(snbtPath + ".chunk_mode") || Directory.Exists(Path.ChangeExtension(snbtPath, ".chunks"));
+                    }
+
+                    if (!translationExists)
+                    {
+                        file.TranslationStatus = TranslationStatus.NotTranslated;
+                        file.IsTranslated = false;
+                        file.SnbtPath = null;
+                    }
+                    else
+                    {
+                        // Check if translation is up to date
+                        bool isUpToDate = IsTranslationUpToDate(file.FullPath, snbtPath!);
+                        file.TranslationStatus = isUpToDate ? TranslationStatus.TranslatedUpToDate : TranslationStatus.TranslatedOutdated;
+                        file.IsTranslated = true;
+                        file.SnbtPath = snbtPath;
+                    }
+                }
+
                 // Decide the effective editor path and editability
-                if (file.IsTranslated && !string.IsNullOrEmpty(file.SnbtPath))
+                if (file.IsDirectEditable)
+                {
+                    // For direct editable types, always point editor to the original file path
+                    file.EditorPath = file.FullPath;
+                }
+                else if (file.TranslationStatus == TranslationStatus.TranslatedUpToDate && !string.IsNullOrEmpty(file.SnbtPath))
                 {
                     // For region files (.mca), prefer showing the region map first instead of auto-opening an arbitrary chunk
                     if (ext == ".mca")
@@ -3733,17 +3846,43 @@ namespace GitMC.Views
                         file.EditorPath = file.SnbtPath;
                     }
                 }
-                else if (file.IsDirectEditable)
-                {
-                    // For direct editable types, point editor to the original file path
-                    file.EditorPath = file.FullPath;
-                }
                 else
                 {
                     file.EditorPath = null;
                 }
             }
-            catch { /* ignore mapping errors */ }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error populating translation info for {file.FileName}: {ex.Message}");
+                // Set safe defaults
+                file.TranslationStatus = TranslationStatus.NotTranslatable;
+                file.IsTranslated = false;
+                file.SnbtPath = null;
+                file.EditorPath = null;
+            }
+        }
+
+        /// <summary>
+        /// Check if the translation file is up to date compared to the original file
+        /// </summary>
+        private bool IsTranslationUpToDate(string originalPath, string translationPath)
+        {
+            try
+            {
+                if (!File.Exists(originalPath) || !File.Exists(translationPath))
+                    return false;
+
+                var originalModified = File.GetLastWriteTime(originalPath);
+                var translationModified = File.GetLastWriteTime(translationPath);
+
+                // Translation is up to date if it was modified after or at the same time as the original
+                return translationModified >= originalModified;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error checking translation currency: {ex.Message}");
+                return false;
+            }
         }
 
         // Whitelist + magic sniff helpers
@@ -3795,6 +3934,165 @@ namespace GitMC.Views
             return false;
         }
 
+        /// <summary>
+        /// Evaluate translation presence and freshness for the given file.
+        /// Strategy:
+        /// - Direct-editable files => TranslatedUpToDate
+        /// - .mca => translated if any chunk *.snbt exists under GitMC/<source>/r.x.z.mca;
+        ///          use timestamp compare (translation newer than original) as up-to-date heuristic.
+        /// - other translatable => translated if SNBT exists; timestamp compare for freshness.
+        /// </summary>
+    private Task EvaluateTranslationStateAsync(ChangedFile file)
+        {
+            return Task.Run(() =>
+            {
+                try
+                {
+                    var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
+                    if (file.IsDirectEditable)
+                    {
+                        file.TranslationStatus = TranslationStatus.TranslatedUpToDate;
+                        file.IsTranslated = true;
+                        file.EditorPath ??= file.FullPath;
+                        return;
+                    }
+
+                    // Not translatable
+                    if (!file.IsTranslatable)
+                    {
+                        file.TranslationStatus = TranslationStatus.NotTranslatable;
+                        file.IsTranslated = false;
+                        return;
+                    }
+
+                    if (ext == ".mca" || ext == ".mcc")
+                    {
+                        // Check for any chunk snbt
+                        var anyChunk = GetAnyChunkSnbtForMca(file.RelativePath);
+                        if (string.IsNullOrEmpty(anyChunk) || !File.Exists(anyChunk))
+                        {
+                            file.TranslationStatus = TranslationStatus.NotTranslated;
+                            file.IsTranslated = false;
+                            file.SnbtPath = null;
+                            return;
+                        }
+
+                        // Evaluate stamps across a limited sample of chunks for performance
+                        try
+                        {
+                            var dir = Path.GetDirectoryName(anyChunk)!;
+                            var chunkFiles = Directory.GetFiles(dir, "chunk_*.snbt", SearchOption.TopDirectoryOnly)
+                                .Take(64) // sample up to 64 chunks
+                                .ToList();
+                            var diverged = false;
+                            var outdated = false;
+                            DateTime latestT = DateTime.MinValue;
+                            foreach (var chunk in chunkFiles)
+                            {
+                                var tWriteUtc = File.GetLastWriteTimeUtc(chunk);
+                                if (tWriteUtc > latestT.ToUniversalTime()) latestT = tWriteUtc.ToLocalTime();
+                                if (StampUtils.TryReadStamp(chunk, out var stamp))
+                                {
+                                    // Diverged if file modified after stamp time (user edits not re-stamped)
+                                    if (File.GetLastWriteTimeUtc(chunk) > stamp!.TranslatedAtUtc.AddSeconds(1))
+                                    {
+                                        diverged = true;
+                                        break;
+                                    }
+                                    // Outdated if original advanced or hash mismatch
+                                    if (!StampUtils.IsUpToDateByStamp(stamp!))
+                                    {
+                                        outdated = true;
+                                    }
+                                }
+                                else
+                                {
+                                    // No stamp: mark as potentially outdated; we'll use timestamp heuristic below
+                                    outdated = outdated || false; // keep as is; decide after loop
+                                }
+                            }
+                            file.TranslatedAt = latestT == DateTime.MinValue ? null : latestT;
+
+                            if (diverged)
+                            {
+                                file.TranslationStatus = TranslationStatus.TranslatedDiverged;
+                                file.IsTranslated = true;
+                                return;
+                            }
+
+                            // If we saw at least one stamp and none diverged, prefer stamp-based freshness
+                            var sawAnyStamp = chunkFiles.Any(f => StampUtils.TryReadStamp(f, out _));
+                            if (sawAnyStamp)
+                            {
+                                file.TranslationStatus = outdated ? TranslationStatus.TranslatedOutdated : TranslationStatus.TranslatedUpToDate;
+                                file.IsTranslated = true;
+                                return;
+                            }
+                        }
+                        catch { }
+
+                        // Fallback to timestamp heuristic
+                        var originalTime = File.Exists(file.FullPath) ? File.GetLastWriteTime(file.FullPath) : DateTime.MinValue;
+                        var translatedTime = file.TranslatedAt ?? DateTime.MinValue;
+                        var upToDate = translatedTime >= originalTime && translatedTime != DateTime.MinValue;
+                        file.TranslationStatus = upToDate ? TranslationStatus.TranslatedUpToDate : TranslationStatus.TranslatedOutdated;
+                        file.IsTranslated = true;
+                        // Map editor path decision left to existing logic (region map first)
+                        return;
+                    }
+
+                    // Non-MCA translatable
+                    var snbt = file.SnbtPath ?? GetSnbtPathForRelative(file.RelativePath);
+                    file.SnbtPath = snbt;
+                    if (string.IsNullOrEmpty(snbt) || !File.Exists(snbt))
+                    {
+                        file.TranslationStatus = TranslationStatus.NotTranslated;
+                        file.IsTranslated = false;
+                        return;
+                    }
+
+                    // Prefer stamp-based strict matching if available
+                    if (StampUtils.TryReadStamp(snbt, out var s))
+                    {
+                        // Diverged if SNBT newer than stamp
+                        if (File.GetLastWriteTimeUtc(snbt) > s!.TranslatedAtUtc.AddSeconds(1))
+                        {
+                            file.TranslationStatus = TranslationStatus.TranslatedDiverged;
+                            file.IsTranslated = true;
+                            return;
+                        }
+
+                        file.TranslatedAt = s.TranslatedAtUtc.ToLocalTime();
+                        var up = StampUtils.IsUpToDateByStamp(s!);
+                        file.TranslationStatus = up ? TranslationStatus.TranslatedUpToDate : TranslationStatus.TranslatedOutdated;
+                        file.IsTranslated = true;
+                        if (up)
+                        {
+                            file.EditorPath ??= snbt;
+                        }
+                        return;
+                    }
+
+                    // Fallback to timestamp heuristic
+                    file.TranslatedAt = File.GetLastWriteTime(snbt);
+                    var oTime = File.Exists(file.FullPath) ? File.GetLastWriteTime(file.FullPath) : DateTime.MinValue;
+                    var tTime = file.TranslatedAt ?? DateTime.MinValue;
+                    var isFresh = tTime >= oTime && tTime != DateTime.MinValue;
+                    file.TranslationStatus = isFresh ? TranslationStatus.TranslatedUpToDate : TranslationStatus.TranslatedOutdated;
+                    file.IsTranslated = true;
+                    if (file.TranslationStatus == TranslationStatus.TranslatedUpToDate)
+                    {
+                        file.EditorPath ??= snbt;
+                    }
+                }
+                catch
+                {
+                    file.TranslationStatus = TranslationStatus.NotTranslatable;
+                    file.IsTranslated = false;
+                }
+            });
+        }
+
         private async Task RecomputeCanTranslateAsync()
         {
             try
@@ -3824,13 +4122,44 @@ namespace GitMC.Views
             try
             {
                 ViewModel.ValidationStatus = null;
-                var editorPath = ViewModel.SelectedChangedFile?.EditorPath;
-                // Reset Region Map UI by default
+                var selectedFile = ViewModel.SelectedChangedFile;
+                var editorPath = selectedFile?.EditorPath;
+                
+                // Reset all UI surfaces at the start
                 if (FindName("RegionMapOverlay") is FrameworkElement _rmOverlayInit) _rmOverlayInit.Visibility = Visibility.Collapsed;
                 if (FindName("RegionMapButton") is FrameworkElement _rmButtonInit) _rmButtonInit.Visibility = Visibility.Collapsed;
+                if (FindName("FileTextEditorContainer") is FrameworkElement _textContainer) _textContainer.Visibility = Visibility.Collapsed;
+                if (FindName("CodeWebView") is FrameworkElement _webView) _webView.Visibility = Visibility.Collapsed;
+                if (FindName("FileStatusPanel") is FrameworkElement _statusPanel) _statusPanel.Visibility = Visibility.Collapsed;
+
+                // Handle files that haven't been translated yet
+                if (selectedFile != null && selectedFile.TranslationStatus == TranslationStatus.NotTranslated && !selectedFile.IsDirectEditable)
+                {
+                    ShowFileNotTranslatedMessage(selectedFile);
+                    return;
+                }
+
+                // Handle files with outdated translations (block with panel)
+                if (selectedFile != null && selectedFile.TranslationStatus == TranslationStatus.TranslatedOutdated)
+                {
+                    ShowTranslationOutdatedMessage(selectedFile);
+                    return;
+                }
+
+                // For diverged translations, proceed normally but show a unified non-blocking banner
+                if (selectedFile != null && selectedFile.TranslationStatus == TranslationStatus.TranslatedDiverged)
+                {
+                    ViewModel.ValidationStatus = new ValidationStatusModel
+                    {
+                        Message = "File changed since last translation",
+                        Icon = "\uE946",
+                        BackgroundColor = "#E3F2FD",
+                        ForegroundColor = "#1565C0"
+                    };
+                }
 
                 // If MCA selected and no specific editor path yet, show region map if translated; else show hint
-                if (ViewModel.SelectedChangedFile is { } sel && string.IsNullOrEmpty(editorPath))
+                if (selectedFile is { } sel && string.IsNullOrEmpty(editorPath))
                 {
                     var ext = Path.GetExtension(sel.FullPath).ToLowerInvariant();
                     if (ext == ".mca")
@@ -3842,14 +4171,12 @@ namespace GitMC.Views
                         }
                         else
                         {
-                            _originalFileContent = string.Empty;
-                            ViewModel.FileContent = "This region file is not translated yet. Click 'Translate' in the InfoBar or 'Force Translation' in Tools to generate SNBT for viewing.";
-                            ViewModel.IsFileModified = false;
-                            UpdateEditorMetrics();
+                            ShowFileNotTranslatedMessage(sel);
                             return;
                         }
                     }
                 }
+                
                 if (!string.IsNullOrEmpty(editorPath))
                 {
                     // Normalize to absolute
@@ -3900,12 +4227,169 @@ namespace GitMC.Views
                     ViewModel.FileContent = string.Empty;
                     ViewModel.IsFileModified = false;
                     UpdateEditorMetrics();
+                    
+                    // Hide all editor surfaces including status panel
+                    if (FindName("FileTextEditorContainer") is FrameworkElement textContainer)
+                        textContainer.Visibility = Visibility.Collapsed;
+                    if (FindName("CodeWebView") is FrameworkElement webView)
+                        webView.Visibility = Visibility.Collapsed;
+                    if (FindName("FileStatusPanel") is FrameworkElement statusPanel)
+                        statusPanel.Visibility = Visibility.Collapsed;
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error loading selected file editor: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Show message when file has not been translated yet
+        /// </summary>
+        private void ShowFileNotTranslatedMessage(ChangedFile file)
+        {
+            _originalFileContent = string.Empty;
+            ViewModel.FileContent = "";
+            ViewModel.IsFileModified = false;
+            UpdateEditorMetrics();
+
+            // Hide other editor surfaces
+            if (FindName("FileTextEditorContainer") is FrameworkElement textContainer)
+                textContainer.Visibility = Visibility.Collapsed;
+            if (FindName("CodeWebView") is FrameworkElement webView)
+                webView.Visibility = Visibility.Collapsed;
+            if (FindName("RegionMapOverlay") is FrameworkElement regionMap)
+                regionMap.Visibility = Visibility.Collapsed;
+
+            // Show and configure the status panel
+            if (FindName("FileStatusPanel") is FrameworkElement statusPanel)
+            {
+                statusPanel.Visibility = Visibility.Visible;
+
+                // Reset inline progress/buttons state for a fresh view
+                if (FindName("FileStatusButtonsPanel") is FrameworkElement btns1)
+                    btns1.Visibility = Visibility.Visible;
+                if (FindName("FileStatusProgressPanel") is FrameworkElement prog1)
+                    prog1.Visibility = Visibility.Collapsed;
+                if (FindName("FileStatusProgressText") is TextBlock ptxt1)
+                    ptxt1.Text = "Translating...";
+
+                // Configure status icon
+                if (FindName("FileStatusIcon") is FontIcon icon)
+                {
+                    icon.Glyph = "\uE946"; // Document icon
+                    icon.Foreground = new SolidColorBrush(Microsoft.UI.Colors.DodgerBlue);
+                }
+
+                // Configure status title
+                if (FindName("FileStatusTitle") is TextBlock title)
+                {
+                    title.Text = "File Not Translated";
+                }
+
+                // Configure status message
+                if (FindName("FileStatusMessage") is TextBlock message)
+                {
+                    var fileTypeDescription = GetFileTypeDescription(file);
+                    message.Text = $"This {fileTypeDescription} has not been translated to an editable format yet.";
+                }
+
+                // Configure file info
+                if (FindName("FileInfoName") is TextBlock fileName)
+                    fileName.Text = file.FileName;
+                if (FindName("FileInfoSize") is TextBlock fileSize)
+                    fileSize.Text = file.DisplaySize;
+                if (FindName("FileInfoStatus") is TextBlock fileStatus)
+                    fileStatus.Text = file.StatusText;
+
+                // Configure action hint
+                if (FindName("FileStatusActionHint") is TextBlock actionHint)
+                {
+                    actionHint.Text = "To edit this file, please translate it first using the 'Translate' button or 'Force Translation' in the Tools menu.";
+                }
+            }
+        }
+
+        /// <summary>
+    /// Show message when file translation is outdated
+        /// </summary>
+        private void ShowTranslationOutdatedMessage(ChangedFile file)
+        {
+            _originalFileContent = string.Empty;
+            ViewModel.FileContent = "";
+            ViewModel.IsFileModified = false;
+            UpdateEditorMetrics();
+
+            // Hide other editor surfaces
+            if (FindName("FileTextEditorContainer") is FrameworkElement textContainer)
+                textContainer.Visibility = Visibility.Collapsed;
+            if (FindName("CodeWebView") is FrameworkElement webView)
+                webView.Visibility = Visibility.Collapsed;
+            if (FindName("RegionMapOverlay") is FrameworkElement regionMap)
+                regionMap.Visibility = Visibility.Collapsed;
+
+            // Show and configure the status panel
+            if (FindName("FileStatusPanel") is FrameworkElement statusPanel)
+            {
+                statusPanel.Visibility = Visibility.Visible;
+
+                // Reset inline progress/buttons state for a fresh view
+                if (FindName("FileStatusButtonsPanel") is FrameworkElement btns2)
+                    btns2.Visibility = Visibility.Visible;
+                if (FindName("FileStatusProgressPanel") is FrameworkElement prog2)
+                    prog2.Visibility = Visibility.Collapsed;
+                if (FindName("FileStatusProgressText") is TextBlock ptxt2)
+                    ptxt2.Text = "Translating...";
+
+                // Configure status icon
+                if (FindName("FileStatusIcon") is FontIcon icon)
+                {
+                    icon.Glyph = "\uE7BA"; // Warning icon
+                    icon.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+                }
+
+                // Configure status title/message (only for outdated case)
+                if (FindName("FileStatusTitle") is TextBlock title)
+                {
+                    title.Text = "Translation Outdated";
+                }
+
+                if (FindName("FileStatusMessage") is TextBlock message)
+                {
+                    var fileTypeDescription = GetFileTypeDescription(file);
+                    message.Text = $"This {fileTypeDescription} has been modified since it was last translated. The current translation may not reflect the latest changes.";
+                }
+
+                // Configure file info
+                if (FindName("FileInfoName") is TextBlock fileName)
+                    fileName.Text = file.FileName;
+                if (FindName("FileInfoSize") is TextBlock fileSize)
+                    fileSize.Text = file.DisplaySize;
+                if (FindName("FileInfoStatus") is TextBlock fileStatus)
+                    fileStatus.Text = file.StatusText;
+
+                // Configure action hint
+                if (FindName("FileStatusActionHint") is TextBlock actionHint)
+                {
+                    actionHint.Text = "Please re-translate this file to ensure you're editing the most current version.";
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get user-friendly description of file type
+        /// </summary>
+        private string GetFileTypeDescription(ChangedFile file)
+        {
+            var ext = Path.GetExtension(file.FullPath).ToLowerInvariant();
+            return ext switch
+            {
+                ".mca" => "region file",
+                ".dat" => "data file",
+                ".nbt" => "NBT file",
+                ".mcr" => "region file",
+                _ => "file"
+            };
         }
 
         private void UpdateEditorMetrics()
@@ -4023,6 +4507,32 @@ namespace GitMC.Views
             }
         }
 
+        private async void OutdatedViewAnyway_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var sel = ViewModel.SelectedChangedFile;
+                if (sel == null) return;
+
+                // For MCA, default to region map per user preference
+                var ext = Path.GetExtension(sel.FullPath).ToLowerInvariant();
+                if (ext == ".mca")
+                {
+                    await ShowRegionMapAsync();
+                    return;
+                }
+
+                // For non-MCA, if SNBT 存在则直接打开 SNBT，否则按 EditorPath 或 FullPath 兜底
+                var path = sel.SnbtPath ?? sel.EditorPath ?? sel.FullPath;
+                if (!string.IsNullOrEmpty(path))
+                {
+                    sel.EditorPath = path;
+                    await LoadSelectedFileEditorAsync();
+                }
+            }
+            catch { }
+        }
+
         private async void RegionMapButton_Click(object sender, RoutedEventArgs e)
         {
             await ShowRegionMapAsync();
@@ -4084,6 +4594,16 @@ namespace GitMC.Views
                 ViewModel.IsFileModified = !string.Equals(ViewModel.FileContent ?? string.Empty, _originalFileContent,
                     StringComparison.Ordinal);
                 UpdateEditorMetrics();
+                if (ViewModel.IsFileModified)
+                {
+                    ViewModel.ValidationStatus = new ValidationStatusModel
+                    {
+                        Message = "File has unsaved changes",
+                        Icon = "\uE946",
+                        BackgroundColor = "#FFF8E1",
+                        ForegroundColor = "#8D6E63"
+                    };
+                }
             }
             catch { }
         }
@@ -4206,7 +4726,7 @@ namespace GitMC.Views
             }
         }
 
-        private async void ForceTranslation_Click(object sender, RoutedEventArgs e)
+    private async void ForceTranslation_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -4228,34 +4748,84 @@ namespace GitMC.Views
                     return;
                 }
 
-                // Show translation overlay while we perform the operation on UI thread
-                DispatcherQueue.TryEnqueue(() =>
+                // Determine if this is a local per-file trigger (from the FileStatus panel button)
+                var isLocalPanelTrigger = sender is FrameworkElement fe && fe.Name == "FileStatusReTranslateButton";
+
+                if (isLocalPanelTrigger)
                 {
-                    ViewModel.IsTranslationInProgress = true;
-                    ViewModel.TranslationProgressMessage = "Translating...";
-                    ViewModel.TranslationProgressValue = 0;
+                    // Inline progress inside the status panel: hide buttons, show spinner/progress
+                    if (FindName("FileStatusButtonsPanel") is FrameworkElement btns) btns.Visibility = Visibility.Collapsed;
+                    if (FindName("FileStatusProgressPanel") is FrameworkElement prog) prog.Visibility = Visibility.Visible;
+                    if (FindName("FileStatusProgressText") is TextBlock ptxt) ptxt.Text = "Translating...";
+                }
+                else
+                {
+                    // Fallback to global overlay for other entry points
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        ViewModel.IsTranslationInProgress = true;
+                        ViewModel.TranslationProgressMessage = "Translating...";
+                        ViewModel.TranslationProgressValue = 0;
 
-                    // Force immediate property change notifications
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
-                });
+                        // Force immediate property change notifications
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                    });
 
-                StartOperationProgressPolling();
+                    StartOperationProgressPolling();
+                }
 
                 if (ext == ".mca")
                 {
-                    // Trigger translation for changed chunks in the save; simplest and consistent
-                    var stepProgress = new Progress<SaveInitStep>(s =>
+                    if (isLocalPanelTrigger)
                     {
-                        Debug.WriteLine($"Translate: {s.Message}");
-                        DispatcherQueue.TryEnqueue(() =>
+                        // Per-file: extract this region's chunks only and stamp them
+                        var regionChunksDir = GetRegionChunksFolder(file.RelativePath);
+                        Directory.CreateDirectory(regionChunksDir);
+                        var progress = new Progress<string>(msg =>
                         {
-                            ViewModel.TranslationProgressMessage = s.Message ?? "Processing...";
-                            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                            Debug.WriteLine($"Translation: {msg}");
+                            DispatcherQueue.TryEnqueue(() =>
+                            {
+                                if (FindName("FileStatusProgressText") is TextBlock t) t.Text = string.IsNullOrWhiteSpace(msg) ? "Translating..." : msg;
+                            });
                         });
-                    });
-                    await _saveInitializationService.TranslateChangedAsync(ViewModel.SaveInfo.Path, stepProgress);
+                        await _nbtService.ConvertMcaToChunkFilesAsync(file.FullPath, regionChunksDir, progress);
+                        try
+                        {
+                            var (name, _) = await _gitService.GetIdentityAsync();
+                            var translator = string.IsNullOrWhiteSpace(name) ? "GitMC" : name;
+                            // Precompute original hash once
+                            var preHash = await GitMC.Utils.StampUtils.TryComputeFileHashAsync(file.FullPath);
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    foreach (var chunkPath in Directory.EnumerateFiles(regionChunksDir, "chunk_*_*.snbt"))
+                                    {
+                                        await GitMC.Utils.StampUtils.WriteStampAsyncWithHash(file.FullPath, chunkPath, translator, preHash!);
+                                    }
+                                }
+                                catch { }
+                            });
+                        }
+                        catch { }
+                    }
+                    else
+                    {
+                        // Global: keep existing aggregate flow for MCA
+                        var stepProgress = new Progress<SaveInitStep>(s =>
+                        {
+                            Debug.WriteLine($"Translate: {s.Message}");
+                            DispatcherQueue.TryEnqueue(() =>
+                            {
+                                ViewModel.TranslationProgressMessage = s.Message ?? "Processing...";
+                                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                            });
+                        });
+                        await _saveInitializationService.TranslateChangedAsync(ViewModel.SaveInfo.Path, stepProgress);
+                    }
                 }
                 else
                 {
@@ -4266,48 +4836,90 @@ namespace GitMC.Views
                         Debug.WriteLine($"Translation: {msg}");
                         DispatcherQueue.TryEnqueue(() =>
                         {
-                            ViewModel.TranslationProgressMessage = msg;
-                            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                            if (isLocalPanelTrigger)
+                            {
+                                if (FindName("FileStatusProgressText") is TextBlock t) t.Text = string.IsNullOrWhiteSpace(msg) ? "Translating..." : msg;
+                            }
+                            else
+                            {
+                                ViewModel.TranslationProgressMessage = msg;
+                                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                            }
                         });
                     });
                     await _nbtService.ConvertToSnbtAsync(file.FullPath, snbtPath, progress);
+                    try
+                    {
+                        var (name, _) = await _gitService.GetIdentityAsync();
+                        var translator = string.IsNullOrWhiteSpace(name) ? "GitMC" : name;
+                        await GitMC.Utils.StampUtils.WriteStampAsync(file.FullPath, snbtPath, translator);
+                    }
+                    catch { }
                 }
 
-                // Refresh translation state and reload
+                // Refresh translation state and reload (inline or global)
                 TryPopulateTranslationInfo(file);
-                // Update toggles based on new editor context
+                await EvaluateTranslationStateAsync(file);
                 ViewModel.CanForceTranslation = !file.IsTranslated && !file.IsDirectEditable;
-                var path = file.SnbtPath ?? file.EditorPath ?? file.FullPath;
-                var newExt = string.IsNullOrEmpty(path) ? string.Empty : Path.GetExtension(path).ToLowerInvariant();
-                ViewModel.IsSnbtContext = newExt == ".snbt";
-                ViewModel.IsJsonContext = newExt == ".json";
-                ViewModel.CanValidate = ViewModel.IsSnbtContext || ViewModel.IsJsonContext;
-                ViewModel.CanFormat = ViewModel.CanValidate;
-                ViewModel.CanMinify = ViewModel.CanValidate;
-                await LoadSelectedFileEditorAsync();
-                await RecomputeCanTranslateAsync();
+
+                if (isLocalPanelTrigger)
+                {
+                    // Hide inline progress and panel, then display content
+                    if (FindName("FileStatusProgressPanel") is FrameworkElement prog) prog.Visibility = Visibility.Collapsed;
+                    if (FindName("FileStatusPanel") is FrameworkElement panel) panel.Visibility = Visibility.Collapsed;
+
+                    // For MCA, open region map; otherwise open editor with SNBT
+                    if (ext == ".mca")
+                    {
+                        await ShowRegionMapAsync();
+                    }
+                    else
+                    {
+                        file.EditorPath = file.SnbtPath ?? file.EditorPath ?? file.FullPath;
+                        await LoadSelectedFileEditorAsync();
+                    }
+                }
+                else
+                {
+                    var path = file.SnbtPath ?? file.EditorPath ?? file.FullPath;
+                    var newExt = string.IsNullOrEmpty(path) ? string.Empty : Path.GetExtension(path).ToLowerInvariant();
+                    ViewModel.IsSnbtContext = newExt == ".snbt";
+                    ViewModel.IsJsonContext = newExt == ".json";
+                    ViewModel.CanValidate = ViewModel.IsSnbtContext || ViewModel.IsJsonContext;
+                    ViewModel.CanFormat = ViewModel.CanValidate;
+                    ViewModel.CanMinify = ViewModel.CanValidate;
+                    await LoadSelectedFileEditorAsync();
+                    await RecomputeCanTranslateAsync();
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Force translation failed: {ex.Message}");
                 await ShowErrorDialogSafe("Translation Error", ex.Message);
+                // Restore buttons if inline flow failed
+                if (FindName("FileStatusButtonsPanel") is FrameworkElement btns) btns.Visibility = Visibility.Visible;
+                if (FindName("FileStatusProgressPanel") is FrameworkElement prog) prog.Visibility = Visibility.Collapsed;
             }
             finally
             {
-                // Reset overlay and stop polling on UI thread
-                DispatcherQueue.TryEnqueue(() =>
+                // Reset global overlay only if it was used
+                // (Inline flow uses only the status panel widgets)
+                if (!(sender is FrameworkElement fe2 && fe2.Name == "FileStatusReTranslateButton"))
                 {
-                    ViewModel.IsTranslationInProgress = false;
-                    ViewModel.TranslationProgressMessage = string.Empty;
-                    ViewModel.TranslationProgressValue = 0;
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        ViewModel.IsTranslationInProgress = false;
+                        ViewModel.TranslationProgressMessage = string.Empty;
+                        ViewModel.TranslationProgressValue = 0;
 
-                    // Force property change notifications
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
-                });
+                        // Force property change notifications
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowTranslationInProgress)));
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressMessage)));
+                        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TranslationProgressValue)));
+                    });
 
-                StopOperationProgressPolling();
+                    StopOperationProgressPolling();
+                }
             }
         }
 
@@ -5096,8 +5708,18 @@ if(document.readyState==='complete') init(); else window.addEventListener('load'
             if (string.IsNullOrEmpty(currentPath) || !string.Equals(currentPath, e.SavePath, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            DispatcherQueue.TryEnqueue(() => UpdateSessionLockInfoBar(e.InUse));
+            DispatcherQueue.TryEnqueue(() => 
+            {
+                _isGameRunning = e.InUse;
+                UpdateSessionLockInfoBar(e.InUse);
+                OnPropertyChanged(nameof(IsGameRunning));
+            });
         }
+        
+        /// <summary>
+        /// Gets whether the game is currently running for this save
+        /// </summary>
+        public bool IsGameRunning => _isGameRunning;
 
         private void UpdateSessionLockInfoBar(bool inUse)
         {

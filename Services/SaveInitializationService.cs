@@ -5,6 +5,7 @@ using fNbt;
 using GitMC.Models;
 using GitMC.Utils.Nbt;
 using GitMC.Extensions;
+using GitMC.Utils;
 
 namespace GitMC.Services;
 
@@ -1031,6 +1032,12 @@ public class SaveInitializationService : ISaveInitializationService
                         {
                             File.Delete(snbtFile);
                             deletedCount++;
+                            // Also delete stamp sidecar file if present
+                            var stamp = snbtFile + ".stamp.json";
+                            if (File.Exists(stamp))
+                            {
+                                try { File.Delete(stamp); } catch { }
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -1594,11 +1601,14 @@ public class SaveInitializationService : ISaveInitializationService
 
     private async Task ProcessNonRegionChangesSinceAsync(string savePath, DateTimeOffset sinceUtc, SaveInitStep step, IProgress<SaveInitStep>? progress)
     {
-        var gitMcPath = Path.Combine(savePath, "GitMC");
+    var gitMcPath = Path.Combine(savePath, "GitMC");
         var dataOut = Path.Combine(gitMcPath, "data");
         var miscOut = Path.Combine(gitMcPath, "misc");
         Directory.CreateDirectory(dataOut);
         Directory.CreateDirectory(miscOut);
+
+    var (translatorName, _) = await _gitService.GetIdentityAsync();
+    var translator = string.IsNullOrWhiteSpace(translatorName) ? "GitMC" : translatorName;
 
         // Enumerate non-region files newer than sinceUtc
         var candidates = Directory.EnumerateFiles(savePath, "*", SearchOption.AllDirectories)
@@ -1620,6 +1630,7 @@ public class SaveInitializationService : ISaveInitializationService
                     var fileName = Path.GetFileName(full) + ".snbt";
                     var outPath = Path.Combine(dataOut, fileName);
                     await _nbtService.ConvertToSnbtAsync(full, outPath, new Progress<string>(_ => { }));
+                    await GitMC.Utils.StampUtils.WriteStampAsync(full, outPath, translator);
                     snbtFilesForManifest.Add(outPath);
                 }
                 else if (ext is ".json" or ".txt")
@@ -2011,6 +2022,10 @@ public class SaveInitializationService : ISaveInitializationService
         var gitMcPath = Path.Combine(savePath, "GitMC");
         var regionPath = Path.Combine(gitMcPath, "region");
 
+        // Resolve translator identity once for stamping
+        var (translatorName, _) = await _gitService.GetIdentityAsync();
+        var translator = string.IsNullOrWhiteSpace(translatorName) ? "GitMC" : translatorName;
+
         var totalChunks = changedChunks.Count;
         var processedChunks = 0;
 
@@ -2040,6 +2055,8 @@ public class SaveInitializationService : ISaveInitializationService
                         var snbtContent = await _nbtService.ExtractChunkDataAsync(mcaFilePath, chunkX, chunkZ);
                         var outputPath = Path.Combine(outputDir, chunkFileName);
                         await File.WriteAllTextAsync(outputPath, snbtContent);
+                        // Write stamp for strict matching/divergence detection
+                        await StampUtils.WriteStampAsync(mcaFilePath, outputPath, translator);
                     }
                 }
 
@@ -2067,7 +2084,9 @@ public class SaveInitializationService : ISaveInitializationService
     private async Task ProcessNonRegionChangesAsync(string savePath, SaveInitStep step, IProgress<SaveInitStep>? progress)
     {
         System.Diagnostics.Debug.WriteLine($"[ProcessNonRegionChangesAsync] Processing non-region changes for: {savePath}");
-        var gitMcPath = Path.Combine(savePath, "GitMC");
+    var gitMcPath = Path.Combine(savePath, "GitMC");
+    var (translatorName, _) = await _gitService.GetIdentityAsync();
+    var translator = string.IsNullOrWhiteSpace(translatorName) ? "GitMC" : translatorName;
 
         var status = await _gitService.GetStatusAsync(savePath);
         var candidates = status.ModifiedFiles
@@ -2113,6 +2132,8 @@ public class SaveInitializationService : ISaveInitializationService
                     try
                     {
                         await _nbtService.ConvertToSnbtAsync(full, outPath, new Progress<string>(_ => { }));
+                        // Write stamp for strict version matching
+                        await GitMC.Utils.StampUtils.WriteStampAsync(full, outPath, translator);
 
                         // Check if file was actually updated
                         if (File.Exists(outPath))
@@ -2214,6 +2235,12 @@ public class SaveInitializationService : ISaveInitializationService
                     {
                         File.Delete(snbtPath);
                         deletedCount++;
+                        // Remove stamp sidecar
+                        var stampPath = snbtPath + ".stamp.json";
+                        if (File.Exists(stampPath))
+                        {
+                            try { File.Delete(stampPath); } catch { }
+                        }
                     }
                 }
             }
