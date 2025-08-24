@@ -37,7 +37,21 @@ public class ManagedSaveInfo
     public int PendingPullCount { get; set; }
     public int ConflictCount { get; set; }
 
+    // Save-specific GitHub configuration
+    public string GitHubRepositoryName { get; set; } = string.Empty;
+    public string GitHubRepositoryDescription { get; set; } = string.Empty;
+    public bool GitHubIsPrivateRepository { get; set; } = true;
+    public string GitHubRemoteUrl { get; set; } = string.Empty;
+    public string GitHubDefaultBranch { get; set; } = "main";
+    public bool IsGitHubLinked { get; set; } = false;
+
     public SaveStatus CurrentStatus { get; set; } = SaveStatus.Clear;
+
+    // Preferences (persisted per save)
+    public bool AutoTranslateOnIdle { get; set; } = false;
+
+    // Last session end timestamp (UTC) detected via session.lock monitor
+    public DateTime LastSessionEndUtc { get; set; }
 
     // Computed properties
     [JsonIgnore] public string SizeFormatted => CommonHelpers.FormatFileSize(Size);

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using GitMC.Extensions;
 
 namespace GitMC.Services;
 
@@ -10,24 +11,26 @@ namespace GitMC.Services;
 public class DataStorageService : IDataStorageService
 {
     private readonly string _dataDirectory;
+    private readonly ILoggingService? _logger;
 
-    public DataStorageService()
+    public DataStorageService(ILoggingService? logger = null)
     {
+        _logger = logger;
+        
         // Get the executable directory
-        string exeDirectory = Path.GetDirectoryName(Environment.ProcessPath) ??
-                              Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ??
-                              Environment.CurrentDirectory;
+        var exeDirectory = Path.GetDirectoryName(Environment.ProcessPath) ??
+                           Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ??
+                           Environment.CurrentDirectory;
 
         if (string.IsNullOrEmpty(exeDirectory))
         {
-            Debug.WriteLine(
-                "[DataStorageService] Warning: Could not determine executable directory, using current directory");
+            _logger?.LogWarning(LogCategory.FileSystem, "Could not determine executable directory, using current directory");
             exeDirectory = Environment.CurrentDirectory;
         }
 
         // Create the .GitMC hidden directory
         _dataDirectory = Path.Combine(exeDirectory, ".GitMC");
-        Debug.WriteLine($"[DataStorageService] Data directory set to: {_dataDirectory}");
+        _logger?.LogInfo(LogCategory.FileSystem, "Data directory initialized: {DataDirectory}", _dataDirectory);
     }
 
     public string GetDataDirectory()
@@ -69,7 +72,7 @@ public class DataStorageService : IDataStorageService
                 // Create main data directory and set as hidden
                 if (!Directory.Exists(_dataDirectory))
                 {
-                    DirectoryInfo dirInfo = Directory.CreateDirectory(_dataDirectory);
+                    var dirInfo = Directory.CreateDirectory(_dataDirectory);
                     // Set hidden attribute on Windows
                     if (OperatingSystem.IsWindows()) dirInfo.Attributes |= FileAttributes.Hidden;
                 }
@@ -81,10 +84,10 @@ public class DataStorageService : IDataStorageService
                 Directory.CreateDirectory(GetCacheDirectory());
 
                 // Create a README file to explain the folder structure
-                string readmePath = Path.Combine(_dataDirectory, "README.txt");
+                var readmePath = Path.Combine(_dataDirectory, "README.txt");
                 if (!File.Exists(readmePath))
                 {
-                    string readmeContent = @"GitMC Data Directory
+                    var readmeContent = @"GitMC Data Directory
 ===================
 
 This folder contains all GitMC application data:
@@ -114,7 +117,7 @@ Do not delete this folder unless you want to reset all GitMC data.
         try
         {
             // Test if we can create and delete a test file
-            string testFile = Path.Combine(_dataDirectory, ".test");
+            var testFile = Path.Combine(_dataDirectory, ".test");
             File.WriteAllText(testFile, "test");
             File.Delete(testFile);
             return true;

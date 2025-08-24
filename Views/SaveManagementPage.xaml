@@ -84,7 +84,7 @@
                                 UseLayoutRounding="True" />
                         </StackPanel>
 
-                        <!--  Open button (always visible)  -->
+                        <!--  Open button  -->
                         <Button
                             Click="SaveCard_OpenButton_Click"
                             Content="Open"

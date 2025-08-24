@@ -166,7 +166,7 @@ public static class CompressionHelper
         }
 
         // Calculate and write Adler-32 checksum
-        uint adler32 = CalculateAdler32(data);
+        var adler32 = CalculateAdler32(data);
         resultStream.WriteByte((byte)(adler32 >> 24));
         resultStream.WriteByte((byte)(adler32 >> 16));
         resultStream.WriteByte((byte)(adler32 >> 8));
@@ -180,7 +180,7 @@ public static class CompressionHelper
         const uint modAdler = 65521;
         uint a = 1, b = 0;
 
-        foreach (byte bt in data)
+        foreach (var bt in data)
         {
             a = (a + bt) % modAdler;
             b = (b + a) % modAdler;
@@ -198,14 +198,14 @@ public static class CompressionHelper
         if (compressedData.Length < 6) throw new ArgumentException("Invalid zlib data: too short");
 
         // Check zlib header magic bytes
-        byte cmf = compressedData[0];
-        byte flg = compressedData[1];
+        var cmf = compressedData[0];
+        var flg = compressedData[1];
 
         // Validate zlib header
         if ((cmf * 256 + flg) % 31 != 0) throw new ArgumentException("Invalid zlib header checksum");
 
         // Extract deflate data (skip 2-byte header, ignore 4-byte checksum at end)
-        byte[] deflateData = new byte[compressedData.Length - 6];
+        var deflateData = new byte[compressedData.Length - 6];
         Array.Copy(compressedData, 2, deflateData, 0, deflateData.Length);
 
         // Decompress using DeflateStream with a buffered approach
@@ -213,7 +213,7 @@ public static class CompressionHelper
         using var deflateStream = new DeflateStream(memoryStream, CompressionMode.Decompress);
         using var resultStream = new MemoryStream();
 
-        byte[] buffer = new byte[8192]; // 8 KB buffer
+        var buffer = new byte[8192]; // 8 KB buffer
         int bytesRead;
         while ((bytesRead = deflateStream.Read(buffer, 0, buffer.Length)) > 0) resultStream.Write(buffer, 0, bytesRead);
 

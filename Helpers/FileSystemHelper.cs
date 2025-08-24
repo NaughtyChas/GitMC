@@ -87,21 +87,21 @@ internal static class FileSystemHelper
             Directory.CreateDirectory(destinationPath);
 
             // Copy all files
-            foreach (string file in Directory.GetFiles(sourcePath))
+            foreach (var file in Directory.GetFiles(sourcePath))
             {
-                string fileName = Path.GetFileName(file);
-                string destFile = Path.Combine(destinationPath, fileName);
+                var fileName = Path.GetFileName(file);
+                var destFile = Path.Combine(destinationPath, fileName);
 
                 await Task.Run(() => File.Copy(file, destFile, overwrite));
             }
 
             // Recursively copy subdirectories
-            foreach (string directory in Directory.GetDirectories(sourcePath))
+            foreach (var directory in Directory.GetDirectories(sourcePath))
             {
-                string dirName = Path.GetFileName(directory);
-                string destDir = Path.Combine(destinationPath, dirName);
+                var dirName = Path.GetFileName(directory);
+                var destDir = Path.Combine(destinationPath, dirName);
 
-                bool result = await CopyFolderAsync(directory, destDir, overwrite);
+                var result = await CopyFolderAsync(directory, destDir, overwrite);
                 if (!result) return false;
             }
 
@@ -126,13 +126,13 @@ internal static class FileSystemHelper
         try
         {
             // Get full path to normalize
-            string fullPath = Path.GetFullPath(path);
+            var fullPath = Path.GetFullPath(path);
 
             // Check against system directories
-            string systemRoot = Environment.GetFolderPath(Environment.SpecialFolder.System);
-            string windowsRoot = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            var systemRoot = Environment.GetFolderPath(Environment.SpecialFolder.System);
+            var windowsRoot = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
             return !fullPath.StartsWith(systemRoot, StringComparison.OrdinalIgnoreCase) &&
                    !fullPath.StartsWith(windowsRoot, StringComparison.OrdinalIgnoreCase) &&

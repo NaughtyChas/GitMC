@@ -50,7 +50,7 @@ internal class SnbtParser
         }
 
         var parser = new SnbtParser(snbt);
-        NbtTag value = named ? parser.ReadNamedValue() : parser.ReadValue();
+        var value = named ? parser.ReadNamedValue() : parser.ReadValue();
         parser.Finish();
         return value;
     }
@@ -72,7 +72,7 @@ internal class SnbtParser
     private NbtTag ReadValue()
     {
         _reader.SkipWhitespace();
-        char next = _reader.Peek();
+        var next = _reader.Peek();
         if (next == Snbt.CompoundOpen)
             return ReadCompound();
         if (next == Snbt.ListOpen)
@@ -82,9 +82,9 @@ internal class SnbtParser
 
     private NbtTag ReadNamedValue()
     {
-        string key = ReadKey();
+        var key = ReadKey();
         Expect(Snbt.NameValueSeparator);
-        NbtTag value = ReadValue();
+        var value = ReadValue();
         value.Name = key;
         return value;
     }
@@ -104,7 +104,7 @@ internal class SnbtParser
         var compound = new NbtCompound();
         while (_reader.CanRead() && _reader.Peek() != Snbt.CompoundClose)
         {
-            NbtTag value = ReadNamedValue();
+            var value = ReadNamedValue();
             compound.Add(value);
             if (!ReadSeparator())
                 break;
@@ -145,7 +145,7 @@ internal class SnbtParser
     private NbtTag ReadArray()
     {
         Expect(Snbt.ListOpen);
-        char type = _reader.Read();
+        var type = _reader.Read();
         _reader.Read(); // skip semicolon
         _reader.SkipWhitespace();
         if (!_reader.CanRead())
@@ -168,7 +168,7 @@ internal class SnbtParser
             var list = new List<byte>();
             while (_reader.Peek() != Snbt.ListClose)
             {
-                byte value = ReadDirectByteValue();
+                var value = ReadDirectByteValue();
                 list.Add(value);
                 if (!ReadSeparator())
                     break;
@@ -183,7 +183,7 @@ internal class SnbtParser
             var list = new List<long>();
             while (_reader.Peek() != Snbt.ListClose)
             {
-                long value = ReadDirectLongValue();
+                var value = ReadDirectLongValue();
                 list.Add(value);
                 if (!ReadSeparator())
                     break;
@@ -197,7 +197,7 @@ internal class SnbtParser
             var list = new List<int>();
             while (_reader.Peek() != Snbt.ListClose)
             {
-                int value = ReadDirectIntValue();
+                var value = ReadDirectIntValue();
                 list.Add(value);
                 if (!ReadSeparator())
                     break;
@@ -226,7 +226,7 @@ internal class SnbtParser
         var list = new NbtList();
         while (_reader.Peek() != Snbt.ListClose)
         {
-            NbtTag tag = ReadValue();
+            var tag = ReadValue();
             list.Add(tag);
             if (!ReadSeparator())
                 break;
@@ -241,7 +241,7 @@ internal class SnbtParser
         _reader.SkipWhitespace();
         if (StringReader.IsQuote(_reader.Peek()))
             return new NbtString(_reader.ReadQuotedString());
-        string str = _reader.ReadUnquotedString();
+        var str = _reader.ReadUnquotedString();
         if (str == "")
             // Handle null string
             return new NbtString("");
@@ -252,15 +252,15 @@ internal class SnbtParser
     {
         // Check cache first for performance - but we need to clone cached objects
         // because fNbt doesn't allow the same object instance to be in multiple containers
-        if (NbtCache.TryGetValue(str, out NbtTag? cached))
+        if (NbtCache.TryGetValue(str, out var cached))
             return CloneNbtTag(cached);
 
         NbtTag result;
         try
         {
             // Optimized: Use spans to avoid creating substring allocations
-            ReadOnlySpan<char> span = str.AsSpan();
-            ReadOnlySpan<char>
+            var span = str.AsSpan();
+            var
                 valueSpan = span.Length > 1 ? span[..^1] : span; // All except last char for suffixed types
 
             if (FloatPattern.IsMatch(str))
@@ -293,7 +293,7 @@ internal class SnbtParser
             }
             else
             {
-                NbtTag? special = SpecialCase(str);
+                var special = SpecialCase(str);
                 if (special != null)
                     result = special;
                 else
@@ -341,12 +341,12 @@ internal class SnbtParser
             return null;
 
         // Optimized: Handle common special cases first to avoid DataUtils calls
-        ReadOnlySpan<char> span = text.AsSpan();
+        var span = text.AsSpan();
 
         // Handle suffix cases with span operations
         if (text[^1] == Snbt.FloatSuffix)
         {
-            ReadOnlySpan<char> valueSpan = span[..^1];
+            var valueSpan = span[..^1];
 
             // Check for common special float values directly without string allocation
             if (valueSpan.SequenceEqual("Infinity".AsSpan()) || valueSpan.SequenceEqual("∞".AsSpan()))
@@ -357,14 +357,14 @@ internal class SnbtParser
                 return new NbtFloat(float.NaN);
 
             // Fallback to DataUtils for other special cases (if any)
-            float? specialFloat = DataUtils.TryParseSpecialFloat(valueSpan.ToString());
+            var specialFloat = DataUtils.TryParseSpecialFloat(valueSpan.ToString());
             if (specialFloat != null)
                 return new NbtFloat(specialFloat.Value);
         }
 
         if (text[^1] == Snbt.DoubleSuffix)
         {
-            ReadOnlySpan<char> valueSpan = span[..^1];
+            var valueSpan = span[..^1];
 
             // Check for common special double values directly without string allocation
             if (valueSpan.SequenceEqual("Infinity".AsSpan()) || valueSpan.SequenceEqual("∞".AsSpan()))
@@ -375,7 +375,7 @@ internal class SnbtParser
                 return new NbtDouble(double.NaN);
 
             // Fallback to DataUtils for other special cases (if any)
-            float? specialDouble = DataUtils.TryParseSpecialFloat(valueSpan.ToString());
+            var specialDouble = DataUtils.TryParseSpecialFloat(valueSpan.ToString());
             if (specialDouble != null)
                 return new NbtDouble(specialDouble.Value);
         }
@@ -388,7 +388,7 @@ internal class SnbtParser
         if (span.SequenceEqual("NaN".AsSpan()))
             return new NbtDouble(double.NaN);
 
-        sbyte? specialByte = TryParseSpecialByte(text);
+        var specialByte = TryParseSpecialByte(text);
         if (specialByte != null)
             return new NbtByte((byte)specialByte);
         return null;
@@ -411,16 +411,16 @@ internal class SnbtParser
             throw new FormatException("Array values cannot be quoted strings");
 
         // Parse directly from Reader without creating intermediate strings
-        int start = _reader.Cursor;
+        var start = _reader.Cursor;
 
         // Find end of unquoted string
         while (_reader.CanRead() && StringReader.UnquotedAllowed(_reader.Peek())) _reader.Read();
 
-        int length = _reader.Cursor - start;
+        var length = _reader.Cursor - start;
         if (length == 0)
             throw new FormatException("Expected byte value to be non-empty");
 
-        ReadOnlySpan<char> valueSpan = _reader.String.AsSpan(start, length);
+        var valueSpan = _reader.String.AsSpan(start, length);
 
         try
         {
@@ -433,12 +433,12 @@ internal class SnbtParser
             // Handle byte suffix - parse without the 'b' suffix
             if (length > 1 && (valueSpan[^1] == 'b' || valueSpan[^1] == 'B'))
             {
-                ReadOnlySpan<char> numberSpan = valueSpan[..^1];
+                var numberSpan = valueSpan[..^1];
                 return (byte)sbyte.Parse(numberSpan);
             }
 
             // Handle plain integer that fits in byte range
-            int intVal = int.Parse(valueSpan);
+            var intVal = int.Parse(valueSpan);
             if (intVal >= sbyte.MinValue && intVal <= sbyte.MaxValue)
                 return (byte)(sbyte)intVal;
             throw new OverflowException($"Value {intVal} is out of range for byte");
@@ -456,23 +456,23 @@ internal class SnbtParser
             throw new FormatException("Array values cannot be quoted strings");
 
         // Parse directly from Reader without creating intermediate strings
-        int start = _reader.Cursor;
+        var start = _reader.Cursor;
 
         // Find end of unquoted string
         while (_reader.CanRead() && StringReader.UnquotedAllowed(_reader.Peek())) _reader.Read();
 
-        int length = _reader.Cursor - start;
+        var length = _reader.Cursor - start;
         if (length == 0)
             throw new FormatException("Expected long value to be non-empty");
 
-        ReadOnlySpan<char> valueSpan = _reader.String.AsSpan(start, length);
+        var valueSpan = _reader.String.AsSpan(start, length);
 
         try
         {
             // Handle long suffix - parse without the 'l' suffix
             if (length > 1 && (valueSpan[^1] == 'l' || valueSpan[^1] == 'L'))
             {
-                ReadOnlySpan<char> numberSpan = valueSpan[..^1];
+                var numberSpan = valueSpan[..^1];
                 return long.Parse(numberSpan);
             }
 
@@ -492,16 +492,16 @@ internal class SnbtParser
             throw new FormatException("Array values cannot be quoted strings");
 
         // Parse directly from Reader without creating intermediate strings
-        int start = _reader.Cursor;
+        var start = _reader.Cursor;
 
         // Find end of unquoted string
         while (_reader.CanRead() && StringReader.UnquotedAllowed(_reader.Peek())) _reader.Read();
 
-        int length = _reader.Cursor - start;
+        var length = _reader.Cursor - start;
         if (length == 0)
             throw new FormatException("Expected int value to be non-empty");
 
-        ReadOnlySpan<char> valueSpan = _reader.String.AsSpan(start, length);
+        var valueSpan = _reader.String.AsSpan(start, length);
 
         try
         {
@@ -559,7 +559,7 @@ internal class LruCache<TKey, TValue> where TKey : notnull
     {
         lock (_lock)
         {
-            if (_cache.TryGetValue(key, out LinkedListNode<CacheItem>? node))
+            if (_cache.TryGetValue(key, out var node))
             {
                 // Move to front (most recently used)
                 _lruList.Remove(node);
@@ -584,7 +584,7 @@ internal class LruCache<TKey, TValue> where TKey : notnull
             // If at capacity, remove least recently used item
             if (_cache.Count >= _maxSize)
             {
-                LinkedListNode<CacheItem>? lastNode = _lruList.Last;
+                var lastNode = _lruList.Last;
                 if (lastNode != null)
                 {
                     _cache.Remove(lastNode.Value.Key);
@@ -594,7 +594,7 @@ internal class LruCache<TKey, TValue> where TKey : notnull
 
             // Add new item to front
             var newItem = new CacheItem(key, value);
-            LinkedListNode<CacheItem> newNode = _lruList.AddFirst(newItem);
+            var newNode = _lruList.AddFirst(newItem);
             _cache[key] = newNode;
         }
     }
@@ -641,9 +641,9 @@ internal class StringReader
     static StringReader()
     {
         // Pre-populate cache with common values
-        for (int i = 0; i <= 255; i++)
+        for (var i = 0; i <= 255; i++)
         {
-            string str = i.ToString();
+            var str = i.ToString();
             StringCache[str] = str;
         }
 
@@ -690,7 +690,7 @@ internal class StringReader
 
     public char Read()
     {
-        char result = Peek();
+        var result = Peek();
         Cursor++;
         return result;
     }
@@ -699,7 +699,7 @@ internal class StringReader
     {
         if (!CanRead())
             return string.Empty;
-        char next = Peek();
+        var next = Peek();
         if (IsQuote(next))
         {
             Read();
@@ -713,10 +713,10 @@ internal class StringReader
     {
         // Optimized: Use the shared StringBuilder instead of creating new instances
         _stringBuilder.Clear();
-        bool escaped = false;
+        var escaped = false;
         while (CanRead())
         {
-            char c = Read();
+            var c = Read();
             if (escaped)
             {
                 if (c == end || c == ESCAPE)
@@ -754,12 +754,12 @@ internal class StringReader
 
     public string ReadUnquotedString()
     {
-        int start = Cursor;
+        var start = Cursor;
 
         // First pass: find the end position without building strings
         while (CanRead() && UnquotedAllowed(Peek())) Read();
 
-        int length = Cursor - start;
+        var length = Cursor - start;
         if (length == 0)
             return string.Empty;
 
@@ -768,15 +768,15 @@ internal class StringReader
         if (length <= 3)
         {
             // Try to match common patterns directly without creating intermediate strings
-            ReadOnlySpan<char> shortSpan = String.AsSpan(start, length);
+            var shortSpan = String.AsSpan(start, length);
 
             // For single characters, use direct comparison
             if (length == 1)
             {
-                char c = shortSpan[0];
+                var c = shortSpan[0];
                 if (c >= '0' && c <= '9')
                 {
-                    int digit = c - '0';
+                    var digit = c - '0';
                     lock (CacheLock)
                     {
                         return StringCache[digit.ToString()];
@@ -788,8 +788,8 @@ internal class StringReader
             if (length <= 3 && IsAllDigits(shortSpan))
             {
                 // Parse the number directly from span to avoid string creation
-                int number = 0;
-                for (int i = 0; i < shortSpan.Length; i++) number = number * 10 + (shortSpan[i] - '0');
+                var number = 0;
+                for (var i = 0; i < shortSpan.Length; i++) number = number * 10 + (shortSpan[i] - '0');
 
                 if (number <= 255)
                     lock (CacheLock)
@@ -801,12 +801,12 @@ internal class StringReader
             // For other short strings, use StringBuilder to avoid span.ToString()
             _stringBuilder.Clear();
             _stringBuilder.EnsureCapacity(length);
-            for (int i = 0; i < shortSpan.Length; i++) _stringBuilder.Append(shortSpan[i]);
-            string result = _stringBuilder.ToString();
+            for (var i = 0; i < shortSpan.Length; i++) _stringBuilder.Append(shortSpan[i]);
+            var result = _stringBuilder.ToString();
 
             lock (CacheLock)
             {
-                if (StringCache.TryGetValue(result, out string? cached))
+                if (StringCache.TryGetValue(result, out var cached))
                     return cached;
 
                 // Cache new short strings (with size limit)
@@ -824,7 +824,7 @@ internal class StringReader
         _stringBuilder.Clear();
         _stringBuilder.EnsureCapacity(length);
 
-        for (int i = start; i < start + length; i++) _stringBuilder.Append(String[i]);
+        for (var i = start; i < start + length; i++) _stringBuilder.Append(String[i]);
 
         return _stringBuilder.ToString();
     }
@@ -832,7 +832,7 @@ internal class StringReader
     // Helper method to check if span contains only digits
     private static bool IsAllDigits(ReadOnlySpan<char> span)
     {
-        for (int i = 0; i < span.Length; i++)
+        for (var i = 0; i < span.Length; i++)
             if (span[i] < '0' || span[i] > '9')
                 return false;
         return true;
@@ -842,7 +842,7 @@ internal class StringReader
     {
         if (!CanRead())
             return string.Empty;
-        char next = Peek();
+        var next = Peek();
         if (!IsQuote(next))
             throw new FormatException($"Expected the string to at position {Cursor} to be quoted, but got '{next}'");
         Read();
@@ -858,7 +858,7 @@ internal class StringReader
     {
         if (!CanRead())
             throw new FormatException($"Expected '{c}' at position {Cursor}, but reached end of data");
-        char read = Read();
+        var read = Read();
         if (read != c)
             throw new FormatException($"Expected '{c}' at position {Cursor}, but got '{read}'");
     }

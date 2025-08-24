@@ -44,6 +44,7 @@ public interface IConfigurationService : INotifyPropertyChanged
 
     // GitHub specific settings
     string GitHubAccessToken { get; set; }
+    DateTime GitHubAccessTokenTimestamp { get; set; }
     string GitHubUsername { get; set; }
     string GitHubRepository { get; set; }
     bool GitHubPrivateRepo { get; set; }

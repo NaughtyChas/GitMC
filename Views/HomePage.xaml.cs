@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using GitMC.Extensions;
 using GitMC.Services;
 
 namespace GitMC.Views;
@@ -14,10 +15,13 @@ public sealed partial class HomePage : Page, INotifyPropertyChanged
     public HomePage()
     {
         InitializeComponent();
-        _configurationService = new ConfigurationService();
-        _gitService = new GitService(_configurationService);
-        _dataStorageService = new DataStorageService();
-        _onboardingService = new OnboardingService(_gitService, _configurationService);
+
+        // Use ServiceFactory for consistent service instances
+        var services = ServiceFactory.Services;
+        _configurationService = services.Configuration;
+        _gitService = services.Git;
+        _dataStorageService = services.DataStorage;
+        _onboardingService = services.Onboarding;
 
         DataContext = this;
         Loaded += HomePage_Loaded;
@@ -67,17 +71,17 @@ public sealed partial class HomePage : Page, INotifyPropertyChanged
         try
         {
             // Check for managed saves metadata files
-            string managedSavesPath = GetManagedSavesStoragePath();
+            var managedSavesPath = GetManagedSavesStoragePath();
             if (!Directory.Exists(managedSavesPath)) return 0;
 
             // Count JSON metadata files that represent managed saves
-            string[] jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
+            var jsonFiles = Directory.GetFiles(managedSavesPath, "*.json");
             return jsonFiles.Length;
         }
         catch
         {
             // If there's any error accessing the filesystem, fall back to onboarding check
-            OnboardingStepStatus[] statuses = _onboardingService.StepStatuses;
+            var statuses = _onboardingService.StepStatuses;
             if (statuses.Length > 4 &&
                 statuses[4] == OnboardingStepStatus.Completed) return 1; // At least one save exists based on onboarding
             return 0;

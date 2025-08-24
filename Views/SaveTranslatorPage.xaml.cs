@@ -1,14 +1,13 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 using GitMC.Services;
 using GitMC.Utils;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Storage.Pickers;
 using WinRT.Interop;
 
 namespace GitMC.Views;
@@ -31,6 +30,8 @@ public sealed partial class SaveTranslatorPage : Page
     public SaveTranslatorPage()
     {
         InitializeComponent();
+        // Keep page instance alive across navigation so any ongoing operations/UI state persists
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
         _nbtService = new NbtService();
         InitializePerformanceCounters();
     }
@@ -60,12 +61,12 @@ public sealed partial class SaveTranslatorPage : Page
     {
         try
         {
-            float cpuUsage = _cpuCounter?.NextValue() ?? 0;
+            var cpuUsage = _cpuCounter?.NextValue() ?? 0;
             CpuUsageBar.Value = Math.Min(cpuUsage, 100);
 
-            float availableMemory = _memoryCounter?.NextValue() ?? 0;
-            long totalMemory = GC.GetTotalMemory(false) / (1024 * 1024); // Convert to MB
-            float memoryUsage = Math.Max(0, 100 - availableMemory / 16 * 100); // Assuming 16GB total
+            var availableMemory = _memoryCounter?.NextValue() ?? 0;
+            var totalMemory = GC.GetTotalMemory(false) / (1024 * 1024); // Convert to MB
+            var memoryUsage = Math.Max(0, 100 - availableMemory / 16 * 100); // Assuming 16GB total
             MemoryUsageBar.Value = Math.Min(memoryUsage, 100);
         }
         catch (Exception ex)
@@ -83,11 +84,11 @@ public sealed partial class SaveTranslatorPage : Page
             folderPicker.FileTypeFilter.Add("*");
 
             // Get the current window's handle
-            Window? window = App.MainWindow;
-            IntPtr hwnd = WindowNative.GetWindowHandle(window);
+            var window = App.MainWindow;
+            var hwnd = WindowNative.GetWindowHandle(window);
             InitializeWithWindow.Initialize(folderPicker, hwnd);
 
-            StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
+            var folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
                 _selectedSavePath = folder.Path;
@@ -109,8 +110,8 @@ public sealed partial class SaveTranslatorPage : Page
             try
             {
                 // Check if it's a valid Minecraft save
-                string levelDatPath = Path.Combine(path, "level.dat");
-                string levelDatOldPath = Path.Combine(path, "level.dat_old");
+                var levelDatPath = Path.Combine(path, "level.dat");
+                var levelDatOldPath = Path.Combine(path, "level.dat_old");
 
                 DispatcherQueue.TryEnqueue(() =>
                 {
@@ -201,7 +202,7 @@ public sealed partial class SaveTranslatorPage : Page
     {
         if (!string.IsNullOrEmpty(_selectedSavePath))
         {
-            string gitMcPath = Path.Combine(_selectedSavePath, "GitMC");
+            var gitMcPath = Path.Combine(_selectedSavePath, "GitMC");
             if (Directory.Exists(gitMcPath))
                 try
                 {
@@ -226,24 +227,24 @@ public sealed partial class SaveTranslatorPage : Page
 
         LogMessage("=== Starting save translation process ===");
 
-        bool verifyIntegrity = VerifyIntegrityCheckBox.IsChecked == true;
+        var verifyIntegrity = VerifyIntegrityCheckBox.IsChecked == true;
 
         // Step 1: Create GitMC folder
-        string gitMcPath = Path.Combine(_selectedSavePath, "GitMC");
+        var gitMcPath = Path.Combine(_selectedSavePath, "GitMC");
         LogMessage($"Create GitMC folder: {gitMcPath}");
         Directory.CreateDirectory(gitMcPath);
 
         UpdateProgress(5, "Analyzing file structure...");
 
         // Step 2: Scan for files to process
-        List<FileInfo> filesToProcess = await ScanForFiles(_selectedSavePath, cancellationToken);
+        var filesToProcess = await ScanForFiles(_selectedSavePath, cancellationToken);
         LogMessage($"Found {filesToProcess.Count} files to process");
 
         // Log file type breakdown
-        int mcaFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mca").Count();
-        int mccFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mcc").Count();
-        int datFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".dat").Count();
-        int nbtFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".nbt").Count();
+        var mcaFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mca").Count();
+        var mccFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".mcc").Count();
+        var datFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".dat").Count();
+        var nbtFiles = filesToProcess.Where(f => f.Extension.ToLower() == ".nbt").Count();
 
         LogMessage($"  📊 File breakdown: {mcaFiles} MCA, {mccFiles} MCC, {datFiles} DAT, {nbtFiles} NBT");
 
@@ -255,15 +256,15 @@ public sealed partial class SaveTranslatorPage : Page
         UpdateProgress(30, "Starting NBT translation process...");
 
         // Step 4: Process selected file types with enhanced tracking
-        int processedCount = 0;
-        int totalFiles = filesToProcess.Count;
-        int multiChunkFiles = 0;
-        int totalChunksProcessed = 0;
-        DateTime lastUiUpdate = DateTime.Now;
+        var processedCount = 0;
+        var totalFiles = filesToProcess.Count;
+        var multiChunkFiles = 0;
+        var totalChunksProcessed = 0;
+        var lastUiUpdate = DateTime.Now;
 
         // Process files in batches on background threads to avoid UI blocking
         const int batchSize = 5; // Process 5 files per batch
-        for (int batchStart = 0; batchStart < filesToProcess.Count; batchStart += batchSize)
+        for (var batchStart = 0; batchStart < filesToProcess.Count; batchStart += batchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -271,20 +272,20 @@ public sealed partial class SaveTranslatorPage : Page
             var batch = filesToProcess.Skip(batchStart).Take(batchSize).ToList();
 
             // Process batch on background thread
-            List<(bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error)> batchResults =
+            var batchResults =
                 await Task.Run(async () =>
                 {
                     var results =
                         new List<(bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error)>();
 
-                    foreach (FileInfo fileInfo in batch)
+                    foreach (var fileInfo in batch)
                         try
                         {
-                            string relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
-                            string targetPath = Path.Combine(gitMcPath, relativePath);
+                            var relativePath = Path.GetRelativePath(_selectedSavePath, fileInfo.FullName);
+                            var targetPath = Path.Combine(gitMcPath, relativePath);
 
                             // Track multi-chunk processing
-                            (bool IsMultiChunk, int ChunkCount) isMultiChunk =
+                            var isMultiChunk =
                                 await ProcessFileWithTracking(targetPath, fileInfo.Extension, cancellationToken);
 
                             results.Add((isMultiChunk.IsMultiChunk, isMultiChunk.ChunkCount, fileInfo.Name, true,
@@ -299,7 +300,7 @@ public sealed partial class SaveTranslatorPage : Page
                 }, cancellationToken);
 
             // Update counters and UI on main thread
-            foreach ((bool IsMultiChunk, int ChunkCount, string fileName, bool success, string? error) result in
+            foreach (var result in
                      batchResults)
             {
                 processedCount++;
@@ -318,10 +319,10 @@ public sealed partial class SaveTranslatorPage : Page
             if (batchStart / batchSize % 10 == 0 || processedCount >= totalFiles)
                 LogMessage($"Processing batch: {processedCount}/{totalFiles} files completed");
 
-            int progress = 30 + processedCount * 60 / totalFiles;
+            var progress = 30 + processedCount * 60 / totalFiles;
 
             // Update UI much less frequently and with time-based throttling
-            TimeSpan timeSinceLastUpdate = DateTime.Now - lastUiUpdate;
+            var timeSinceLastUpdate = DateTime.Now - lastUiUpdate;
             if (timeSinceLastUpdate.TotalMilliseconds > 2000 ||
                 processedCount >= totalFiles) // Every 2 seconds or at completion
             {
@@ -354,10 +355,10 @@ public sealed partial class SaveTranslatorPage : Page
         var files = new List<FileInfo>();
         var directory = new DirectoryInfo(savePath);
 
-        bool processRegionFiles = RegionFilesCheckBox.IsChecked == true;
-        bool processDataFiles = DataFilesCheckBox.IsChecked == true;
-        bool processNbtFiles = NbtFilesCheckBox.IsChecked == true;
-        bool processLevelData = LevelDataCheckBox.IsChecked == true;
+        var processRegionFiles = RegionFilesCheckBox.IsChecked == true;
+        var processDataFiles = DataFilesCheckBox.IsChecked == true;
+        var processNbtFiles = NbtFilesCheckBox.IsChecked == true;
+        var processLevelData = LevelDataCheckBox.IsChecked == true;
 
         await Task.Run(() =>
         {
@@ -400,10 +401,9 @@ public sealed partial class SaveTranslatorPage : Page
 
     private async Task CopyAllFiles(string sourcePath, string targetPath, CancellationToken cancellationToken)
     {
-        await Task.Run(() =>
-        {
-            CopyDirectory(new DirectoryInfo(sourcePath), new DirectoryInfo(targetPath), cancellationToken);
-        }, cancellationToken);
+        await Task.Run(
+            () => { CopyDirectory(new DirectoryInfo(sourcePath), new DirectoryInfo(targetPath), cancellationToken); },
+            cancellationToken);
 
         LogMessage("File copy complete");
     }
@@ -415,14 +415,14 @@ public sealed partial class SaveTranslatorPage : Page
         Directory.CreateDirectory(target.FullName);
 
         // Copy files
-        foreach (FileInfo file in source.GetFiles())
+        foreach (var file in source.GetFiles())
         {
             cancellationToken.ThrowIfCancellationRequested();
             file.CopyTo(Path.Combine(target.FullName, file.Name), true);
         }
 
         // Copy subdirectories
-        foreach (DirectoryInfo subDir in source.GetDirectories())
+        foreach (var subDir in source.GetDirectories())
         {
             cancellationToken.ThrowIfCancellationRequested();
             // If the directory to be copied is GitMC directory, skip it.
@@ -436,8 +436,8 @@ public sealed partial class SaveTranslatorPage : Page
     {
         try
         {
-            string tempSnbtPath = filePath + ".snbt";
-            string? backupPath = CreateBackupCheckBox.IsChecked == true ? filePath + ".backup" : null;
+            var tempSnbtPath = filePath + ".snbt";
+            var backupPath = CreateBackupCheckBox.IsChecked == true ? filePath + ".backup" : null;
 
             // Check if file exists and is accessible
             if (!File.Exists(filePath))
@@ -483,17 +483,17 @@ public sealed partial class SaveTranslatorPage : Page
                 // Log SNBT file info for verification
                 if (File.Exists(tempSnbtPath))
                 {
-                    long snbtSize = new FileInfo(tempSnbtPath).Length;
+                    var snbtSize = new FileInfo(tempSnbtPath).Length;
                     LogMessage($"  ✓ SNBT created: {snbtSize / 1024}KB");
 
                     // For MCA files, check if multi-chunk was detected
                     if (extension == ".mca" || extension == ".mcc")
                     {
-                        string snbtContent = await File.ReadAllTextAsync(tempSnbtPath, cancellationToken);
+                        var snbtContent = await File.ReadAllTextAsync(tempSnbtPath, cancellationToken);
                         if (snbtContent.Contains("# Chunk"))
                         {
                             // Optimized: Count occurrences without Split to avoid massive memory allocations
-                            int chunkCount = CommonHelpers.CountOccurrences(snbtContent.AsSpan(), "# Chunk".AsSpan());
+                            var chunkCount = CommonHelpers.CountOccurrences(snbtContent.AsSpan(), "# Chunk".AsSpan());
                             if (chunkCount > 1) LogMessage($"  📦 Multi-chunk file detected: {chunkCount} chunks");
                         }
                     }
@@ -504,7 +504,7 @@ public sealed partial class SaveTranslatorPage : Page
                 await ConvertFromSnbt(tempSnbtPath, filePath, extension, combinedCts.Token);
 
                 // Verify final result
-                long finalSize = new FileInfo(filePath).Length;
+                var finalSize = new FileInfo(filePath).Length;
                 LogMessage($"  ✓ Final file: {finalSize / 1024}KB");
             }
 
@@ -537,13 +537,13 @@ public sealed partial class SaveTranslatorPage : Page
     private async Task<(bool IsMultiChunk, int ChunkCount)> ProcessFileWithTracking(string filePath, string extension,
         CancellationToken cancellationToken)
     {
-        bool isMultiChunk = false;
-        int chunkCount = 0;
+        var isMultiChunk = false;
+        var chunkCount = 0;
 
         try
         {
-            string tempSnbtPath = filePath + ".snbt";
-            string? backupPath = CreateBackupCheckBox.IsChecked == true ? filePath + ".backup" : null;
+            var tempSnbtPath = filePath + ".snbt";
+            var backupPath = CreateBackupCheckBox.IsChecked == true ? filePath + ".backup" : null;
 
             // Check if file exists and is accessible
             if (!File.Exists(filePath)) return (false, 0);
@@ -583,14 +583,14 @@ public sealed partial class SaveTranslatorPage : Page
                         using (var fileStream = new FileStream(tempSnbtPath, FileMode.Open, FileAccess.Read))
                         using (var reader = new StreamReader(fileStream, Encoding.UTF8, bufferSize: 8192))
                         {
-                            char[] firstKiloBytes = new char[1024];
-                            int charsRead = await reader.ReadAsync(firstKiloBytes, 0, 1024);
+                            var firstKiloBytes = new char[1024];
+                            var charsRead = await reader.ReadAsync(firstKiloBytes, 0, 1024);
                             string headerText = new(firstKiloBytes, 0, charsRead);
 
                             // Look for total chunks in header (much faster than parsing entire file)
                             if (headerText.Contains("// Total chunks:"))
                             {
-                                Match match = Regex.Match(headerText, @"// Total chunks:\s*(\d+)");
+                                var match = Regex.Match(headerText, @"// Total chunks:\s*(\d+)");
                                 if (match.Success && int.TryParse(match.Groups[1].Value, out chunkCount))
                                     isMultiChunk = chunkCount > 1;
                             }
@@ -644,16 +644,16 @@ public sealed partial class SaveTranslatorPage : Page
             });
 
             // Check if this is an MCA file and chunk-based mode is enabled
-            bool isChunkBasedMode = ChunkBasedMcaRadioButton?.IsChecked == true;
+            var isChunkBasedMode = ChunkBasedMcaRadioButton?.IsChecked == true;
 
             if ((extension == ".mca" || extension == ".mcc") && isChunkBasedMode)
             {
                 // Use chunk-based processing
-                string chunkFolderPath = Path.ChangeExtension(outputPath, ".chunks");
+                var chunkFolderPath = Path.ChangeExtension(outputPath, ".chunks");
                 await _nbtService.ConvertMcaToChunkFilesAsync(inputPath, chunkFolderPath, progress);
 
                 // Create a marker file to indicate this is chunk-based output
-                string markerPath = outputPath + ".chunk_mode";
+                var markerPath = outputPath + ".chunk_mode";
                 await File.WriteAllTextAsync(markerPath, chunkFolderPath, Encoding.UTF8, cancellationToken);
 
                 LogMessage($"    ✓ Created {Directory.GetFiles(chunkFolderPath, "chunk_*.snbt").Length} chunk files");
@@ -671,7 +671,7 @@ public sealed partial class SaveTranslatorPage : Page
         catch (Exception ex)
         {
             // Enhanced error reporting
-            string errorMessage = $"ConvertToSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
+            var errorMessage = $"ConvertToSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
             if (ex.InnerException != null) errorMessage += $" Inner: {ex.InnerException.Message}";
             throw new InvalidOperationException(errorMessage, ex);
         }
@@ -691,11 +691,11 @@ public sealed partial class SaveTranslatorPage : Page
             });
 
             // Check if this was processed in chunk-based mode
-            string markerPath = inputPath + ".chunk_mode";
+            var markerPath = inputPath + ".chunk_mode";
             if (File.Exists(markerPath) && (extension == ".mca" || extension == ".mcc"))
             {
                 // Read chunk folder path from marker file
-                string chunkFolderPath = await File.ReadAllTextAsync(markerPath, Encoding.UTF8, cancellationToken);
+                var chunkFolderPath = await File.ReadAllTextAsync(markerPath, Encoding.UTF8, cancellationToken);
 
                 if (Directory.Exists(chunkFolderPath))
                 {
@@ -733,7 +733,7 @@ public sealed partial class SaveTranslatorPage : Page
         catch (Exception ex)
         {
             // Enhanced error reporting
-            string errorMessage = $"ConvertFromSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
+            var errorMessage = $"ConvertFromSnbt failed for {Path.GetFileName(inputPath)}: {ex.Message}";
             if (ex.InnerException != null) errorMessage += $" Inner: {ex.InnerException.Message}";
             throw new InvalidOperationException(errorMessage, ex);
         }
@@ -746,25 +746,25 @@ public sealed partial class SaveTranslatorPage : Page
 
         await Task.Run(() =>
         {
-            string[] originalFiles = Directory.GetFiles(originalPath, "*", SearchOption.AllDirectories);
-            int verifiedCount = 0;
-            int totalCount = originalFiles.Length;
+            var originalFiles = Directory.GetFiles(originalPath, "*", SearchOption.AllDirectories);
+            var verifiedCount = 0;
+            var totalCount = originalFiles.Length;
 
-            foreach (string originalFile in originalFiles)
+            foreach (var originalFile in originalFiles)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                string relativePath = Path.GetRelativePath(originalPath, originalFile);
-                string translatedFile = Path.Combine(translatedPath, relativePath);
+                var relativePath = Path.GetRelativePath(originalPath, originalFile);
+                var translatedFile = Path.Combine(translatedPath, relativePath);
 
                 if (File.Exists(translatedFile))
                 {
                     // For NBT files, we can do more sophisticated comparison
                     // For now, just check file sizes are reasonable
-                    long originalSize = new FileInfo(originalFile).Length;
-                    long translatedSize = new FileInfo(translatedFile).Length;
+                    var originalSize = new FileInfo(originalFile).Length;
+                    var translatedSize = new FileInfo(translatedFile).Length;
 
-                    double sizeDifference = Math.Abs(originalSize - translatedSize) / (double)originalSize;
+                    var sizeDifference = Math.Abs(originalSize - translatedSize) / (double)originalSize;
                     if (sizeDifference > 0.1) // Allow 10% size difference
                         LogMessage(
                             $"⚠ File size difference is large: {relativePath} (Original: {originalSize}, Translated: {translatedSize})");
@@ -802,8 +802,8 @@ public sealed partial class SaveTranslatorPage : Page
 
     private void LogMessage(string message)
     {
-        string timestamp = DateTime.Now.ToString("HH:mm:ss");
-        string logEntry = $"[{timestamp}] {message}";
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        var logEntry = $"[{timestamp}] {message}";
 
         try
         {
@@ -817,9 +817,9 @@ public sealed partial class SaveTranslatorPage : Page
             }
 
             // Schedule batch flush every 1000ms or for critical messages
-            bool isCritical = message.Contains("Error") || message.Contains("Failed") || message.Contains("❌") ||
-                              message.Contains("===");
-            TimeSpan timeSinceLastFlush = DateTime.Now - _lastLogFlush;
+            var isCritical = message.Contains("Error") || message.Contains("Failed") || message.Contains("❌") ||
+                             message.Contains("===");
+            var timeSinceLastFlush = DateTime.Now - _lastLogFlush;
 
             if (isCritical || timeSinceLastFlush.TotalMilliseconds > 1000) // Increased from 500ms to 1000ms
                 FlushLogQueue();
@@ -867,17 +867,17 @@ public sealed partial class SaveTranslatorPage : Page
                         var sb = new StringBuilder();
 
                         // Check if we need to trim existing content
-                        int currentLength = LogTextBox.Text.Length;
-                        int newContentLength = logsToFlush.Sum(log => log.Length + 1); // +1 for newline
+                        var currentLength = LogTextBox.Text.Length;
+                        var newContentLength = logsToFlush.Sum(log => log.Length + 1); // +1 for newline
 
                         if (currentLength + newContentLength > 60000) // Reduced limit to 60KB
                         {
                             // Keep only the last portion of current text - more aggressive trimming
-                            string[] existingLines = LogTextBox.Text.Split('\n');
+                            var existingLines = LogTextBox.Text.Split('\n');
 
                             if (existingLines.Length > 150) // Reduced from 200 to 150 lines
                             {
-                                IEnumerable<string> keepLines = existingLines.Skip(existingLines.Length - 150);
+                                var keepLines = existingLines.Skip(existingLines.Length - 150);
                                 sb.AppendLine(string.Join('\n', keepLines));
                                 sb.AppendLine("... [Earlier logs truncated for performance] ...");
                             }
@@ -892,7 +892,7 @@ public sealed partial class SaveTranslatorPage : Page
                         }
 
                         // Add new logs
-                        foreach (string log in logsToFlush) sb.AppendLine(log);
+                        foreach (var log in logsToFlush) sb.AppendLine(log);
 
                         LogTextBox.Text = sb.ToString();
 
@@ -939,11 +939,11 @@ public sealed partial class SaveTranslatorPage : Page
             folderPicker.FileTypeFilter.Add("*");
 
             // Get the current window's handle
-            Window? window = App.MainWindow;
-            IntPtr hwnd = WindowNative.GetWindowHandle(window);
+            var window = App.MainWindow;
+            var hwnd = WindowNative.GetWindowHandle(window);
             InitializeWithWindow.Initialize(folderPicker, hwnd);
 
-            StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
+            var folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
                 _selectedGitMcPath = folder.Path;
@@ -968,10 +968,10 @@ public sealed partial class SaveTranslatorPage : Page
         try
         {
             // Check if it's a valid GitMC folder structure
-            string regionFolder = Path.Combine(folderPath, "region");
+            var regionFolder = Path.Combine(folderPath, "region");
 
-            bool hasRegionFolder = Directory.Exists(regionFolder);
-            bool hasSnbtFiles = false;
+            var hasRegionFolder = Directory.Exists(regionFolder);
+            var hasSnbtFiles = false;
 
             if (hasRegionFolder)
                 hasSnbtFiles = Directory.GetFiles(regionFolder, "*.snbt", SearchOption.AllDirectories).Length > 0;
@@ -1018,7 +1018,7 @@ public sealed partial class SaveTranslatorPage : Page
         try
         {
             _cancellationTokenSource = new CancellationTokenSource();
-            CancellationToken cancellationToken = _cancellationTokenSource.Token;
+            var cancellationToken = _cancellationTokenSource.Token;
 
             // Disable UI elements
             DispatcherQueue.TryEnqueue(() =>
@@ -1031,7 +1031,7 @@ public sealed partial class SaveTranslatorPage : Page
             });
 
             // Create output folder
-            string outputFolder = Path.Combine(Path.GetDirectoryName(_selectedGitMcPath)!,
+            var outputFolder = Path.Combine(Path.GetDirectoryName(_selectedGitMcPath)!,
                 Path.GetFileName(_selectedGitMcPath) + "_restored");
 
             if (Directory.Exists(outputFolder)) Directory.Delete(outputFolder, true);
@@ -1094,11 +1094,11 @@ public sealed partial class SaveTranslatorPage : Page
 
         // Step 2: Process MCA files in region, poi, and entities folders
         string[] mcaFolders = { "region", "poi", "entities" };
-        int totalMcaProcessed = 0;
+        var totalMcaProcessed = 0;
 
-        foreach (string folderName in mcaFolders)
+        foreach (var folderName in mcaFolders)
         {
-            string sourceFolder = Path.Combine(outputPath, folderName);
+            var sourceFolder = Path.Combine(outputPath, folderName);
             if (!Directory.Exists(sourceFolder))
             {
                 LogMessage($"  Folder {folderName} does not exist, skipping...");
@@ -1107,19 +1107,19 @@ public sealed partial class SaveTranslatorPage : Page
 
             LogMessage(
                 $"Step 2.{Array.IndexOf(mcaFolders, folderName) + 1}: Processing MCA files in /{folderName} folder...");
-            int processed = await ProcessMcaFilesInFolder(sourceFolder, cancellationToken);
+            var processed = await ProcessMcaFilesInFolder(sourceFolder, cancellationToken);
             totalMcaProcessed += processed;
             LogMessage($"✓ Processed {processed} MCA files in /{folderName}");
         }
 
         // Step 3: Process other SNBT files (dat, nbt files)
         LogMessage("Step 3: Processing other SNBT files (dat, nbt, etc.)...");
-        int otherSnbtProcessed = await ProcessOtherSnbtFiles(outputPath, cancellationToken);
+        var otherSnbtProcessed = await ProcessOtherSnbtFiles(outputPath, cancellationToken);
         LogMessage($"✓ Processed {otherSnbtProcessed} other SNBT files");
 
         // Step 4: Clean up - remove all SNBT files and empty chunk folders
         LogMessage("Step 4: Cleaning up SNBT files and empty chunk folders...");
-        (int snbtFiles, int chunkFolders) cleanedUp =
+        var cleanedUp =
             await CleanupSnbtFilesAndChunkFolders(outputPath, cancellationToken);
         LogMessage($"✓ Cleaned up {cleanedUp.snbtFiles} SNBT files and {cleanedUp.chunkFolders} chunk folders");
 
@@ -1132,10 +1132,10 @@ public sealed partial class SaveTranslatorPage : Page
 
     private async Task<int> ProcessMcaFilesInFolder(string folderPath, CancellationToken cancellationToken)
     {
-        int processedCount = 0;
+        var processedCount = 0;
 
         // Get all chunk marker files in this folder
-        string[] chunkMarkerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
+        var chunkMarkerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
 
         if (chunkMarkerFiles.Length == 0)
         {
@@ -1145,25 +1145,25 @@ public sealed partial class SaveTranslatorPage : Page
 
         LogMessage($"  Found {chunkMarkerFiles.Length} chunk-based MCA files");
 
-        foreach (string markerFile in chunkMarkerFiles)
+        foreach (var markerFile in chunkMarkerFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             try
             {
                 // Read chunk folder path from marker file
-                string chunkFolderPath = await File.ReadAllTextAsync(markerFile, Encoding.UTF8, cancellationToken);
+                var chunkFolderPath = await File.ReadAllTextAsync(markerFile, Encoding.UTF8, cancellationToken);
 
                 if (Directory.Exists(chunkFolderPath))
                 {
                     // Determine output MCA file path
                     // marker file is like "r.0.0.mca.snbt.chunk_mode", we want "r.0.0.mca"
-                    string snbtPath = markerFile.Replace(".chunk_mode", "");
-                    string originalFileName = Path.GetFileName(snbtPath);
+                    var snbtPath = markerFile.Replace(".chunk_mode", "");
+                    var originalFileName = Path.GetFileName(snbtPath);
                     if (originalFileName.EndsWith(".snbt"))
                         originalFileName = originalFileName.Substring(0, originalFileName.Length - 5); // Remove .snbt
 
-                    string outputMcaPath = Path.Combine(folderPath, originalFileName);
+                    var outputMcaPath = Path.Combine(folderPath, originalFileName);
 
                     // Create progress reporter
                     var progress = new Progress<string>(message =>
@@ -1206,25 +1206,25 @@ public sealed partial class SaveTranslatorPage : Page
 
     private async Task<int> ProcessOtherSnbtFiles(string outputPath, CancellationToken cancellationToken)
     {
-        int processedCount = 0;
+        var processedCount = 0;
 
         // Find all SNBT files that are NOT part of chunk-based MCA conversion
-        string[] allSnbtFiles = Directory.GetFiles(outputPath, "*.snbt", SearchOption.AllDirectories);
+        var allSnbtFiles = Directory.GetFiles(outputPath, "*.snbt", SearchOption.AllDirectories);
 
-        string[] otherSnbtFiles = allSnbtFiles.Where(snbtFile =>
+        var otherSnbtFiles = allSnbtFiles.Where(snbtFile =>
         {
             // Skip if this is part of a chunk-based conversion (has marker file)
-            string markerPath = snbtFile + ".chunk_mode";
+            var markerPath = snbtFile + ".chunk_mode";
             if (File.Exists(markerPath))
                 return false;
 
             // Skip if this file is inside a chunks folder
-            string parentDir = Path.GetDirectoryName(snbtFile) ?? "";
+            var parentDir = Path.GetDirectoryName(snbtFile) ?? "";
             if (parentDir.EndsWith(".chunks", StringComparison.OrdinalIgnoreCase))
                 return false;
 
             // Skip individual chunk files (chunk_X_Z.snbt pattern)
-            string fileName = Path.GetFileName(snbtFile);
+            var fileName = Path.GetFileName(snbtFile);
             if (fileName.StartsWith("chunk_") && fileName.EndsWith(".snbt"))
                 return false;
 
@@ -1236,7 +1236,7 @@ public sealed partial class SaveTranslatorPage : Page
                 !fileName.Contains(".mca.snbt") && !fileName.Contains(".mcc.snbt"))
             {
                 // Check if it's a simple .snbt file (not .extension.snbt)
-                string nameWithoutSnbt = fileName.Substring(0, fileName.Length - 5); // Remove .snbt
+                var nameWithoutSnbt = fileName.Substring(0, fileName.Length - 5); // Remove .snbt
                 if (!nameWithoutSnbt.Contains('.'))
                     // This is a pure .snbt file, not converted from another format
                     return false;
@@ -1253,14 +1253,14 @@ public sealed partial class SaveTranslatorPage : Page
 
         LogMessage($"  Found {otherSnbtFiles.Length} other SNBT files to convert");
 
-        foreach (string snbtFile in otherSnbtFiles)
+        foreach (var snbtFile in otherSnbtFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             try
             {
                 // Determine output file path by removing .snbt extension
-                string outputFile = snbtFile;
+                var outputFile = snbtFile;
                 if (outputFile.EndsWith(".snbt"))
                     outputFile = outputFile.Substring(0, outputFile.Length - 5); // Remove .snbt
 
@@ -1292,17 +1292,17 @@ public sealed partial class SaveTranslatorPage : Page
     private async Task<(int snbtFiles, int chunkFolders)> CleanupSnbtFilesAndChunkFolders(string outputPath,
         CancellationToken cancellationToken)
     {
-        int snbtFilesDeleted = 0;
-        int chunkFoldersDeleted = 0;
+        var snbtFilesDeleted = 0;
+        var chunkFoldersDeleted = 0;
 
         await Task.Run(() =>
         {
             // Define folders where cleanup should happen
             string[] targetFolders = { "region", "poi", "entities" };
 
-            foreach (string folderName in targetFolders)
+            foreach (var folderName in targetFolders)
             {
-                string folderPath = Path.Combine(outputPath, folderName);
+                var folderPath = Path.Combine(outputPath, folderName);
                 if (!Directory.Exists(folderPath))
                 {
                     LogMessage($"  Folder {folderName} does not exist, skipping cleanup...");
@@ -1312,10 +1312,10 @@ public sealed partial class SaveTranslatorPage : Page
                 LogMessage($"  Cleaning up {folderName} folder...");
 
                 // Step 4.1: Delete SNBT files only in this specific folder
-                string[] snbtFiles = Directory.GetFiles(folderPath, "*.snbt", SearchOption.AllDirectories);
+                var snbtFiles = Directory.GetFiles(folderPath, "*.snbt", SearchOption.AllDirectories);
                 LogMessage($"    Found {snbtFiles.Length} SNBT files to remove in {folderName}");
 
-                foreach (string snbtFile in snbtFiles)
+                foreach (var snbtFile in snbtFiles)
                     try
                     {
                         File.Delete(snbtFile);
@@ -1327,10 +1327,10 @@ public sealed partial class SaveTranslatorPage : Page
                     }
 
                 // Step 4.2: Delete chunk marker files only in this specific folder
-                string[] markerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
+                var markerFiles = Directory.GetFiles(folderPath, "*.chunk_mode", SearchOption.AllDirectories);
                 LogMessage($"    Found {markerFiles.Length} chunk marker files to remove in {folderName}");
 
-                foreach (string markerFile in markerFiles)
+                foreach (var markerFile in markerFiles)
                     try
                     {
                         File.Delete(markerFile);
@@ -1341,13 +1341,13 @@ public sealed partial class SaveTranslatorPage : Page
                     }
 
                 // Step 4.3: Delete chunk folders only in this specific folder
-                string[] allDirectories = Directory.GetDirectories(folderPath, "*", SearchOption.AllDirectories);
-                IEnumerable<string> chunkDirectories =
+                var allDirectories = Directory.GetDirectories(folderPath, "*", SearchOption.AllDirectories);
+                var chunkDirectories =
                     allDirectories.Where(dir => Path.GetFileName(dir).EndsWith(".chunks"));
 
                 LogMessage($"    Found {chunkDirectories.Count()} chunk folders to remove in {folderName}");
 
-                foreach (string chunkDir in chunkDirectories)
+                foreach (var chunkDir in chunkDirectories)
                     try
                     {
                         if (Directory.Exists(chunkDir))
@@ -1364,14 +1364,14 @@ public sealed partial class SaveTranslatorPage : Page
                     }
 
                 // Step 4.4: Remove any remaining empty directories only in this specific folder
-                string[] emptyDirs = allDirectories.Where(dir =>
+                var emptyDirs = allDirectories.Where(dir =>
                     Directory.Exists(dir) &&
                     Directory.GetFileSystemEntries(dir).Length == 0).ToArray();
 
                 if (emptyDirs.Length > 0)
                 {
                     LogMessage($"    Found {emptyDirs.Length} empty directories to remove in {folderName}");
-                    foreach (string emptyDir in emptyDirs)
+                    foreach (var emptyDir in emptyDirs)
                         try
                         {
                             Directory.Delete(emptyDir, false);
@@ -1392,20 +1392,20 @@ public sealed partial class SaveTranslatorPage : Page
 
     private async Task CopyNonRegionFiles(string sourcePath, string outputPath, CancellationToken cancellationToken)
     {
-        string[] allEntries = Directory.GetFileSystemEntries(sourcePath, "*", SearchOption.TopDirectoryOnly);
+        var allEntries = Directory.GetFileSystemEntries(sourcePath, "*", SearchOption.TopDirectoryOnly);
 
-        foreach (string entry in allEntries)
+        foreach (var entry in allEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            string entryName = Path.GetFileName(entry);
+            var entryName = Path.GetFileName(entry);
 
             // Skip region folder (we handle it separately) and git folder
             if (entryName.Equals("region", StringComparison.OrdinalIgnoreCase) ||
                 entryName.Equals(".git", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            string outputEntry = Path.Combine(outputPath, entryName);
+            var outputEntry = Path.Combine(outputPath, entryName);
 
             if (Directory.Exists(entry))
                 // Copy directory recursively
@@ -1421,16 +1421,16 @@ public sealed partial class SaveTranslatorPage : Page
         Directory.CreateDirectory(destinationDir);
 
         // Copy all files in the source directory
-        foreach (string file in Directory.GetFiles(sourceDir))
+        foreach (var file in Directory.GetFiles(sourceDir))
         {
-            string destFile = Path.Combine(destinationDir, Path.GetFileName(file));
+            var destFile = Path.Combine(destinationDir, Path.GetFileName(file));
             File.Copy(file, destFile, true);
         }
 
         // Recursively copy all subdirectories
-        foreach (string subDir in Directory.GetDirectories(sourceDir))
+        foreach (var subDir in Directory.GetDirectories(sourceDir))
         {
-            string destSubDir = Path.Combine(destinationDir, Path.GetFileName(subDir));
+            var destSubDir = Path.Combine(destinationDir, Path.GetFileName(subDir));
             CopyDirectory(subDir, destSubDir);
         }
     }

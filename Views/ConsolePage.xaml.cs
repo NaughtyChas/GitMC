@@ -1,14 +1,15 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.System;
+using Windows.UI.Core;
+using GitMC.Extensions;
 using GitMC.Services;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Windows.ApplicationModel.DataTransfer;
-using Windows.System;
-using Windows.UI.Core;
 
 namespace GitMC.Views;
 
@@ -22,8 +23,8 @@ public sealed partial class ConsolePage : Page
     public ConsolePage()
     {
         InitializeComponent();
-        var configService = new ConfigurationService();
-        _gitService = new GitService(configService);
+        var services = ServiceFactory.Services;
+        _gitService = services.Git;
         CommandInput.Focus(FocusState.Programmatic);
         _ = InitializeGitVersion();
     }
@@ -48,9 +49,9 @@ public sealed partial class ConsolePage : Page
         // Find the version TextBlock in the header and update it
         var headerGrid = FindName("HeaderGrid") as Grid;
         if (headerGrid != null)
-            foreach (UIElement? child in headerGrid.Children)
+            foreach (var child in headerGrid.Children)
                 if (child is StackPanel stackPanel)
-                    foreach (UIElement? element in stackPanel.Children)
+                    foreach (var element in stackPanel.Children)
                         if (element is TextBlock textBlock && textBlock.Name == "VersionText")
                         {
                             textBlock.Text = $"v{_gitVersion}";
@@ -118,7 +119,7 @@ public sealed partial class ConsolePage : Page
 
     private async Task ExecuteCommand()
     {
-        string command = CommandInput.Text.Trim();
+        var command = CommandInput.Text.Trim();
         if (string.IsNullOrEmpty(command)) return;
 
         // Add to history
@@ -126,14 +127,14 @@ public sealed partial class ConsolePage : Page
         _historyIndex = _commandHistory.Count;
 
         // Display the command with current directory
-        string currentDirectory = _gitService.GetCurrentDirectory();
-        string directoryName = Path.GetFileName(currentDirectory);
+        var currentDirectory = _gitService.GetCurrentDirectory();
+        var directoryName = Path.GetFileName(currentDirectory);
         if (string.IsNullOrEmpty(directoryName))
             directoryName = currentDirectory;
 
         AddOutputLine($"{directoryName}$ {command}", "#00FF00");
 
-        bool succeeded = true;
+        var succeeded = true;
         int? statusCode = null;
 
         CommandInput.Text = string.Empty;
@@ -169,7 +170,7 @@ public sealed partial class ConsolePage : Page
             }
 
             // Execute Git command using GitService
-            GitCommandResult? result = await ExecuteGitCommand(command);
+            var result = await ExecuteGitCommand(command);
             succeeded = result is { Success: true };
             statusCode = result?.ExitCode;
         }
@@ -199,8 +200,8 @@ public sealed partial class ConsolePage : Page
     {
         try
         {
-            string path = command.Substring(3).Trim().Trim('"');
-            bool popDirectory = path == "-";
+            var path = command.Substring(3).Trim().Trim('"');
+            var popDirectory = path == "-";
 
             if (string.IsNullOrEmpty(path))
             {
@@ -211,7 +212,7 @@ public sealed partial class ConsolePage : Page
 
             if (popDirectory)
             {
-                string? target = _gitService.GetPreviousDirectory();
+                var target = _gitService.GetPreviousDirectory();
 
                 if (string.IsNullOrEmpty(target))
                 {
@@ -248,10 +249,10 @@ public sealed partial class ConsolePage : Page
         try
         {
             // Handle enhanced Git commands with LibGit2Sharp
-            string[] parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var parts = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length == 0) return null;
 
-            string gitCommand = parts[0].ToLower();
+            var gitCommand = parts[0].ToLower();
 
             switch (gitCommand)
             {
@@ -295,7 +296,7 @@ public sealed partial class ConsolePage : Page
 
     private async Task<GitCommandResult> HandleGitStatus()
     {
-        GitStatus status = await _gitService.GetStatusAsync();
+        var status = await _gitService.GetStatusAsync();
         var result = new GitCommandResult { Success = true };
 
         AddOutputLine($"On branch {status.CurrentBranch}", "#CCCCCC");
@@ -318,7 +319,7 @@ public sealed partial class ConsolePage : Page
         if (status.StagedFiles.Length > 0)
         {
             AddOutputLine("Changes to be committed:", "#90EE90");
-            foreach (string file in status.StagedFiles)
+            foreach (var file in status.StagedFiles)
                 AddOutputLine($"  modified:   {file}", "#90EE90");
             AddOutputLine("", "#CCCCCC");
         }
@@ -326,7 +327,7 @@ public sealed partial class ConsolePage : Page
         if (status.ModifiedFiles.Length > 0)
         {
             AddOutputLine("Changes not staged for commit:", "#FF6B6B");
-            foreach (string file in status.ModifiedFiles)
+            foreach (var file in status.ModifiedFiles)
                 AddOutputLine($"  modified:   {file}", "#FF6B6B");
             AddOutputLine("", "#CCCCCC");
         }
@@ -334,7 +335,7 @@ public sealed partial class ConsolePage : Page
         if (status.DeletedFiles.Length > 0)
         {
             AddOutputLine("Deleted files:", "#FF6B6B");
-            foreach (string file in status.DeletedFiles)
+            foreach (var file in status.DeletedFiles)
                 AddOutputLine($"  deleted:    {file}", "#FF6B6B");
             AddOutputLine("", "#CCCCCC");
         }
@@ -342,7 +343,7 @@ public sealed partial class ConsolePage : Page
         if (status.UntrackedFiles.Length > 0)
         {
             AddOutputLine("Untracked files:", "#FFAA00");
-            foreach (string file in status.UntrackedFiles)
+            foreach (var file in status.UntrackedFiles)
                 AddOutputLine($"  {file}", "#FFAA00");
             AddOutputLine("", "#CCCCCC");
         }
@@ -364,7 +365,7 @@ public sealed partial class ConsolePage : Page
             return result;
         }
 
-        GitOperationResult addResult = parts[1] == "." || parts[1] == "-A"
+        var addResult = parts[1] == "." || parts[1] == "-A"
             ? await _gitService.StageAllAsync()
             : await _gitService.StageFileAsync(parts[1]);
 
@@ -389,7 +390,7 @@ public sealed partial class ConsolePage : Page
         var result = new GitCommandResult();
 
         // Extract commit message from command
-        Match messageMatch = Regex.Match(command, @"-m\s+[""'](.+?)[""']");
+        var messageMatch = Regex.Match(command, @"-m\s+[""'](.+?)[""']");
         if (!messageMatch.Success)
         {
             AddOutputLine("usage: git commit -m \"<message>\"", "#FF6B6B");
@@ -397,8 +398,8 @@ public sealed partial class ConsolePage : Page
             return result;
         }
 
-        string message = messageMatch.Groups[1].Value;
-        GitOperationResult commitResult = await _gitService.CommitAsync(message);
+        var message = messageMatch.Groups[1].Value;
+        var commitResult = await _gitService.CommitAsync(message);
 
         if (commitResult.Success)
         {
@@ -418,12 +419,12 @@ public sealed partial class ConsolePage : Page
     {
         var result = new GitCommandResult { Success = true };
 
-        int count = 10; // Default
+        var count = 10; // Default
         if (parts.Length > 1 && parts[1].StartsWith("--oneline")) count = 20;
 
-        GitCommit[] commits = await _gitService.GetCommitHistoryAsync(count);
+        var commits = await _gitService.GetCommitHistoryAsync(count);
 
-        foreach (GitCommit commit in commits)
+        foreach (var commit in commits)
             if (parts.Length > 1 && parts[1].Contains("oneline"))
             {
                 AddOutputLine($"{commit.Sha[..7]} {commit.Message}", "#FFAA00");
@@ -448,13 +449,13 @@ public sealed partial class ConsolePage : Page
         if (parts.Length == 1)
         {
             // List branches
-            string[] branches = await _gitService.GetBranchesAsync();
-            foreach (string branch in branches) AddOutputLine(branch, branch.StartsWith("*") ? "#90EE90" : "#CCCCCC");
+            var branches = await _gitService.GetBranchesAsync();
+            foreach (var branch in branches) AddOutputLine(branch, branch.StartsWith("*") ? "#90EE90" : "#CCCCCC");
         }
         else if (parts.Length == 2)
         {
             // Create new branch
-            GitOperationResult createResult = await _gitService.CreateBranchAsync(parts[1]);
+            var createResult = await _gitService.CreateBranchAsync(parts[1]);
             if (createResult.Success)
             {
                 AddOutputLine($"Created branch '{parts[1]}'", "#90EE90");
@@ -480,7 +481,7 @@ public sealed partial class ConsolePage : Page
             return result;
         }
 
-        GitOperationResult checkoutResult = await _gitService.CheckoutBranchAsync(parts[1]);
+        var checkoutResult = await _gitService.CheckoutBranchAsync(parts[1]);
         if (checkoutResult.Success)
         {
             AddOutputLine($"Switched to branch '{parts[1]}'", "#90EE90");
@@ -499,7 +500,7 @@ public sealed partial class ConsolePage : Page
     {
         var result = new GitCommandResult();
 
-        bool success = await _gitService.PullAsync();
+        var success = await _gitService.PullAsync();
         if (success)
         {
             AddOutputLine("Successfully pulled changes from remote", "#90EE90");
@@ -518,7 +519,7 @@ public sealed partial class ConsolePage : Page
     {
         var result = new GitCommandResult();
 
-        bool success = await _gitService.PushAsync();
+        var success = await _gitService.PushAsync();
         if (success)
         {
             AddOutputLine("Successfully pushed changes to remote", "#90EE90");
@@ -537,7 +538,7 @@ public sealed partial class ConsolePage : Page
     {
         var result = new GitCommandResult();
 
-        bool success = await _gitService.FetchAsync();
+        var success = await _gitService.FetchAsync();
         if (success)
         {
             AddOutputLine("Successfully fetched from remote", "#90EE90");
@@ -556,15 +557,15 @@ public sealed partial class ConsolePage : Page
     {
         var result = new GitCommandResult { Success = true };
 
-        string filePath = parts.Length > 1 ? parts[1] : null;
-        string diff = await _gitService.GetDiffAsync(filePath);
+        var filePath = parts.Length > 1 ? parts[1] : null;
+        var diff = await _gitService.GetDiffAsync(filePath);
 
         if (!string.IsNullOrEmpty(diff))
         {
-            string[] lines = diff.Split('\n');
-            foreach (string line in lines)
+            var lines = diff.Split('\n');
+            foreach (var line in lines)
             {
-                string color = "#CCCCCC";
+                var color = "#CCCCCC";
                 if (line.StartsWith("+")) color = "#90EE90";
                 else if (line.StartsWith("-")) color = "#FF6B6B";
                 else if (line.StartsWith("@@")) color = "#00FFFF";
@@ -584,7 +585,7 @@ public sealed partial class ConsolePage : Page
     {
         var result = new GitCommandResult();
 
-        string mode = "mixed";
+        var mode = "mixed";
         string target = null;
 
         if (parts.Length > 1)
@@ -596,7 +597,7 @@ public sealed partial class ConsolePage : Page
 
         if (parts.Length > 2) target = parts[2];
 
-        bool success = await _gitService.ResetAsync(mode, target);
+        var success = await _gitService.ResetAsync(mode, target);
         if (success)
         {
             AddOutputLine($"Reset to {target ?? "HEAD"} ({mode})", "#90EE90");
@@ -622,7 +623,7 @@ public sealed partial class ConsolePage : Page
             return result;
         }
 
-        bool success = await _gitService.CloneAsync(parts[1], parts[2]);
+        var success = await _gitService.CloneAsync(parts[1], parts[2]);
         if (success)
         {
             AddOutputLine($"Successfully cloned repository to {parts[2]}", "#90EE90");
@@ -648,7 +649,7 @@ public sealed partial class ConsolePage : Page
             return result;
         }
 
-        bool success = await _gitService.MergeAsync(parts[1]);
+        var success = await _gitService.MergeAsync(parts[1]);
         if (success)
         {
             AddOutputLine($"Successfully merged branch '{parts[1]}'", "#90EE90");
@@ -666,12 +667,12 @@ public sealed partial class ConsolePage : Page
     private async Task<GitCommandResult> ExecuteCommandLineGit(string command)
     {
         // Fallback to original command line execution for unsupported commands
-        GitCommandResult result = await _gitService.ExecuteCommandAsync(command);
+        var result = await _gitService.ExecuteCommandAsync(command);
 
         // Display output
-        foreach (string line in result.OutputLines) AddOutputLine(line, "#CCCCCC");
+        foreach (var line in result.OutputLines) AddOutputLine(line, "#CCCCCC");
 
-        foreach (string line in result.ErrorLines) AddOutputLine(line, "#FF6B6B");
+        foreach (var line in result.ErrorLines) AddOutputLine(line, "#FF6B6B");
 
         if (result.OutputLines.Length == 0 && result.ErrorLines.Length == 0 && result.Success)
             AddOutputLine("Command executed successfully.", "#90EE90");
@@ -679,7 +680,7 @@ public sealed partial class ConsolePage : Page
         // Only display ErrorMessage if it's different from what's already shown in ErrorLines
         if (!result.Success && !string.IsNullOrEmpty(result.ErrorMessage))
         {
-            bool errorMessageAlreadyShown = result.ErrorLines.Any(line =>
+            var errorMessageAlreadyShown = result.ErrorLines.Any(line =>
                 line.Contains(result.ErrorMessage, StringComparison.OrdinalIgnoreCase) ||
                 result.ErrorMessage.Contains(line, StringComparison.OrdinalIgnoreCase));
 
@@ -704,7 +705,7 @@ public sealed partial class ConsolePage : Page
             var brush = new SolidColorBrush();
             if (color.StartsWith('#'))
             {
-                uint colorValue = Convert.ToUInt32(color.Substring(1), 16);
+                var colorValue = Convert.ToUInt32(color.Substring(1), 16);
                 brush.Color = ColorHelper.FromArgb(
                     0xFF,
                     (byte)((colorValue >> 16) & 0xFF),
@@ -745,10 +746,10 @@ public sealed partial class ConsolePage : Page
     {
         try
         {
-            string outputText = string.Empty;
-            foreach (Block? block in ConsoleOutput.Blocks)
+            var outputText = string.Empty;
+            foreach (var block in ConsoleOutput.Blocks)
                 if (block is Paragraph paragraph)
-                    foreach (Inline? inline in paragraph.Inlines)
+                    foreach (var inline in paragraph.Inlines)
                         if (inline is Run run)
                             outputText += run.Text + Environment.NewLine;
 

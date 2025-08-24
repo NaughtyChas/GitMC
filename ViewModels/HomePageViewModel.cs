@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using Windows.Storage;
 using Windows.Storage.AccessCache;
 using Windows.Storage.Pickers;
 using GitMC.Models;
@@ -63,14 +62,14 @@ public class HomePageViewModel : BaseViewModel
 
             if (App.MainWindow != null)
             {
-                IntPtr hwnd = WindowNative.GetWindowHandle(App.MainWindow);
+                var hwnd = WindowNative.GetWindowHandle(App.MainWindow);
                 InitializeWithWindow.Initialize(folderPicker, hwnd);
             }
 
-            StorageFolder? folder = await folderPicker.PickSingleFolderAsync();
+            var folder = await folderPicker.PickSingleFolderAsync();
             if (folder != null)
             {
-                MinecraftSave? save = await _analyzerService.AnalyzeSaveFolder(folder.Path).ConfigureAwait(false);
+                var save = await _analyzerService.AnalyzeSaveFolder(folder.Path).ConfigureAwait(false);
                 if (save != null)
                 {
                     // Add to both collections

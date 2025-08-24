@@ -1,20 +1,23 @@
 using System.Diagnostics;
 using LibGit2Sharp;
-using Version = LibGit2Sharp.Version;
+using GitMC.Extensions;
 
 namespace GitMC.Services;
 
 public class GitService : IGitService
 {
     private readonly IConfigurationService _configurationService;
+    private readonly ILoggingService? _logger;
     private readonly List<string> _directoryStack = [];
     private readonly string _initialDirectory;
     private string _currentDirectory;
 
-    public GitService(IConfigurationService configurationService)
+    public GitService(IConfigurationService configurationService, ILoggingService? logger = null)
     {
         _configurationService = configurationService;
+        _logger = logger;
         _initialDirectory = _currentDirectory = Directory.GetCurrentDirectory();
+        _logger?.LogDebug(LogCategory.Git, "GitService initialized with working directory: {WorkingDirectory}", _currentDirectory);
     }
 
     public async Task<string> GetVersionAsync()
@@ -22,12 +25,14 @@ public class GitService : IGitService
         try
         {
             // Use LibGit2Sharp version first, fallback to command line
-            Version? libgit2Version = GlobalSettings.Version;
-            return await Task.FromResult($"LibGit2Sharp {libgit2Version} / Git {await GetSystemGitVersionAsync()}");
+            var libgit2Version = GlobalSettings.Version;
+            var result = $"LibGit2Sharp {libgit2Version} / Git {await GetSystemGitVersionAsync()}";
+            _logger?.LogDebug(LogCategory.Git, "Git version retrieved: {Version}", result);
+            return result;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"An error occurred while getting Git version: {ex.Message}");
+            _logger?.LogError(LogCategory.Git, "Failed to get Git version", ex);
             return "LibGit2Sharp Available / Git " + await GetSystemGitVersionAsync();
         }
     }
@@ -102,7 +107,24 @@ public class GitService : IGitService
     {
         try
         {
-            await Task.Run(() => Repository.Init(path));
+            await Task.Run(() => 
+            {
+                Repository.Init(path);
+                
+                // Configure the repository with user identity if available
+                using var repo = new Repository(path);
+                var config = repo.Config;
+                
+                // Get the configured identity from the configuration service
+                var userName = _configurationService.DefaultGitUserName;
+                var userEmail = _configurationService.DefaultGitUserEmail;
+                
+                if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
+                {
+                    config.Set("user.name", userName);
+                    config.Set("user.email", userEmail);
+                }
+            });
             return true;
         }
         catch (LibGit2SharpException)
@@ -130,13 +152,18 @@ public class GitService : IGitService
             // Store LibGit2Sharp identity in application configuration (not in system Git)
             _configurationService.DefaultGitUserName = userName;
             _configurationService.DefaultGitUserEmail = userEmail;
+            
+            // Set the Git identity configured flag
+            _configurationService.IsGitIdentityConfigured = true;
+            
             await _configurationService.SaveAsync();
 
+            _logger?.LogInfo(LogCategory.Git, "Git identity configured successfully for user: {UserName} <{UserEmail}>", userName, userEmail);
             return true;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error configuring LibGit2Sharp identity: {ex.Message}");
+            _logger?.LogError(LogCategory.Git, "Failed to configure Git identity for user: {UserName} <{UserEmail}>", ex, userName, userEmail);
             return false;
         }
     }
@@ -145,7 +172,7 @@ public class GitService : IGitService
     {
         try
         {
-            (string? userName, string? userEmail) = await GetIdentityAsync();
+            (var userName, var userEmail) = await GetIdentityAsync();
             return !string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail);
         }
         catch
@@ -159,8 +186,8 @@ public class GitService : IGitService
         try
         {
             // Get LibGit2Sharp identity from application configuration (not from system Git)
-            string? userName = _configurationService.DefaultGitUserName;
-            string? userEmail = _configurationService.DefaultGitUserEmail;
+            var userName = _configurationService.DefaultGitUserName;
+            var userEmail = _configurationService.DefaultGitUserEmail;
 
             return await Task.FromResult((
                 string.IsNullOrEmpty(userName) ? null : userName,
@@ -178,13 +205,13 @@ public class GitService : IGitService
         try
         {
             // Get system Git configuration using command line for migration purposes only
-            GitCommandResult nameResult = await ExecuteCommandAsync("config --global user.name");
-            GitCommandResult emailResult = await ExecuteCommandAsync("config --global user.email");
+            var nameResult = await ExecuteCommandAsync("config --global user.name");
+            var emailResult = await ExecuteCommandAsync("config --global user.email");
 
-            string? userName = nameResult.Success && nameResult.OutputLines.Length > 0
+            var userName = nameResult.Success && nameResult.OutputLines.Length > 0
                 ? nameResult.OutputLines[0].Trim()
                 : null;
-            string? userEmail = emailResult.Success && emailResult.OutputLines.Length > 0
+            var userEmail = emailResult.Success && emailResult.OutputLines.Length > 0
                 ? emailResult.OutputLines[0].Trim()
                 : null;
 
@@ -202,7 +229,7 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
                 repo.Network.Remotes.Add(name, url);
             });
@@ -220,7 +247,7 @@ public class GitService : IGitService
         {
             return await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
                 return repo.Network.Remotes
                     .Select(r => $"{r.Name}\t{r.Url} (fetch)")
@@ -263,7 +290,7 @@ public class GitService : IGitService
 
         if (path == "..")
         {
-            DirectoryInfo? parent = Directory.GetParent(_currentDirectory);
+            var parent = Directory.GetParent(_currentDirectory);
             if (parent == null) return false;
             targetPath = parent.FullName;
         }
@@ -297,9 +324,9 @@ public class GitService : IGitService
         {
             return await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
-                RepositoryStatus? status = repo.RetrieveStatus();
+                var status = repo.RetrieveStatus();
 
                 var gitStatus = new GitStatus
                 {
@@ -321,10 +348,10 @@ public class GitService : IGitService
                 };
 
                 // Get ahead/behind counts if tracking branch exists
-                Branch? trackingBranch = repo.Head.TrackedBranch;
+                var trackingBranch = repo.Head.TrackedBranch;
                 if (trackingBranch != null)
                 {
-                    HistoryDivergence? divergence =
+                    var divergence =
                         repo.ObjectDatabase.CalculateHistoryDivergence(repo.Head.Tip, trackingBranch.Tip);
                     gitStatus.AheadCount = divergence?.AheadBy ?? 0;
                     gitStatus.BehindCount = divergence?.BehindBy ?? 0;
@@ -345,11 +372,11 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if file exists in working directory
-                string fullPath = Path.IsPathRooted(filePath)
+                var fullPath = Path.IsPathRooted(filePath)
                     ? filePath
                     : Path.Combine(repoPath, filePath);
 
@@ -375,13 +402,13 @@ public class GitService : IGitService
     {
         try
         {
-            GitOperationResult result = await Task.Run(() =>
+            var result = await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if there are any changes to stage
-                RepositoryStatus? status = repo.RetrieveStatus();
+                var status = repo.RetrieveStatus();
                 var filesToStage = status.Where(s => s.State.HasFlag(FileStatus.ModifiedInWorkdir) ||
                                                      s.State.HasFlag(FileStatus.NewInWorkdir) ||
                                                      s.State.HasFlag(FileStatus.DeletedFromWorkdir)).ToList();
@@ -418,12 +445,12 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if file is staged
-                RepositoryStatus? status = repo.RetrieveStatus();
-                StatusEntry? fileStatus = status.FirstOrDefault(s => s.FilePath == filePath);
+                var status = repo.RetrieveStatus();
+                var fileStatus = status.FirstOrDefault(s => s.FilePath == filePath);
                 if (fileStatus == null || (!fileStatus.State.HasFlag(FileStatus.ModifiedInIndex) &&
                                            !fileStatus.State.HasFlag(FileStatus.NewInIndex)))
                     throw new LibGit2SharpException($"No changes staged for file '{filePath}'");
@@ -449,18 +476,43 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if there are any staged changes
-                RepositoryStatus? status = repo.RetrieveStatus();
+                var status = repo.RetrieveStatus();
                 if (!status.Where(s =>
                             s.State.HasFlag(FileStatus.ModifiedInIndex) || s.State.HasFlag(FileStatus.NewInIndex))
                         .Any())
                     throw new LibGit2SharpException(
                         "No changes added to commit (use \"git add\" and/or \"git commit -a\")");
 
-                Signature? signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                // Build signature; if repository configuration is missing, use app configuration
+                Signature signature;
+                try
+                {
+                    signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                }
+                catch
+                {
+                    // Fallback to app configuration
+                    var userName = _configurationService.DefaultGitUserName;
+                    var userEmail = _configurationService.DefaultGitUserEmail;
+                    
+                    if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
+                    {
+                        signature = new Signature(userName, userEmail, DateTimeOffset.Now);
+                    }
+                    else
+                    {
+                        throw new LibGit2SharpException("Git identity is not configured. Please configure your Git identity in the onboarding process before initializing a save.\n\n" +
+                            "To configure Git identity:\n" +
+                            "1. Go to Settings > Onboarding\n" +
+                            "2. Complete Step 3: Configure Git Identity\n" +
+                            "3. Enter your name and email address\n" +
+                            "4. Save the configuration");
+                    }
+                }
                 repo.Commit(message, signature, signature);
             });
             return GitOperationResult.CreateSuccess();
@@ -475,13 +527,71 @@ public class GitService : IGitService
         }
     }
 
+    public async Task<GitOperationResult> AmendLastCommitAsync(string? message = null, string? workingDirectory = null)
+    {
+        try
+        {
+            await Task.Run(() =>
+            {
+                var repoPath = workingDirectory ?? _currentDirectory;
+                using var repo = new Repository(repoPath);
+
+                // Ensure there are staged changes to amend
+                var status = repo.RetrieveStatus();
+                var hasIndexChanges = status.Any(s => s.State.HasFlag(FileStatus.ModifiedInIndex) || s.State.HasFlag(FileStatus.NewInIndex) || s.State.HasFlag(FileStatus.DeletedFromIndex));
+                if (!hasIndexChanges)
+                    throw new LibGit2SharpException("No staged changes to amend");
+
+                // Build signature and message
+                Signature signature;
+                try
+                {
+                    signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                }
+                catch
+                {
+                    // Fallback to app configuration
+                    var userName = _configurationService.DefaultGitUserName;
+                    var userEmail = _configurationService.DefaultGitUserEmail;
+                    
+                    if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(userEmail))
+                    {
+                        signature = new Signature(userName, userEmail, DateTimeOffset.Now);
+                    }
+                    else
+                    {
+                        throw new LibGit2SharpException("Git identity is not configured. Please configure your Git identity in the onboarding process before initializing a save.\n\n" +
+                            "To configure Git identity:\n" +
+                            "1. Go to Settings > Onboarding\n" +
+                            "2. Complete Step 3: Configure Git Identity\n" +
+                            "3. Enter your name and email address\n" +
+                            "4. Save the configuration");
+                    }
+                }
+                var newMessage = message ?? repo.Head.Tip.Message;
+
+                // Amend commit
+                repo.Commit(newMessage, signature, signature, new CommitOptions { AmendPreviousCommit = true });
+            });
+            return GitOperationResult.CreateSuccess();
+        }
+        catch (LibGit2SharpException ex)
+        {
+            return GitOperationResult.CreateFailure($"Amend failed: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return GitOperationResult.CreateFailure($"Unexpected error during amend: {ex.Message}");
+        }
+    }
+
     public async Task<GitCommit[]> GetCommitHistoryAsync(int count = 50, string? workingDirectory = null)
     {
         try
         {
             return await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 return repo.Head.Commits
@@ -512,7 +622,7 @@ public class GitService : IGitService
         {
             return await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 return repo.Branches
@@ -533,7 +643,7 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
                 // Check if branch already exists
@@ -560,15 +670,15 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                Branch? branch = repo.Branches[branchName];
+                var branch = repo.Branches[branchName];
                 if (branch == null)
                     throw new LibGit2SharpException($"pathspec '{branchName}' did not match any file(s) known to git");
 
                 // Check for uncommitted changes
-                RepositoryStatus? status = repo.RetrieveStatus();
+                var status = repo.RetrieveStatus();
                 if (status.IsDirty)
                     throw new LibGit2SharpException(
                         "Your local changes to the following files would be overwritten by checkout. Please commit your changes or stash them before you switch branches.");
@@ -595,10 +705,10 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                Signature? signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
                 var pullOptions = new PullOptions();
 
                 Commands.Pull(repo, signature, pullOptions);
@@ -618,13 +728,13 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                Remote? remote = repo.Network.Remotes[remoteName ?? "origin"];
+                var remote = repo.Network.Remotes[remoteName ?? "origin"];
                 if (remote != null)
                 {
-                    string pushRefSpec = $"refs/heads/{branchName ?? repo.Head.FriendlyName}";
+                    var pushRefSpec = $"refs/heads/{branchName ?? repo.Head.FriendlyName}";
                     repo.Network.Push(remote, pushRefSpec);
                 }
             });
@@ -642,13 +752,13 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                Remote? remote = repo.Network.Remotes[remoteName ?? "origin"];
+                var remote = repo.Network.Remotes[remoteName ?? "origin"];
                 if (remote != null)
                 {
-                    IEnumerable<string> refSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
+                    var refSpecs = remote.FetchRefSpecs.Select(x => x.Specification);
                     Commands.Fetch(repo, remote.Name, refSpecs, null, null);
                 }
             });
@@ -666,11 +776,11 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                Signature? signature = repo.Config.BuildSignature(DateTimeOffset.Now);
-                Branch? branch = repo.Branches[branchName];
+                var signature = repo.Config.BuildSignature(DateTimeOffset.Now);
+                var branch = repo.Branches[branchName];
                 if (branch != null) repo.Merge(branch, signature);
             });
             return true;
@@ -687,10 +797,10 @@ public class GitService : IGitService
         {
             return await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                Patch? diff = string.IsNullOrEmpty(filePath)
+                var diff = string.IsNullOrEmpty(filePath)
                     ? repo.Diff.Compare<Patch>()
                     : repo.Diff.Compare<Patch>(new[] { filePath });
 
@@ -709,17 +819,17 @@ public class GitService : IGitService
         {
             await Task.Run(() =>
             {
-                string repoPath = workingDirectory ?? _currentDirectory;
+                var repoPath = workingDirectory ?? _currentDirectory;
                 using var repo = new Repository(repoPath);
 
-                ResetMode resetMode = mode.ToLower() switch
+                var resetMode = mode.ToLower() switch
                 {
                     "soft" => ResetMode.Soft,
                     "hard" => ResetMode.Hard,
                     _ => ResetMode.Mixed
                 };
 
-                Commit? commit = string.IsNullOrEmpty(target) ? repo.Head.Tip : repo.Lookup<Commit>(target);
+                var commit = string.IsNullOrEmpty(target) ? repo.Head.Tip : repo.Lookup<Commit>(target);
                 if (commit != null) repo.Reset(resetMode, commit);
             });
             return true;
@@ -749,15 +859,36 @@ public class GitService : IGitService
         }
     }
 
+    public async Task<string?> GetCurrentCommitHashAsync(string? workingDirectory = null)
+    {
+        try
+        {
+            var repoPath = workingDirectory ?? _currentDirectory;
+            if (string.IsNullOrEmpty(repoPath))
+                return null;
+
+            return await Task.Run(() =>
+            {
+                using var repo = new Repository(repoPath);
+                return repo.Head?.Tip?.Sha;
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error getting current commit hash: {ex.Message}");
+            return null;
+        }
+    }
+
     private async Task<string> GetSystemGitVersionAsync()
     {
         try
         {
-            GitCommandResult result = await ExecuteCommandAsync("--version");
+            var result = await ExecuteCommandAsync("--version");
             if (result.Success && result.OutputLines.Length > 0)
             {
-                string output = result.OutputLines[0];
-                string[] parts = output.Split(' ');
+                var output = result.OutputLines[0];
+                var parts = output.Split(' ');
                 return parts.Length >= 3 ? parts[2] : "Unknown";
             }
         }

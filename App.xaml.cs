@@ -13,6 +13,16 @@ public partial class App
     /// </summary>
     public App()
     {
+        // Ensure Windows App SDK can locate its extracted runtime when published as single-file
+        try
+        {
+            Environment.SetEnvironmentVariable("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY", AppContext.BaseDirectory);
+        }
+        catch
+        {
+            // best-effort only
+        }
+
         InitializeComponent();
 
         // Initialize services
