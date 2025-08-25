@@ -79,16 +79,6 @@
     <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
         <ProjectCapability Include="Msix"/>
     </ItemGroup>
-    <ItemGroup>
-        <Resource Remove="Controls\SaveCard.xaml"/>
-        <Resource Remove="Tests\UI\OnboardingTestWindow.xaml"/>
-    </ItemGroup>
-    <ItemGroup>
-        <Page Remove="Views\HomePageNew.xaml"/>
-    </ItemGroup>
-    <ItemGroup>
-        <Compile Remove="Views\HomePageNew.xaml.cs"/>
-    </ItemGroup>
 
     <!--
         Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
