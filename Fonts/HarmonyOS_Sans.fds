@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FontFamily xmlns="http://schemas.microsoft.com/appx/2010/fontfamily">
+    <!-- Those font weight settings come from OsuFont, should be correct -->
+    <Font Uri="ms-appx:///Fonts/HarmonyOS_Sans_Light.ttf"
+          FontWeight="300" FontStyle="Normal"/>
+    <Font Uri="ms-appx:///Fonts/HarmonyOS_Sans_Regular.ttf"
+          FontWeight="400" FontStyle="Normal"/>
+    <Font Uri="ms-appx:///Fonts/HarmonyOS_Sans_Medium.ttf"
+          FontWeight="500" FontStyle="Normal"/>
+    <Font Uri="ms-appx:///Fonts/HarmonyOS_Sans_Semibold.ttf"
+          FontWeight="600" FontStyle="Normal"/>
+    <Font Uri="ms-appx:///Fonts/HarmonyOS_Sans_Bold.ttf"
+          FontWeight="700" FontStyle="Normal"/>
+    <Font Uri="ms-appx:///Fonts/HarmonyOS_Sans_Black.ttf"
+          FontWeight="900" FontStyle="Normal"/>
+</FontFamily>
