@@ -22,9 +22,10 @@
 
             <Color x:Key="Primary">#512BD4</Color>
 
-            <!--  Font Families for better Chinese character support  -->
+            <!-- Font Families for better Chinese character support -->
+            <!-- TODO: Specifying multiple fonts in a FontFamily won't work -->
             <FontFamily x:Key="AppFontFamily">Segoe UI, Microsoft YaHei, 微软雅黑, SimSun, 宋体</FontFamily>
-            <FontFamily x:Key="ChineseFontFamily">ms-appx:///Fonts/HarmonyOS_Sans_Regular.ttf#HarmonyOS Sans, Microsoft YaHei, 微软雅黑, SimSun, 宋体, Segoe UI</FontFamily>
+            <FontFamily x:Key="ChineseFontFamily">ms-appx:///Fonts/HarmonyOS_Sans.fds#鸿蒙黑体</FontFamily>
 
             <SolidColorBrush Color="{StaticResource Primary}" x:Key="PrimaryBrush" />
             <SolidColorBrush Color="White" x:Key="WhiteBrush" />
